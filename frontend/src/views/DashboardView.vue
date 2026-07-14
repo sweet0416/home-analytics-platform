@@ -26,12 +26,16 @@
             <strong>{{ lottery.rule?.rule_name ?? '未加载' }}</strong>
           </div>
           <div class="summary-row">
-            <span>奖级条件</span>
-            <strong>{{ lottery.rule?.prize_tiers.length ?? 0 }}</strong>
+            <span>最新期号</span>
+            <strong>{{ latestIssue }}</strong>
           </div>
           <div class="summary-row">
             <span>开奖数据</span>
             <strong>{{ lottery.draws?.pagination.total ?? 0 }}</strong>
+          </div>
+          <div class="summary-row">
+            <span>同步状态</span>
+            <strong>{{ syncStatus }}</strong>
           </div>
         </div>
       </section>
@@ -43,7 +47,7 @@
         <div class="panel-body infra-list">
           <div><span>Docker</span><strong>预留</strong></div>
           <div><span>PVE</span><strong>预留</strong></div>
-          <div><span>Scheduler</span><strong>Phase 8</strong></div>
+          <div><span>Scheduler</span><strong>{{ schedulerStatus }}</strong></div>
         </div>
       </section>
     </div>
@@ -51,7 +55,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue';
+import { computed, onMounted } from 'vue';
 
 import MetricCard from '@/components/metric/MetricCard.vue';
 import { useLotteryStore } from '@/plugins/lottery/store';
@@ -59,6 +63,20 @@ import { useSystemStore } from '@/stores/system';
 
 const system = useSystemStore();
 const lottery = useLotteryStore();
+
+const latestIssue = computed(() => lottery.draws?.items[0]?.issue_no ?? '--');
+const syncStatus = computed(() => {
+  const status = lottery.latestSyncRun?.status;
+  if (!status) return '未同步';
+  const labels: Record<string, string> = {
+    running: '同步中',
+    success: '成功',
+    partial_success: '部分成功',
+    failed: '失败',
+  };
+  return labels[status] ?? status;
+});
+const schedulerStatus = computed(() => (lottery.latestSyncRun ? '已启用' : '等待首次运行'));
 
 onMounted(() => {
   void system.fetchHealth();
@@ -104,10 +122,14 @@ onMounted(() => {
   color: var(--color-muted);
 }
 
+.summary-row strong,
+.infra-list strong {
+  text-align: right;
+}
+
 @media (max-width: 900px) {
   .dashboard-grid {
     grid-template-columns: 1fr;
   }
 }
 </style>
-

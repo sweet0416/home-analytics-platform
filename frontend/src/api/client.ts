@@ -18,3 +18,7 @@ export async function getApiData<T>(url: string): Promise<T> {
   return response.data.data;
 }
 
+export async function postApiData<T, P extends object>(url: string, payload: P): Promise<T> {
+  const response = await apiClient.post<ApiResponse<T>>(url, payload);
+  return response.data.data;
+}

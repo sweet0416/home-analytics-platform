@@ -6,6 +6,9 @@ Frontend Lottery pages depend on these backend endpoints:
 GET /api/v1/lottery/dlt/rules/current
 GET /api/v1/lottery/dlt/draws
 GET /api/v1/lottery/dlt/draws/latest
+POST /api/v1/lottery/dlt/sync
+GET /api/v1/lottery/dlt/sync/latest
+GET /api/v1/lottery/dlt/sync/runs
 GET /api/v1/lottery/dlt/disclaimer
 ```
 
@@ -23,4 +26,3 @@ All responses must use the shared backend envelope:
 
 The frontend treats missing draw data as a valid empty state, but rule loading failure is treated as
 an integration failure.
-
