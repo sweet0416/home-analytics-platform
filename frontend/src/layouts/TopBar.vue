@@ -7,7 +7,7 @@
     <div class="topbar-status">
       <span class="status-dot" :class="{ online: system.health?.status === 'ok' }" />
       <span>{{ statusText }}</span>
-      <span class="topbar-version">v{{ system.health?.version ?? '0.1.0' }}</span>
+      <span class="topbar-version">v{{ system.health?.version ?? '1.0.0' }}</span>
     </div>
   </header>
 </template>

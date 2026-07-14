@@ -15,7 +15,7 @@ def seed_lottery_data() -> None:
 lottery_plugin = PluginManifest(
     name="lottery",
     display_name="Lottery",
-    version="0.1.0",
+    version="1.0.0",
     description="Lottery analysis plugin with initial support for Super Lotto.",
     routes=[router],
     menu_items=[
@@ -23,4 +23,3 @@ lottery_plugin = PluginManifest(
     ],
     startup_hooks=[seed_lottery_data],
 )
-

@@ -7,7 +7,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     app_name: str = "Home Analytics Platform"
-    app_version: str = "0.1.0"
+    app_version: str = "1.0.0"
     api_v1_prefix: str = "/api/v1"
     debug: bool = False
 

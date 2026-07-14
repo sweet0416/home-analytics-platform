@@ -1,6 +1,6 @@
 [project]
 name = "home-analytics-platform-backend"
-version = "0.1.0"
+version = "1.0.0"
 description = "Backend service for Home Analytics Platform."
 requires-python = ">=3.12"
 dependencies = [
