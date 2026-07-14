@@ -16,6 +16,10 @@ services:
       CORS_ORIGINS: '${CORS_ORIGINS:-["http://localhost:8088","http://127.0.0.1:8088"]}'
       BACKEND_WORKERS: ${BACKEND_WORKERS:-1}
       BACKEND_KEEP_ALIVE: ${BACKEND_KEEP_ALIVE:-5}
+      LOTTERY_DLT_AUTO_SYNC_ENABLED: ${LOTTERY_DLT_AUTO_SYNC_ENABLED:-true}
+      LOTTERY_DLT_SYNC_CRON: '${LOTTERY_DLT_SYNC_CRON:-30 22 * * *}'
+      LOTTERY_DLT_SYNC_PAGE_SIZE: ${LOTTERY_DLT_SYNC_PAGE_SIZE:-100}
+      LOTTERY_DLT_SYNC_TIMEOUT_SECONDS: ${LOTTERY_DLT_SYNC_TIMEOUT_SECONDS:-30}
     volumes:
       - hap_sqlite:/app/data/sqlite
       - hap_exports:/app/data/exports

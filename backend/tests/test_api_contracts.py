@@ -39,3 +39,12 @@ def test_latest_draw_without_data_returns_domain_error(client: TestClient) -> No
     body = response.json()
     assert body["success"] is False
     assert body["code"] == "LOTTERY_DRAW_NOT_FOUND"
+
+
+def test_sync_runs_endpoint_returns_empty_page(client: TestClient) -> None:
+    response = client.get("/api/v1/lottery/dlt/sync/runs")
+
+    assert response.status_code == 200
+    body = response.json()["data"]
+    assert body["items"] == []
+    assert body["pagination"]["total"] == 0

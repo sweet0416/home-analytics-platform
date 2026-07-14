@@ -1,12 +1,18 @@
+import json
+from datetime import datetime
+from decimal import Decimal
+
 from sqlalchemy import Select, func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.plugins.lottery.domain.constants import DLT_GAME_CODE
+from app.plugins.lottery.domain.sync import DrawRecord
 from app.plugins.lottery.infrastructure.persistence.models import (
     LotteryDrawModel,
     LotteryGameModel,
     LotteryPrizeTierModel,
     LotteryRuleVersionModel,
+    LotterySyncRunModel,
 )
 
 
@@ -43,9 +49,7 @@ class LotteryRepository:
         base_statement: Select[tuple[LotteryDrawModel]] = select(LotteryDrawModel).where(
             LotteryDrawModel.game_code == game_code
         )
-        total = self.db.scalar(
-            select(func.count()).select_from(base_statement.subquery())
-        ) or 0
+        total = self.db.scalar(select(func.count()).select_from(base_statement.subquery())) or 0
         items = list(
             self.db.scalars(
                 base_statement.order_by(LotteryDrawModel.draw_date.desc())
@@ -75,8 +79,153 @@ class LotteryRepository:
             )
         )
 
+    def has_running_sync(self, game_code: str = DLT_GAME_CODE) -> bool:
+        running_id = self.db.scalar(
+            select(LotterySyncRunModel.id)
+            .where(
+                LotterySyncRunModel.game_code == game_code,
+                LotterySyncRunModel.status == "running",
+            )
+            .limit(1)
+        )
+        return running_id is not None
+
+    def create_sync_run(
+        self,
+        *,
+        game_code: str,
+        source: str,
+        sync_type: str,
+        requested_page: int,
+        requested_page_size: int,
+        source_url: str | None,
+    ) -> LotterySyncRunModel:
+        run = LotterySyncRunModel(
+            game_code=game_code,
+            source=source,
+            sync_type=sync_type,
+            status="running",
+            requested_page=requested_page,
+            requested_page_size=requested_page_size,
+            source_url=source_url,
+        )
+        self.db.add(run)
+        self.db.flush()
+        return run
+
+    def finish_sync_run(
+        self,
+        run: LotterySyncRunModel,
+        *,
+        status: str,
+        fetched_count: int,
+        inserted_count: int,
+        updated_count: int,
+        skipped_count: int,
+        failed_count: int,
+        latest_issue_no: str | None,
+        error_code: str | None = None,
+        error_message: str | None = None,
+        raw_metadata: dict[str, object] | None = None,
+    ) -> LotterySyncRunModel:
+        finished_at = datetime.utcnow()
+        run.status = status
+        run.finished_at = finished_at
+        run.duration_ms = int((finished_at - run.started_at).total_seconds() * 1000)
+        run.fetched_count = fetched_count
+        run.inserted_count = inserted_count
+        run.updated_count = updated_count
+        run.skipped_count = skipped_count
+        run.failed_count = failed_count
+        run.latest_issue_no = latest_issue_no
+        run.error_code = error_code
+        run.error_message = error_message
+        run.raw_metadata_json = json.dumps(raw_metadata or {}, ensure_ascii=False)
+        run.updated_at = finished_at
+        self.db.flush()
+        return run
+
+    def get_latest_sync_run(self, game_code: str = DLT_GAME_CODE) -> LotterySyncRunModel | None:
+        return self.db.scalar(
+            select(LotterySyncRunModel)
+            .where(LotterySyncRunModel.game_code == game_code)
+            .order_by(LotterySyncRunModel.started_at.desc())
+            .limit(1)
+        )
+
+    def list_sync_runs(
+        self,
+        *,
+        game_code: str = DLT_GAME_CODE,
+        page: int = 1,
+        page_size: int = 20,
+        status: str | None = None,
+        sync_type: str | None = None,
+    ) -> tuple[list[LotterySyncRunModel], int]:
+        base_statement: Select[tuple[LotterySyncRunModel]] = select(LotterySyncRunModel).where(
+            LotterySyncRunModel.game_code == game_code
+        )
+        if status is not None:
+            base_statement = base_statement.where(LotterySyncRunModel.status == status)
+        if sync_type is not None:
+            base_statement = base_statement.where(LotterySyncRunModel.sync_type == sync_type)
+
+        total = self.db.scalar(select(func.count()).select_from(base_statement.subquery())) or 0
+        items = list(
+            self.db.scalars(
+                base_statement.order_by(LotterySyncRunModel.started_at.desc())
+                .offset((page - 1) * page_size)
+                .limit(page_size)
+            )
+        )
+        return items, total
+
+    def upsert_draw(self, record: DrawRecord, *, force: bool = False) -> str:
+        existing = self.get_draw_by_issue(record.issue_no, record.game_code)
+        front_numbers_json = json.dumps(record.front_numbers, ensure_ascii=False)
+        back_numbers_json = json.dumps(record.back_numbers, ensure_ascii=False)
+        raw_data_json = json.dumps(record.raw_data, ensure_ascii=False)
+
+        if existing is None:
+            self.db.add(
+                LotteryDrawModel(
+                    game_code=record.game_code,
+                    issue_no=record.issue_no,
+                    draw_date=record.draw_date,
+                    front_numbers_json=front_numbers_json,
+                    back_numbers_json=back_numbers_json,
+                    sales_amount=record.sales_amount,
+                    pool_amount=record.pool_amount,
+                    source_url=record.source_url,
+                    raw_data_json=raw_data_json,
+                )
+            )
+            return "inserted"
+
+        changed = (
+            existing.draw_date != record.draw_date
+            or existing.front_numbers_json != front_numbers_json
+            or existing.back_numbers_json != back_numbers_json
+            or existing.sales_amount != record.sales_amount
+            or existing.pool_amount != record.pool_amount
+            or existing.raw_data_json != raw_data_json
+        )
+        if not changed and not force:
+            return "skipped"
+
+        existing.draw_date = record.draw_date
+        existing.front_numbers_json = front_numbers_json
+        existing.back_numbers_json = back_numbers_json
+        existing.sales_amount = record.sales_amount
+        existing.pool_amount = record.pool_amount
+        existing.source_url = record.source_url
+        existing.raw_data_json = raw_data_json
+        existing.updated_at = datetime.utcnow()
+        return "updated"
+
     def ensure_dlt_seed_data(self) -> None:
-        if self.get_game(DLT_GAME_CODE) is None:
+        game = self.get_game(DLT_GAME_CODE)
+        if game is None:
             self.db.add(
                 LotteryGameModel(
                     code=DLT_GAME_CODE,
@@ -85,8 +234,13 @@ class LotteryRepository:
                     official_source="sporttery",
                 )
             )
+        else:
+            game.name = "超级大乐透"
+            game.official_source = "sporttery"
+            game.updated_at = datetime.utcnow()
 
-        if self.get_rule_by_code("dlt-current-official") is None:
+        rule = self.get_rule_by_code("dlt-current-official")
+        if rule is None:
             rule = LotteryRuleVersionModel(
                 game_code=DLT_GAME_CODE,
                 rule_code="dlt-current-official",
@@ -99,15 +253,21 @@ class LotteryRepository:
                 back_count=2,
                 back_min=1,
                 back_max=12,
-                base_price=2,
-                addon_price=1,
+                base_price=Decimal("2.00"),
+                addon_price=Decimal("1.00"),
                 addon_supported=True,
                 official_url="https://www.sporttery.cn/bzzx/20210207/3002858.html?gid=5",
-                description="根据当前可查竞彩网官方规则页录入；规则数据版本化保存。",
+                description="根据中国体育彩票官方规则页录入；规则数据版本化保存。",
             )
-            rule.prize_tiers = _build_current_dlt_prize_tiers()
             self.db.add(rule)
+        else:
+            rule.rule_name = "超级大乐透当前官方有效规则"
+            rule.description = "根据中国体育彩票官方规则页录入；规则数据版本化保存。"
+            rule.official_url = "https://www.sporttery.cn/bzzx/20210207/3002858.html?gid=5"
+            rule.updated_at = datetime.utcnow()
+            rule.prize_tiers.clear()
 
+        rule.prize_tiers = _build_current_dlt_prize_tiers()
         self.db.commit()
 
 
@@ -135,7 +295,7 @@ def _build_current_dlt_prize_tiers() -> list[LotteryPrizeTierModel]:
             back_match_count=back,
             is_floating=is_floating,
             base_prize_amount=base_prize,
-            addon_multiplier=0.8 if is_floating else None,
+            addon_multiplier=Decimal("0.80") if is_floating else None,
             description=description,
             sort_order=index,
         )
@@ -144,4 +304,3 @@ def _build_current_dlt_prize_tiers() -> list[LotteryPrizeTierModel]:
             start=1,
         )
     ]
-

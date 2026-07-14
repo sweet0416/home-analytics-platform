@@ -49,3 +49,36 @@ class LotteryDrawPageRead(BaseModel):
 class DisclaimerRead(BaseModel):
     disclaimer: str
 
+
+class LotterySyncRequest(BaseModel):
+    sync_type: str = Field(default="manual", pattern="^(manual|backfill)$")
+    page: int = Field(default=1, ge=1)
+    page_size: int = Field(default=100, ge=1, le=500)
+    force: bool = False
+
+
+class LotterySyncRunRead(BaseModel):
+    run_id: int
+    game_code: str
+    source: str
+    sync_type: str
+    status: str
+    started_at: str
+    finished_at: str | None
+    duration_ms: int | None
+    requested_page: int | None
+    requested_page_size: int | None
+    fetched_count: int
+    inserted_count: int
+    updated_count: int
+    skipped_count: int
+    failed_count: int
+    latest_issue_no: str | None
+    error_code: str | None
+    error_message: str | None
+    source_url: str | None
+
+
+class LotterySyncRunPageRead(BaseModel):
+    items: list[LotterySyncRunRead]
+    pagination: dict[str, int]

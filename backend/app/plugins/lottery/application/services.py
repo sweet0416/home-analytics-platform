@@ -3,8 +3,12 @@ from math import ceil
 
 from sqlalchemy.orm import Session
 
-from app.plugins.lottery.infrastructure.persistence.models import LotteryDrawModel
+from app.core.config.settings import get_settings
+from app.plugins.lottery.domain.constants import DLT_GAME_CODE
+from app.plugins.lottery.domain.sync import DrawSyncCommand, DrawValidator
+from app.plugins.lottery.infrastructure.persistence.models import LotteryDrawModel, LotterySyncRunModel
 from app.plugins.lottery.infrastructure.persistence.repositories import LotteryRepository
+from app.plugins.lottery.infrastructure.sources.sporttery import SportteryDrawSource
 from app.shared.exceptions.base import AppError
 from app.shared.exceptions.codes import ErrorCode
 
@@ -90,6 +94,126 @@ class LotteryService:
             )
         return self._serialize_draw(draw)
 
+    def sync_draws(self, command: DrawSyncCommand) -> dict[str, object]:
+        if self.repository.has_running_sync(DLT_GAME_CODE):
+            raise AppError(
+                code=ErrorCode.lottery_sync_already_running,
+                message="A DLT sync run is already running.",
+                status_code=409,
+            )
+
+        settings = get_settings()
+        source = SportteryDrawSource(timeout_seconds=settings.lottery_dlt_sync_timeout_seconds)
+        run = self.repository.create_sync_run(
+            game_code=DLT_GAME_CODE,
+            source=source.source,
+            sync_type=command.sync_type,
+            requested_page=command.page,
+            requested_page_size=command.page_size,
+            source_url=source.base_url,
+        )
+        self.repository.db.commit()
+
+        fetched_count = inserted_count = updated_count = skipped_count = failed_count = 0
+        latest_issue_no: str | None = None
+        try:
+            source_page = source.fetch_page(page=command.page, page_size=command.page_size)
+            validator = DrawValidator()
+            for record in source_page.records:
+                fetched_count += 1
+                validator.validate_dlt_record(record)
+                action = self.repository.upsert_draw(record, force=command.force)
+                if action == "inserted":
+                    inserted_count += 1
+                elif action == "updated":
+                    updated_count += 1
+                else:
+                    skipped_count += 1
+                latest_issue_no = max(latest_issue_no or record.issue_no, record.issue_no)
+
+            status = "success" if failed_count == 0 else "partial_success"
+            self.repository.finish_sync_run(
+                run,
+                status=status,
+                fetched_count=fetched_count,
+                inserted_count=inserted_count,
+                updated_count=updated_count,
+                skipped_count=skipped_count,
+                failed_count=failed_count,
+                latest_issue_no=latest_issue_no,
+                raw_metadata=source_page.raw_metadata,
+            )
+            self.repository.db.commit()
+            return self._serialize_sync_run(run)
+        except AppError as exc:
+            self.repository.db.rollback()
+            run = self.repository.db.merge(run)
+            self.repository.finish_sync_run(
+                run,
+                status="failed",
+                fetched_count=fetched_count,
+                inserted_count=inserted_count,
+                updated_count=updated_count,
+                skipped_count=skipped_count,
+                failed_count=max(failed_count, 1),
+                latest_issue_no=latest_issue_no,
+                error_code=exc.code.value,
+                error_message=exc.message,
+            )
+            self.repository.db.commit()
+            raise
+        except Exception as exc:
+            self.repository.db.rollback()
+            run = self.repository.db.merge(run)
+            self.repository.finish_sync_run(
+                run,
+                status="failed",
+                fetched_count=fetched_count,
+                inserted_count=inserted_count,
+                updated_count=updated_count,
+                skipped_count=skipped_count,
+                failed_count=max(failed_count, 1),
+                latest_issue_no=latest_issue_no,
+                error_code=ErrorCode.internal_error.value,
+                error_message=str(exc),
+            )
+            self.repository.db.commit()
+            raise
+
+    def get_latest_sync_run(self) -> dict[str, object]:
+        run = self.repository.get_latest_sync_run()
+        if run is None:
+            raise AppError(
+                code=ErrorCode.lottery_sync_run_not_found,
+                message="No lottery sync run is available yet.",
+                status_code=404,
+            )
+        return self._serialize_sync_run(run)
+
+    def list_sync_runs(
+        self,
+        *,
+        page: int,
+        page_size: int,
+        status: str | None = None,
+        sync_type: str | None = None,
+    ) -> dict[str, object]:
+        items, total = self.repository.list_sync_runs(
+            page=page,
+            page_size=page_size,
+            status=status,
+            sync_type=sync_type,
+        )
+        return {
+            "items": [self._serialize_sync_run(item) for item in items],
+            "pagination": {
+                "page": page,
+                "page_size": page_size,
+                "total": total,
+                "pages": ceil(total / page_size) if total else 0,
+            },
+        }
+
     @staticmethod
     def _serialize_draw(draw: LotteryDrawModel) -> dict[str, object]:
         return {
@@ -102,3 +226,26 @@ class LotteryService:
             "source_url": draw.source_url,
         }
 
+    @staticmethod
+    def _serialize_sync_run(run: LotterySyncRunModel) -> dict[str, object]:
+        return {
+            "run_id": run.id,
+            "game_code": run.game_code,
+            "source": run.source,
+            "sync_type": run.sync_type,
+            "status": run.status,
+            "started_at": run.started_at.isoformat(),
+            "finished_at": run.finished_at.isoformat() if run.finished_at else None,
+            "duration_ms": run.duration_ms,
+            "requested_page": run.requested_page,
+            "requested_page_size": run.requested_page_size,
+            "fetched_count": run.fetched_count,
+            "inserted_count": run.inserted_count,
+            "updated_count": run.updated_count,
+            "skipped_count": run.skipped_count,
+            "failed_count": run.failed_count,
+            "latest_issue_no": run.latest_issue_no,
+            "error_code": run.error_code,
+            "error_message": run.error_message,
+            "source_url": run.source_url,
+        }
