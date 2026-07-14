@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
 from datetime import date
 from decimal import Decimal
+from typing import Protocol
 
 from app.plugins.lottery.domain.constants import DLT_GAME_CODE
 from app.shared.exceptions.base import AppError
@@ -34,6 +35,13 @@ class DrawSyncCommand:
     page: int = 1
     page_size: int = 100
     force: bool = False
+
+
+class DrawSource(Protocol):
+    source: str
+    base_url: str
+
+    def fetch_page(self, page: int, page_size: int) -> DrawSourcePage: ...
 
 
 class DrawValidator:

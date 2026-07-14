@@ -127,6 +127,8 @@ class LotteryRepository:
         error_code: str | None = None,
         error_message: str | None = None,
         raw_metadata: dict[str, object] | None = None,
+        source: str | None = None,
+        source_url: str | None = None,
     ) -> LotterySyncRunModel:
         finished_at = datetime.utcnow()
         run.status = status
@@ -140,6 +142,10 @@ class LotteryRepository:
         run.latest_issue_no = latest_issue_no
         run.error_code = error_code
         run.error_message = error_message
+        if source is not None:
+            run.source = source
+        if source_url is not None:
+            run.source_url = source_url
         run.raw_metadata_json = json.dumps(raw_metadata or {}, ensure_ascii=False)
         run.updated_at = finished_at
         self.db.flush()
@@ -208,7 +214,6 @@ class LotteryRepository:
             or existing.back_numbers_json != back_numbers_json
             or existing.sales_amount != record.sales_amount
             or existing.pool_amount != record.pool_amount
-            or existing.raw_data_json != raw_data_json
         )
         if not changed and not force:
             return "skipped"

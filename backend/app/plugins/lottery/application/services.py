@@ -1,13 +1,24 @@
 import json
+from dataclasses import replace
 from math import ceil
 
+from loguru import logger
 from sqlalchemy.orm import Session
 
-from app.core.config.settings import get_settings
+from app.core.config.settings import Settings, get_settings
 from app.plugins.lottery.domain.constants import DLT_GAME_CODE
-from app.plugins.lottery.domain.sync import DrawSyncCommand, DrawValidator
-from app.plugins.lottery.infrastructure.persistence.models import LotteryDrawModel, LotterySyncRunModel
+from app.plugins.lottery.domain.sync import (
+    DrawSource,
+    DrawSourcePage,
+    DrawSyncCommand,
+    DrawValidator,
+)
+from app.plugins.lottery.infrastructure.persistence.models import (
+    LotteryDrawModel,
+    LotterySyncRunModel,
+)
 from app.plugins.lottery.infrastructure.persistence.repositories import LotteryRepository
+from app.plugins.lottery.infrastructure.sources.five_hundred import FiveHundredDrawSource
 from app.plugins.lottery.infrastructure.sources.sporttery import SportteryDrawSource
 from app.shared.exceptions.base import AppError
 from app.shared.exceptions.codes import ErrorCode
@@ -103,25 +114,27 @@ class LotteryService:
             )
 
         settings = get_settings()
-        source = SportteryDrawSource(timeout_seconds=settings.lottery_dlt_sync_timeout_seconds)
+        sources = self._build_dlt_sources(settings)
         run = self.repository.create_sync_run(
             game_code=DLT_GAME_CODE,
-            source=source.source,
+            source="automatic",
             sync_type=command.sync_type,
             requested_page=command.page,
             requested_page_size=command.page_size,
-            source_url=source.base_url,
+            source_url=sources[0].base_url,
         )
         self.repository.db.commit()
 
         fetched_count = inserted_count = updated_count = skipped_count = failed_count = 0
         latest_issue_no: str | None = None
         try:
-            source_page = source.fetch_page(page=command.page, page_size=command.page_size)
-            validator = DrawValidator()
+            source_page = self._fetch_source_page(
+                sources=sources,
+                page=command.page,
+                page_size=command.page_size,
+            )
             for record in source_page.records:
                 fetched_count += 1
-                validator.validate_dlt_record(record)
                 action = self.repository.upsert_draw(record, force=command.force)
                 if action == "inserted":
                     inserted_count += 1
@@ -142,6 +155,8 @@ class LotteryService:
                 failed_count=failed_count,
                 latest_issue_no=latest_issue_no,
                 raw_metadata=source_page.raw_metadata,
+                source=source_page.source,
+                source_url=source_page.source_url,
             )
             self.repository.db.commit()
             return self._serialize_sync_run(run)
@@ -179,6 +194,71 @@ class LotteryService:
             )
             self.repository.db.commit()
             raise
+
+    @staticmethod
+    def _build_dlt_sources(settings: Settings) -> list[DrawSource]:
+        sources: list[DrawSource] = [
+            SportteryDrawSource(
+                timeout_seconds=settings.lottery_dlt_sync_timeout_seconds,
+                base_url=settings.lottery_dlt_sporttery_url,
+            )
+        ]
+        if settings.lottery_dlt_fallback_enabled:
+            sources.append(
+                FiveHundredDrawSource(
+                    timeout_seconds=settings.lottery_dlt_sync_timeout_seconds,
+                    base_url=settings.lottery_dlt_500_history_url,
+                )
+            )
+        return sources
+
+    @staticmethod
+    def _fetch_source_page(
+        *,
+        sources: list[DrawSource],
+        page: int,
+        page_size: int,
+    ) -> DrawSourcePage:
+        attempts: list[dict[str, object]] = []
+        validator = DrawValidator()
+        for source in sources:
+            try:
+                source_page = source.fetch_page(page=page, page_size=page_size)
+                for record in source_page.records:
+                    validator.validate_dlt_record(record)
+                attempts.append({"source": source.source, "status": "success"})
+                logger.info(
+                    "DLT sync selected source={} records={}",
+                    source.source,
+                    len(source_page.records),
+                )
+                metadata = dict(source_page.raw_metadata)
+                metadata["source_attempts"] = attempts
+                return replace(source_page, raw_metadata=metadata)
+            except AppError as exc:
+                attempts.append(
+                    {
+                        "source": source.source,
+                        "status": "failed",
+                        "error_code": exc.code.value,
+                        "error_message": exc.message,
+                    }
+                )
+                logger.warning(
+                    "DLT sync source failed source={} code={} message={}",
+                    source.source,
+                    exc.code.value,
+                    exc.message,
+                )
+
+        failure_summary = "; ".join(
+            f"{attempt['source']}: {attempt['error_message']}" for attempt in attempts
+        )
+        raise AppError(
+            code=ErrorCode.lottery_sync_source_unavailable,
+            message=f"All configured DLT sources failed. {failure_summary}",
+            status_code=502,
+        )
 
     def get_latest_sync_run(self) -> dict[str, object]:
         run = self.repository.get_latest_sync_run()

@@ -3,11 +3,16 @@
     <section class="page-header">
       <div>
         <h1 class="page-title">历史开奖</h1>
-        <div class="page-subtitle">官方开奖数据同步后在这里展示和追踪</div>
+        <div class="page-subtitle">开奖数据同步后在这里展示和追踪</div>
       </div>
       <div class="history-actions">
         <RouterLink to="/lottery/dlt" class="back-link">返回概览</RouterLink>
-        <el-button type="primary" :icon="Refresh" :loading="lottery.syncing" @click="lottery.syncNow">
+        <el-button
+          type="primary"
+          :icon="Refresh"
+          :loading="lottery.syncing"
+          @click="lottery.syncNow"
+        >
           同步
         </el-button>
       </div>
@@ -56,7 +61,7 @@
         <EmptyState
           v-else
           title="暂无开奖数据"
-          description="点击同步后会从官方公开来源获取历史开奖数据。"
+          description="点击同步后会优先从官方来源获取数据，异常时自动使用备用源。"
         />
       </div>
     </section>
@@ -75,10 +80,15 @@
           <el-table-column prop="run_id" label="任务" width="90" />
           <el-table-column label="状态" width="120">
             <template #default="{ row }">
-              <el-tag :type="syncTagType(row.status)" effect="dark">{{ syncStatusLabel(row.status) }}</el-tag>
+              <el-tag :type="syncTagType(row.status)" effect="dark">
+                {{ syncStatusLabel(row.status) }}
+              </el-tag>
             </template>
           </el-table-column>
           <el-table-column prop="sync_type" label="类型" width="110" />
+          <el-table-column label="数据源" min-width="170">
+            <template #default="{ row }">{{ lotterySyncSourceLabel(row.source) }}</template>
+          </el-table-column>
           <el-table-column label="完成时间" min-width="180">
             <template #default="{ row }">{{ formatDateTime(row.finished_at) }}</template>
           </el-table-column>
@@ -106,6 +116,7 @@ import { onMounted } from 'vue';
 
 import EmptyState from '@/components/common/EmptyState.vue';
 import LotteryBall from '@/plugins/lottery/components/LotteryBall.vue';
+import { lotterySyncSourceLabel } from '@/plugins/lottery/sourceLabels';
 import { useLotteryStore } from '@/plugins/lottery/store';
 
 const lottery = useLotteryStore();

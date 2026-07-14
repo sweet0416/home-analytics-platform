@@ -17,8 +17,9 @@ class SportteryDrawSource:
     base_url = "https://webapi.sporttery.cn/gateway/lottery/getHistoryPageListV1.qry"
     referer = "https://www.sporttery.cn/zst/dlt/"
 
-    def __init__(self, timeout_seconds: int = 30) -> None:
+    def __init__(self, timeout_seconds: int = 30, base_url: str | None = None) -> None:
         self.timeout_seconds = timeout_seconds
+        self.base_url = base_url or type(self).base_url
 
     def fetch_page(self, page: int, page_size: int) -> DrawSourcePage:
         params = {

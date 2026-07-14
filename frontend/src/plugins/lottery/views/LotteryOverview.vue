@@ -3,7 +3,7 @@
     <section class="page-header lottery-header">
       <div>
         <h1 class="page-title">超级大乐透</h1>
-        <div class="page-subtitle">官方规则、开奖同步状态与基础分析入口</div>
+        <div class="page-subtitle">规则、开奖同步状态与基础分析入口</div>
       </div>
       <div class="lottery-actions">
         <div class="lottery-tabs">
@@ -59,7 +59,7 @@
         <div class="sync-block">
           <div class="sync-label">最新期号</div>
           <div class="sync-value">{{ lottery.latestSyncRun?.latest_issue_no ?? '--' }}</div>
-          <div class="sync-meta">来自中国体育彩票公开数据</div>
+          <div class="sync-meta">{{ latestIssueSourceMeta }}</div>
         </div>
       </div>
     </section>
@@ -95,6 +95,10 @@ import { computed, onMounted } from 'vue';
 import EmptyState from '@/components/common/EmptyState.vue';
 import MetricCard from '@/components/metric/MetricCard.vue';
 import DisclaimerAlert from '@/plugins/lottery/components/DisclaimerAlert.vue';
+import {
+  lotterySyncSourceDescription,
+  lotterySyncSourceLabel,
+} from '@/plugins/lottery/sourceLabels';
 import { useLotteryStore } from '@/plugins/lottery/store';
 
 const lottery = useLotteryStore();
@@ -129,8 +133,12 @@ const latestRunLabel = computed(() =>
 );
 const latestRunMeta = computed(() => {
   if (!lottery.latestSyncRun) return '尚无同步记录';
-  return `${lottery.latestSyncRun.source} · ${lottery.latestSyncRun.sync_type}`;
+  const source = lotterySyncSourceLabel(lottery.latestSyncRun.source);
+  return `${source} · ${lottery.latestSyncRun.sync_type}`;
 });
+const latestIssueSourceMeta = computed(() =>
+  lotterySyncSourceDescription(lottery.latestSyncRun?.source),
+);
 const syncChangeSummary = computed(() => {
   const run = lottery.latestSyncRun;
   if (!run) return '--';
