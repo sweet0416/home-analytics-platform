@@ -7,4 +7,5 @@ curl -fsS "$BASE_URL/api/v1/system/health"
 echo
 curl -fsS "$BASE_URL/api/v1/lottery/dlt/rules/current"
 echo
-
+curl -fsSI "$BASE_URL/" | grep -E "HTTP/|content-type|cache-control" || true
+echo
