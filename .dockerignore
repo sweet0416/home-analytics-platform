@@ -1,0 +1,15 @@
+.git/
+.agents/
+.codex/
+outputs/
+work/
+**/__pycache__/
+**/*.py[cod]
+backend/.venv/
+backend/data/
+backend/logs/
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+.pnpm-store/
+

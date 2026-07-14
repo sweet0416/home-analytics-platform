@@ -1,0 +1,17 @@
+:root {
+  --color-bg: #0f172a;
+  --color-surface: #111827;
+  --color-card: #1f2937;
+  --color-border: #334155;
+  --color-text: #e5e7eb;
+  --color-muted: #94a3b8;
+  --color-primary: #38bdf8;
+  --color-success: #22c55e;
+  --color-warning: #f59e0b;
+  --color-danger: #ef4444;
+  --color-accent: #a78bfa;
+  --radius-card: 8px;
+  --sidebar-width: 248px;
+  --topbar-height: 68px;
+}
+

@@ -1,0 +1,2 @@
+"""Lottery domain objects."""
+

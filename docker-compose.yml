@@ -1,0 +1,69 @@
+services:
+  hap-backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: hap-backend
+    restart: unless-stopped
+    environment:
+      APP_NAME: ${APP_NAME:-Home Analytics Platform}
+      APP_VERSION: ${APP_VERSION:-0.1.0}
+      API_V1_PREFIX: ${API_V1_PREFIX:-/api/v1}
+      DEBUG: ${DEBUG:-false}
+      DATABASE_URL: ${DATABASE_URL:-sqlite:////app/data/sqlite/hap.db}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      LOG_DIR: ${LOG_DIR:-/app/logs}
+      CORS_ORIGINS: '${CORS_ORIGINS:-["http://localhost:8088","http://127.0.0.1:8088"]}'
+    volumes:
+      - hap_sqlite:/app/data/sqlite
+      - hap_exports:/app/data/exports
+      - hap_backups:/app/data/backups
+      - hap_logs:/app/logs
+    networks:
+      - hap_internal
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/system/health', timeout=3)",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  hap-frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: hap-frontend
+    restart: unless-stopped
+    depends_on:
+      hap-backend:
+        condition: service_healthy
+    ports:
+      - "${HAP_WEB_PORT:-8088}:80"
+    networks:
+      - hap_internal
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+networks:
+  hap_internal:
+    name: hap_internal
+
+volumes:
+  hap_sqlite:
+    name: hap_sqlite
+  hap_exports:
+    name: hap_exports
+  hap_backups:
+    name: hap_backups
+  hap_logs:
+    name: hap_logs
