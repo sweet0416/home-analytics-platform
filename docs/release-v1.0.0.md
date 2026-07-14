@@ -35,7 +35,7 @@ docker compose ps
 ./scripts/pve-smoke-test.sh http://127.0.0.1:8088
 ```
 
-If an existing `.env` file is already present, update `APP_VERSION=1.0.0` manually and keep local host-specific values such as `HAP_WEB_PORT` and `CORS_ORIGINS`.
+If an existing `.env` file is already present, update `HAP_RELEASE_VERSION=1.0.0` manually and keep local host-specific values such as `HAP_WEB_PORT` and `CORS_ORIGINS`.
 
 ## Rollback
 
