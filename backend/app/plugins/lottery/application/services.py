@@ -161,7 +161,7 @@ class LotteryService:
                 error_message=exc.message,
             )
             self.repository.db.commit()
-            raise
+            return self._serialize_sync_run(run)
         except Exception as exc:
             self.repository.db.rollback()
             run = self.repository.db.merge(run)

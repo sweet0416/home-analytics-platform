@@ -139,7 +139,7 @@ class SportteryDrawSource:
 
     @staticmethod
     def _parse_date(value: str) -> date:
-        match = re.search(r"(\d{4})[-/年](\d{1,2})[-/月](\d{1,2})", value)
+        match = re.search(r"(\d{4})\D+(\d{1,2})\D+(\d{1,2})", value)
         if not match:
             raise AppError(
                 code=ErrorCode.lottery_sync_parse_failed,

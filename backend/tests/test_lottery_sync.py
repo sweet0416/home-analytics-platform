@@ -9,6 +9,8 @@ from app.plugins.lottery.application.services import LotteryService
 from app.plugins.lottery.domain.constants import DLT_GAME_CODE
 from app.plugins.lottery.domain.sync import DrawRecord, DrawSourcePage, DrawSyncCommand
 from app.plugins.lottery.infrastructure.persistence.repositories import LotteryRepository
+from app.shared.exceptions.base import AppError
+from app.shared.exceptions.codes import ErrorCode
 
 
 class FakeSportteryDrawSource:
@@ -39,6 +41,21 @@ class FakeSportteryDrawSource:
         )
 
 
+class FailingSportteryDrawSource:
+    source = "sporttery"
+    base_url = "https://example.test/dlt"
+
+    def __init__(self, timeout_seconds: int = 30) -> None:
+        self.timeout_seconds = timeout_seconds
+
+    def fetch_page(self, page: int, page_size: int) -> DrawSourcePage:
+        raise AppError(
+            code=ErrorCode.lottery_sync_source_unavailable,
+            message="source unavailable",
+            status_code=502,
+        )
+
+
 def test_sync_draws_inserts_and_skips_existing_data(
     db_session: Session,
     monkeypatch,
@@ -56,6 +73,21 @@ def test_sync_draws_inserts_and_skips_existing_data(
     assert second["status"] == "success"
     assert second["skipped_count"] == 1
     assert service.get_latest_draw()["issue_no"] == "25082"
+
+
+def test_sync_draws_returns_failed_run_when_source_is_unavailable(
+    db_session: Session,
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(services, "SportteryDrawSource", FailingSportteryDrawSource)
+    LotteryRepository(db_session).ensure_dlt_seed_data()
+    service = LotteryService(db_session)
+
+    result = service.sync_draws(DrawSyncCommand(page=1, page_size=100))
+
+    assert result["status"] == "failed"
+    assert result["failed_count"] == 1
+    assert result["error_code"] == "LOTTERY_SYNC_SOURCE_UNAVAILABLE"
 
 
 def test_latest_sync_run_without_data_returns_domain_error(client: TestClient) -> None:
