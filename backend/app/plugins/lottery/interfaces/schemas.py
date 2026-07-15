@@ -57,6 +57,13 @@ class LotterySyncRequest(BaseModel):
     force: bool = False
 
 
+class LotteryBackfillRequest(BaseModel):
+    start_page: int = Field(default=1, ge=1)
+    page_count: int = Field(default=3, ge=1, le=20)
+    page_size: int = Field(default=100, ge=1, le=500)
+    force: bool = False
+
+
 class LotterySyncRunRead(BaseModel):
     run_id: int
     game_code: str
@@ -82,6 +89,21 @@ class LotterySyncRunRead(BaseModel):
 class LotterySyncRunPageRead(BaseModel):
     items: list[LotterySyncRunRead]
     pagination: dict[str, int]
+
+
+class LotteryBackfillRunRead(BaseModel):
+    status: str
+    start_page: int
+    page_count: int
+    page_size: int
+    executed_pages: int
+    latest_issue_no: str | None
+    fetched_count: int
+    inserted_count: int
+    updated_count: int
+    skipped_count: int
+    failed_count: int
+    runs: list[LotterySyncRunRead]
 
 
 class LotterySyncStatusRead(BaseModel):

@@ -64,6 +64,29 @@ class FakeFiveHundredDrawSource(FakeSportteryDrawSource):
     base_url = "https://example.test/500-dlt"
 
 
+class PagedFakeSportteryDrawSource(FakeSportteryDrawSource):
+    def fetch_page(self, page: int, page_size: int) -> DrawSourcePage:
+        issue_number = 25090 - page
+        return DrawSourcePage(
+            source=self.source,
+            source_url=f"{self.base_url}?page={page}&pageSize={page_size}",
+            records=[
+                DrawRecord(
+                    game_code=DLT_GAME_CODE,
+                    issue_no=str(issue_number),
+                    draw_date=date(2026, 7, page),
+                    front_numbers=[1, 2, 3, 4, 5],
+                    back_numbers=[6, 7],
+                    sales_amount=Decimal("123456.78"),
+                    pool_amount=Decimal("987654.32"),
+                    source_url=self.base_url,
+                    raw_data={"page": page},
+                )
+            ],
+            raw_metadata={"page": page},
+        )
+
+
 def test_sync_draws_inserts_and_skips_existing_data(
     db_session: Session,
     monkeypatch,
@@ -81,6 +104,24 @@ def test_sync_draws_inserts_and_skips_existing_data(
     assert second["status"] == "success"
     assert second["skipped_count"] == 1
     assert service.get_latest_draw()["issue_no"] == "25082"
+
+
+def test_backfill_draws_runs_multiple_pages(
+    db_session: Session,
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(services, "SportteryDrawSource", PagedFakeSportteryDrawSource)
+    LotteryRepository(db_session).ensure_dlt_seed_data()
+    service = LotteryService(db_session)
+
+    result = service.backfill_draws(start_page=1, page_count=3, page_size=50)
+
+    assert result["status"] == "success"
+    assert result["executed_pages"] == 3
+    assert result["fetched_count"] == 3
+    assert result["inserted_count"] == 3
+    assert result["page_size"] == 50
+    assert [run["requested_page"] for run in result["runs"]] == [1, 2, 3]
 
 
 def test_sync_draws_returns_failed_run_when_source_is_unavailable(

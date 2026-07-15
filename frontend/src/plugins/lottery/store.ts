@@ -11,8 +11,11 @@ import {
   fetchSamePeriodAnalysis,
   fetchSyncRuns,
   fetchSyncStatus,
+  triggerBackfill,
   triggerDrawSync,
   type DrawPage,
+  type LotteryBackfillRequest,
+  type LotteryBackfillRun,
   type LotteryBasicStatistics,
   type LotteryNumberOmissionDetail,
   type LotteryOmissionStatistics,
@@ -34,6 +37,7 @@ export const useLotteryStore = defineStore('lottery', {
     omissionStatistics: null as LotteryOmissionStatistics | null,
     omissionDetail: null as LotteryNumberOmissionDetail | null,
     samePeriod: null as LotterySamePeriodAnalysis | null,
+    latestBackfillRun: null as LotteryBackfillRun | null,
     disclaimer: '',
     loading: false,
     syncing: false,
@@ -100,6 +104,24 @@ export const useLotteryStore = defineStore('lottery', {
     },
     async loadSamePeriod(issueNo?: string, count = 5): Promise<void> {
       this.samePeriod = await fetchSamePeriodAnalysis(issueNo, count);
+    },
+    async backfill(payload: LotteryBackfillRequest): Promise<void> {
+      this.syncing = true;
+      this.syncError = '';
+      try {
+        this.latestBackfillRun = await triggerBackfill(payload);
+        await Promise.all([
+          this.loadDraws(),
+          this.loadSyncState(),
+          this.loadStatistics(),
+          this.loadOmissionStatistics(),
+          this.loadSamePeriod(),
+        ]);
+      } catch (error) {
+        this.syncError = error instanceof Error ? error.message : 'Failed to backfill lottery draws';
+      } finally {
+        this.syncing = false;
+      }
     },
     async syncNow(): Promise<void> {
       this.syncing = true;

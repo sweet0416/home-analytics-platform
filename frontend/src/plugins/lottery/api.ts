@@ -59,6 +59,13 @@ export interface LotterySyncRequest {
   force: boolean;
 }
 
+export interface LotteryBackfillRequest {
+  start_page: number;
+  page_count: number;
+  page_size: number;
+  force: boolean;
+}
+
 export interface LotterySyncRun {
   run_id: number;
   game_code: string;
@@ -89,6 +96,21 @@ export interface SyncRunPage {
     total: number;
     pages: number;
   };
+}
+
+export interface LotteryBackfillRun {
+  status: string;
+  start_page: number;
+  page_count: number;
+  page_size: number;
+  executed_pages: number;
+  latest_issue_no: string | null;
+  fetched_count: number;
+  inserted_count: number;
+  updated_count: number;
+  skipped_count: number;
+  failed_count: number;
+  runs: LotterySyncRun[];
 }
 
 export interface LotterySyncStatus {
@@ -259,4 +281,11 @@ export function fetchSamePeriodAnalysis(
 
 export function triggerDrawSync(payload: LotterySyncRequest): Promise<LotterySyncRun> {
   return postApiData<LotterySyncRun, LotterySyncRequest>('/lottery/dlt/sync', payload);
+}
+
+export function triggerBackfill(payload: LotteryBackfillRequest): Promise<LotteryBackfillRun> {
+  return postApiData<LotteryBackfillRun, LotteryBackfillRequest>(
+    '/lottery/dlt/sync/backfill',
+    payload,
+  );
 }

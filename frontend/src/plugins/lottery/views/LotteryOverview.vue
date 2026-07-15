@@ -82,6 +82,40 @@
           <div class="sync-meta">{{ latestIssueSourceMeta }}</div>
         </div>
       </div>
+      <div class="backfill-box">
+        <div class="backfill-controls">
+          <div class="backfill-field">
+            <span>起始页</span>
+            <el-input-number v-model="backfillStartPage" :min="1" :max="200" size="small" />
+          </div>
+          <div class="backfill-field">
+            <span>页数</span>
+            <el-input-number v-model="backfillPageCount" :min="1" :max="20" size="small" />
+          </div>
+          <div class="backfill-field">
+            <span>每页</span>
+            <el-input-number
+              v-model="backfillPageSize"
+              :min="20"
+              :max="500"
+              :step="20"
+              size="small"
+            />
+          </div>
+          <el-checkbox v-model="backfillForce">覆盖更新</el-checkbox>
+          <el-button
+            type="primary"
+            plain
+            :loading="lottery.syncing"
+            @click="handleBackfill"
+          >
+            历史回填
+          </el-button>
+        </div>
+        <div class="backfill-summary">
+          {{ backfillSummary }}
+        </div>
+      </div>
     </section>
 
     <section class="panel rule-panel">
@@ -110,7 +144,7 @@
 
 <script setup lang="ts">
 import { Refresh } from '@element-plus/icons-vue';
-import { computed, onMounted } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 
 import EmptyState from '@/components/common/EmptyState.vue';
 import MetricCard from '@/components/metric/MetricCard.vue';
@@ -122,6 +156,10 @@ import {
 import { useLotteryStore } from '@/plugins/lottery/store';
 
 const lottery = useLotteryStore();
+const backfillStartPage = ref(2);
+const backfillPageCount = ref(5);
+const backfillPageSize = ref(100);
+const backfillForce = ref(false);
 
 const frontRule = computed(() =>
   lottery.rule ? `${lottery.rule.front.min}-${lottery.rule.front.max}` : '--',
@@ -189,6 +227,17 @@ const syncPageSize = computed(() => String(lottery.syncStatus?.page_size ?? 100)
 const nextRunLabel = computed(() =>
   lottery.syncStatus?.next_run_at ? formatDateTime(lottery.syncStatus.next_run_at) : '--',
 );
+const backfillSummary = computed(() => {
+  const run = lottery.latestBackfillRun;
+  if (!run) return '历史回填用于补齐更早年份数据，完成后历史同期会显示更多结果。';
+  return [
+    `状态 ${run.status}`,
+    `执行 ${run.executed_pages}/${run.page_count} 页`,
+    `新增 ${run.inserted_count}`,
+    `更新 ${run.updated_count}`,
+    `跳过 ${run.skipped_count}`,
+  ].join(' · ');
+});
 
 function formatDateTime(value: string): string {
   return new Date(value).toLocaleString('zh-CN', { hour12: false });
@@ -196,6 +245,15 @@ function formatDateTime(value: string): string {
 
 async function handleSync(): Promise<void> {
   await lottery.syncNow();
+}
+
+async function handleBackfill(): Promise<void> {
+  await lottery.backfill({
+    start_page: backfillStartPage.value,
+    page_count: backfillPageCount.value,
+    page_size: backfillPageSize.value,
+    force: backfillForce.value,
+  });
 }
 
 onMounted(() => {
@@ -251,6 +309,33 @@ onMounted(() => {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
+}
+
+.backfill-box {
+  border-top: 1px solid rgba(148, 163, 184, 0.12);
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+  padding-top: 14px;
+}
+
+.backfill-controls {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.backfill-field {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
+.backfill-field span,
+.backfill-summary {
+  color: var(--color-muted);
+  font-size: 12px;
 }
 
 .sync-block {
@@ -315,6 +400,12 @@ onMounted(() => {
   .sync-grid,
   .tier-grid {
     grid-template-columns: 1fr;
+  }
+
+  .backfill-controls,
+  .backfill-field {
+    align-items: stretch;
+    flex-direction: column;
   }
 }
 </style>

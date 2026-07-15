@@ -391,6 +391,65 @@ class LotteryService:
             self.repository.db.commit()
             raise
 
+    def backfill_draws(
+        self,
+        *,
+        start_page: int = 1,
+        page_count: int = 3,
+        page_size: int = 100,
+        force: bool = False,
+    ) -> dict[str, object]:
+        runs: list[dict[str, object]] = []
+        totals = {
+            "fetched_count": 0,
+            "inserted_count": 0,
+            "updated_count": 0,
+            "skipped_count": 0,
+            "failed_count": 0,
+        }
+
+        for page in range(start_page, start_page + page_count):
+            run = self.sync_draws(
+                DrawSyncCommand(
+                    sync_type="backfill",
+                    page=page,
+                    page_size=page_size,
+                    force=force,
+                )
+            )
+            runs.append(run)
+            for key in totals:
+                totals[key] += int(run[key])
+            if run["status"] == "failed":
+                break
+
+        statuses = {str(run["status"]) for run in runs}
+        if not runs:
+            status = "failed"
+        elif statuses == {"success"}:
+            status = "success"
+        elif "failed" in statuses:
+            status = "partial_success" if len(runs) > 1 else "failed"
+        else:
+            status = "partial_success"
+
+        latest_issue_numbers = [
+            str(run["latest_issue_no"])
+            for run in runs
+            if run["latest_issue_no"] is not None
+        ]
+
+        return {
+            "status": status,
+            "start_page": start_page,
+            "page_count": page_count,
+            "page_size": page_size,
+            "executed_pages": len(runs),
+            "latest_issue_no": max(latest_issue_numbers) if latest_issue_numbers else None,
+            "runs": runs,
+            **totals,
+        }
+
     @staticmethod
     def _build_dlt_sources(settings: Settings) -> list[DrawSource]:
         sources: list[DrawSource] = [

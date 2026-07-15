@@ -7,6 +7,8 @@ from app.plugins.lottery.domain.constants import DLT_DISCLAIMER
 from app.plugins.lottery.domain.sync import DrawSyncCommand
 from app.plugins.lottery.interfaces.schemas import (
     DisclaimerRead,
+    LotteryBackfillRequest,
+    LotteryBackfillRunRead,
     LotteryBasicStatisticsRead,
     LotteryDrawPageRead,
     LotteryDrawRead,
@@ -110,6 +112,22 @@ def sync_draws(
         force=payload.force,
     )
     return ok(service.sync_draws(command))
+
+
+@router.post("/sync/backfill", response_model=ApiResponse[LotteryBackfillRunRead])
+def backfill_draws(
+    payload: LotteryBackfillRequest,
+    db: Session = Depends(get_db),
+) -> ApiResponse[LotteryBackfillRunRead]:
+    service = LotteryService(db)
+    return ok(
+        service.backfill_draws(
+            start_page=payload.start_page,
+            page_count=payload.page_count,
+            page_size=payload.page_size,
+            force=payload.force,
+        )
+    )
 
 
 @router.get("/sync/latest", response_model=ApiResponse[LotterySyncRunRead])
