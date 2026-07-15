@@ -1,6 +1,6 @@
 <template>
   <div>
-    <section class="page-header">
+    <section class="page-header draw-history-header">
       <div>
         <h1 class="page-title">历史开奖</h1>
         <div class="page-subtitle">开奖数据同步后在这里展示和追踪</div>
@@ -213,7 +213,13 @@ onBeforeUnmount(() => {
 .history-actions {
   display: flex;
   align-items: center;
+  flex-shrink: 0;
   gap: 12px;
+}
+
+.draw-history-header {
+  align-items: center;
+  flex-wrap: wrap;
 }
 
 .draw-countdown {
@@ -272,6 +278,11 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 720px) {
+  .draw-history-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
   .history-actions {
     align-items: stretch;
     flex-direction: column;
