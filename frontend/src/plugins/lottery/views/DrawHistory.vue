@@ -5,6 +5,17 @@
         <h1 class="page-title">历史开奖</h1>
         <div class="page-subtitle">开奖数据同步后在这里展示和追踪</div>
       </div>
+      <div class="draw-countdown">
+        <div>
+          <span>下次开奖</span>
+          <strong>{{ nextDrawDateTime }}</strong>
+        </div>
+        <div>
+          <span>倒计时</span>
+          <strong>{{ nextDrawCountdown }}</strong>
+        </div>
+        <small>周一 / 周三 / 周六 21:10</small>
+      </div>
       <div class="history-actions">
         <RouterLink to="/lottery/dlt" class="back-link">返回概览</RouterLink>
         <el-button
@@ -112,7 +123,7 @@
 
 <script setup lang="ts">
 import { Refresh } from '@element-plus/icons-vue';
-import { onMounted } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 
 import EmptyState from '@/components/common/EmptyState.vue';
 import LotteryBall from '@/plugins/lottery/components/LotteryBall.vue';
@@ -120,6 +131,12 @@ import { lotterySyncSourceLabel } from '@/plugins/lottery/sourceLabels';
 import { useLotteryStore } from '@/plugins/lottery/store';
 
 const lottery = useLotteryStore();
+const now = ref(new Date());
+let countdownTimer: number | undefined;
+
+const nextDrawAt = computed(() => calculateNextDltDraw(now.value));
+const nextDrawDateTime = computed(() => formatDateTime(nextDrawAt.value.toISOString()));
+const nextDrawCountdown = computed(() => formatCountdown(nextDrawAt.value.getTime() - now.value.getTime()));
 
 function formatMoney(value: string | null): string {
   if (!value) return '--';
@@ -148,8 +165,47 @@ function syncTagType(status: string): 'success' | 'warning' | 'danger' | 'info' 
   return 'info';
 }
 
+function calculateNextDltDraw(current: Date): Date {
+  const drawWeekdays = [1, 3, 6];
+  const drawHour = 21;
+  const drawMinute = 10;
+
+  for (let offset = 0; offset <= 7; offset += 1) {
+    const candidate = new Date(current);
+    candidate.setDate(current.getDate() + offset);
+    candidate.setHours(drawHour, drawMinute, 0, 0);
+    if (drawWeekdays.includes(candidate.getDay()) && candidate.getTime() > current.getTime()) {
+      return candidate;
+    }
+  }
+
+  const fallback = new Date(current);
+  fallback.setDate(current.getDate() + 1);
+  fallback.setHours(drawHour, drawMinute, 0, 0);
+  return fallback;
+}
+
+function formatCountdown(milliseconds: number): string {
+  const totalSeconds = Math.max(0, Math.floor(milliseconds / 1000));
+  const days = Math.floor(totalSeconds / 86400);
+  const hours = Math.floor((totalSeconds % 86400) / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  const clock = [hours, minutes, seconds].map((item) => String(item).padStart(2, '0')).join(':');
+  return days > 0 ? `${days}天 ${clock}` : clock;
+}
+
 onMounted(() => {
   void lottery.loadOverview();
+  countdownTimer = window.setInterval(() => {
+    now.value = new Date();
+  }, 1000);
+});
+
+onBeforeUnmount(() => {
+  if (countdownTimer !== undefined) {
+    window.clearInterval(countdownTimer);
+  }
 });
 </script>
 
@@ -158,6 +214,37 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 12px;
+}
+
+.draw-countdown {
+  border: 1px solid rgba(56, 189, 248, 0.24);
+  border-radius: 8px;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(2, minmax(130px, 1fr));
+  min-width: min(420px, 100%);
+  padding: 10px 12px;
+}
+
+.draw-countdown div {
+  display: grid;
+  gap: 4px;
+}
+
+.draw-countdown span,
+.draw-countdown small {
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
+.draw-countdown strong {
+  font-size: 15px;
+  font-weight: 720;
+  line-height: 1.3;
+}
+
+.draw-countdown small {
+  grid-column: 1 / -1;
 }
 
 .back-link,
@@ -188,6 +275,10 @@ onMounted(() => {
   .history-actions {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .draw-countdown {
+    grid-template-columns: 1fr;
   }
 }
 </style>
