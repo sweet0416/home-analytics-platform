@@ -121,6 +121,42 @@ export interface LotteryDrawMetric {
   back_sum: number;
 }
 
+export interface LotteryOmissionTrendPoint {
+  issue_no: string;
+  draw_date: string;
+  is_hit: boolean;
+  missing: number;
+}
+
+export interface LotteryNumberOmission {
+  area: 'front' | 'back';
+  number: number;
+  appearances: number;
+  current_missing: number;
+  max_missing: number;
+  average_missing: number;
+  last_seen_issue_no: string | null;
+  last_seen_date: string | null;
+  trend: LotteryOmissionTrendPoint[];
+}
+
+export interface LotteryNumberOmissionDetail extends LotteryNumberOmission {
+  sample_size: number;
+  requested_limit: number;
+  hit_issues: Array<{
+    issue_no: string;
+    draw_date: string;
+  }>;
+}
+
+export interface LotteryOmissionStatistics {
+  sample_size: number;
+  requested_limit: number;
+  latest_issue_no: string | null;
+  front: LotteryNumberOmission[];
+  back: LotteryNumberOmission[];
+}
+
 export interface LotteryBasicStatistics {
   sample_size: number;
   requested_limit: number;
@@ -179,6 +215,20 @@ export function fetchSyncStatus(): Promise<LotterySyncStatus> {
 
 export function fetchBasicStatistics(limit = 100): Promise<LotteryBasicStatistics> {
   return getApiData<LotteryBasicStatistics>(`/lottery/dlt/statistics/basic?limit=${limit}`);
+}
+
+export function fetchOmissionStatistics(limit = 100): Promise<LotteryOmissionStatistics> {
+  return getApiData<LotteryOmissionStatistics>(`/lottery/dlt/statistics/omissions?limit=${limit}`);
+}
+
+export function fetchNumberOmissionDetail(
+  area: 'front' | 'back',
+  number: number,
+  limit = 200,
+): Promise<LotteryNumberOmissionDetail> {
+  return getApiData<LotteryNumberOmissionDetail>(
+    `/lottery/dlt/numbers/${area}/${number}/omission?limit=${limit}`,
+  );
 }
 
 export function triggerDrawSync(payload: LotterySyncRequest): Promise<LotterySyncRun> {

@@ -10,6 +10,7 @@
           <RouterLink to="/lottery/dlt">概览</RouterLink>
           <RouterLink to="/lottery/dlt/draws">历史开奖</RouterLink>
           <RouterLink to="/lottery/dlt/statistics">统计</RouterLink>
+          <RouterLink to="/lottery/dlt/omissions">遗漏</RouterLink>
         </div>
         <el-button
           type="primary"

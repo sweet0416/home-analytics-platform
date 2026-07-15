@@ -125,6 +125,44 @@ class LotteryDrawMetricRead(BaseModel):
     back_sum: int
 
 
+class LotteryOmissionTrendPointRead(BaseModel):
+    issue_no: str
+    draw_date: str
+    is_hit: bool
+    missing: int
+
+
+class LotteryNumberOmissionRead(BaseModel):
+    area: str
+    number: int
+    appearances: int
+    current_missing: int
+    max_missing: int
+    average_missing: float
+    last_seen_issue_no: str | None
+    last_seen_date: str | None
+    trend: list[LotteryOmissionTrendPointRead]
+
+
+class LotteryNumberHitIssueRead(BaseModel):
+    issue_no: str
+    draw_date: str
+
+
+class LotteryNumberOmissionDetailRead(LotteryNumberOmissionRead):
+    sample_size: int
+    requested_limit: int
+    hit_issues: list[LotteryNumberHitIssueRead]
+
+
+class LotteryOmissionStatisticsRead(BaseModel):
+    sample_size: int
+    requested_limit: int
+    latest_issue_no: str | None
+    front: list[LotteryNumberOmissionRead]
+    back: list[LotteryNumberOmissionRead]
+
+
 class LotteryHotColdRead(BaseModel):
     front: list[LotteryNumberFrequencyRead]
     back: list[LotteryNumberFrequencyRead]

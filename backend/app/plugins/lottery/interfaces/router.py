@@ -10,6 +10,8 @@ from app.plugins.lottery.interfaces.schemas import (
     LotteryBasicStatisticsRead,
     LotteryDrawPageRead,
     LotteryDrawRead,
+    LotteryNumberOmissionDetailRead,
+    LotteryOmissionStatisticsRead,
     LotteryRuleRead,
     LotterySyncRequest,
     LotterySyncRunPageRead,
@@ -59,6 +61,29 @@ def get_basic_statistics(
 ) -> ApiResponse[LotteryBasicStatisticsRead]:
     service = LotteryService(db)
     return ok(service.get_basic_statistics(limit=limit))
+
+
+@router.get("/statistics/omissions", response_model=ApiResponse[LotteryOmissionStatisticsRead])
+def get_omission_statistics(
+    limit: int = Query(default=100, ge=10, le=500),
+    db: Session = Depends(get_db),
+) -> ApiResponse[LotteryOmissionStatisticsRead]:
+    service = LotteryService(db)
+    return ok(service.get_omission_statistics(limit=limit))
+
+
+@router.get(
+    "/numbers/{area}/{number}/omission",
+    response_model=ApiResponse[LotteryNumberOmissionDetailRead],
+)
+def get_number_omission_detail(
+    area: str,
+    number: int,
+    limit: int = Query(default=200, ge=10, le=500),
+    db: Session = Depends(get_db),
+) -> ApiResponse[LotteryNumberOmissionDetailRead]:
+    service = LotteryService(db)
+    return ok(service.get_number_omission_detail(area=area, number=number, limit=limit))
 
 
 @router.post("/sync", response_model=ApiResponse[LotterySyncRunRead])

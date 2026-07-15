@@ -2,6 +2,7 @@ import type { RouteRecordRaw } from 'vue-router';
 
 import DrawHistory from './views/DrawHistory.vue';
 import LotteryOverview from './views/LotteryOverview.vue';
+import OmissionView from './views/OmissionView.vue';
 import StatisticsView from './views/StatisticsView.vue';
 
 export const lotteryRoutes: RouteRecordRaw[] = [
@@ -20,5 +21,9 @@ export const lotteryRoutes: RouteRecordRaw[] = [
     name: 'lottery-dlt-statistics',
     component: StatisticsView,
   },
+  {
+    path: 'lottery/dlt/omissions',
+    name: 'lottery-dlt-omissions',
+    component: OmissionView,
+  },
 ];
-

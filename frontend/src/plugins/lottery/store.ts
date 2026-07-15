@@ -6,11 +6,15 @@ import {
   fetchDisclaimer,
   fetchDraws,
   fetchLatestSyncRun,
+  fetchNumberOmissionDetail,
+  fetchOmissionStatistics,
   fetchSyncRuns,
   fetchSyncStatus,
   triggerDrawSync,
   type DrawPage,
   type LotteryBasicStatistics,
+  type LotteryNumberOmissionDetail,
+  type LotteryOmissionStatistics,
   type LotteryRule,
   type LotterySyncRun,
   type LotterySyncStatus,
@@ -25,6 +29,8 @@ export const useLotteryStore = defineStore('lottery', {
     syncStatus: null as LotterySyncStatus | null,
     syncRuns: null as SyncRunPage | null,
     statistics: null as LotteryBasicStatistics | null,
+    omissionStatistics: null as LotteryOmissionStatistics | null,
+    omissionDetail: null as LotteryNumberOmissionDetail | null,
     disclaimer: '',
     loading: false,
     syncing: false,
@@ -79,6 +85,16 @@ export const useLotteryStore = defineStore('lottery', {
     async loadStatistics(limit = 100): Promise<void> {
       this.statistics = await fetchBasicStatistics(limit);
     },
+    async loadOmissionStatistics(limit = 100): Promise<void> {
+      this.omissionStatistics = await fetchOmissionStatistics(limit);
+    },
+    async loadOmissionDetail(
+      area: 'front' | 'back',
+      number: number,
+      limit = 200,
+    ): Promise<void> {
+      this.omissionDetail = await fetchNumberOmissionDetail(area, number, limit);
+    },
     async syncNow(): Promise<void> {
       this.syncing = true;
       this.syncError = '';
@@ -89,7 +105,12 @@ export const useLotteryStore = defineStore('lottery', {
           page_size: 100,
           force: false,
         });
-        await Promise.all([this.loadDraws(), this.loadSyncState(), this.loadStatistics()]);
+        await Promise.all([
+          this.loadDraws(),
+          this.loadSyncState(),
+          this.loadStatistics(),
+          this.loadOmissionStatistics(),
+        ]);
       } catch (error) {
         this.syncError = error instanceof Error ? error.message : 'Failed to sync lottery draws';
       } finally {

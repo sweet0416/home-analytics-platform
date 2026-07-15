@@ -7,6 +7,7 @@
       </div>
       <div class="statistics-actions">
         <RouterLink to="/lottery/dlt" class="back-link">返回概览</RouterLink>
+        <RouterLink to="/lottery/dlt/omissions" class="back-link">遗漏分析</RouterLink>
         <el-button :icon="Refresh" :loading="lottery.loading" @click="reloadStatistics">
           刷新
         </el-button>

@@ -158,6 +158,74 @@ class LotteryService:
             "trend": list(reversed(per_draw)),
         }
 
+    def get_omission_statistics(self, limit: int = 100) -> dict[str, object]:
+        draws = [
+            self._serialize_draw(draw)
+            for draw in self.repository.list_recent_draws(limit=limit)
+        ]
+        front_items = self._build_omission_items(
+            draws=draws,
+            area="front",
+            min_number=1,
+            max_number=35,
+        )
+        back_items = self._build_omission_items(
+            draws=draws,
+            area="back",
+            min_number=1,
+            max_number=12,
+        )
+
+        return {
+            "sample_size": len(draws),
+            "requested_limit": limit,
+            "latest_issue_no": str(draws[0]["issue_no"]) if draws else None,
+            "front": front_items,
+            "back": back_items,
+        }
+
+    def get_number_omission_detail(
+        self,
+        *,
+        area: str,
+        number: int,
+        limit: int = 200,
+    ) -> dict[str, object]:
+        if area not in {"front", "back"}:
+            raise AppError(
+                code=ErrorCode.validation_error,
+                message="Lottery number area must be either 'front' or 'back'.",
+                status_code=422,
+            )
+        max_number = 35 if area == "front" else 12
+        if number < 1 or number > max_number:
+            raise AppError(
+                code=ErrorCode.validation_error,
+                message=f"Lottery {area} number must be between 1 and {max_number}.",
+                status_code=422,
+            )
+
+        draws = [
+            self._serialize_draw(draw)
+            for draw in self.repository.list_recent_draws(limit=limit)
+        ]
+        item = self._build_omission_item(draws=draws, area=area, number=number)
+        hit_issues = [
+            {
+                "issue_no": str(draw["issue_no"]),
+                "draw_date": str(draw["draw_date"]),
+            }
+            for draw in draws
+            if number in draw[f"{area}_numbers"]
+        ]
+
+        return {
+            **item,
+            "sample_size": len(draws),
+            "requested_limit": limit,
+            "hit_issues": hit_issues,
+        }
+
     def get_latest_draw(self) -> dict[str, object]:
         draw = self.repository.get_latest_draw()
         if draw is None:
@@ -451,6 +519,77 @@ class LotteryService:
             {"pattern": pattern, "count": count}
             for pattern, count in sorted(counts.items(), key=lambda item: (-item[1], item[0]))
         ]
+
+    @classmethod
+    def _build_omission_items(
+        cls,
+        *,
+        draws: list[dict[str, object]],
+        area: str,
+        min_number: int,
+        max_number: int,
+    ) -> list[dict[str, object]]:
+        return [
+            cls._build_omission_item(draws=draws, area=area, number=number)
+            for number in range(min_number, max_number + 1)
+        ]
+
+    @staticmethod
+    def _build_omission_item(
+        *,
+        draws: list[dict[str, object]],
+        area: str,
+        number: int,
+    ) -> dict[str, object]:
+        chronological_draws = list(reversed(draws))
+        current_missing = 0
+        appearances = 0
+        last_seen_issue_no: str | None = None
+        last_seen_date: str | None = None
+        completed_gaps: list[int] = []
+        running_gap = 0
+        trend: list[dict[str, object]] = []
+
+        for draw in chronological_draws:
+            issue_no = str(draw["issue_no"])
+            draw_date = str(draw["draw_date"])
+            numbers = draw[f"{area}_numbers"]
+            is_hit = number in numbers
+            if is_hit:
+                appearances += 1
+                completed_gaps.append(running_gap)
+                running_gap = 0
+                current_missing = 0
+                last_seen_issue_no = issue_no
+                last_seen_date = draw_date
+            else:
+                running_gap += 1
+                current_missing += 1
+
+            trend.append(
+                {
+                    "issue_no": issue_no,
+                    "draw_date": draw_date,
+                    "is_hit": is_hit,
+                    "missing": current_missing,
+                }
+            )
+
+        gaps = [*completed_gaps, running_gap] if chronological_draws else []
+        max_missing = max((int(item["missing"]) for item in trend), default=0)
+        average_missing = round(mean(gaps), 2) if gaps else 0
+
+        return {
+            "area": area,
+            "number": number,
+            "appearances": appearances,
+            "current_missing": current_missing,
+            "max_missing": max_missing,
+            "average_missing": average_missing,
+            "last_seen_issue_no": last_seen_issue_no,
+            "last_seen_date": last_seen_date,
+            "trend": trend,
+        }
 
     @staticmethod
     def _serialize_draw(draw: LotteryDrawModel) -> dict[str, object]:
