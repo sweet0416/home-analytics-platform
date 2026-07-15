@@ -232,11 +232,8 @@ class LotteryService:
         issue_no: str | None = None,
         count: int = 5,
     ) -> dict[str, object]:
-        target_draw = (
-            self.repository.get_draw_by_issue(issue_no)
-            if issue_no is not None
-            else self.repository.get_latest_draw()
-        )
+        normalized_issue_no = issue_no.strip() if issue_no is not None else None
+        target_draw = self._resolve_same_period_target(normalized_issue_no)
         if target_draw is None:
             raise AppError(
                 code=ErrorCode.lottery_draw_not_found,
@@ -280,6 +277,16 @@ class LotteryService:
                 for draw in historical_draws
             ],
         }
+
+    def _resolve_same_period_target(
+        self,
+        issue_no: str | None,
+    ) -> LotteryDrawModel | None:
+        if issue_no is None:
+            return self.repository.get_latest_draw()
+        if len(issue_no) == 3 and issue_no.isdigit():
+            return self.repository.get_latest_draw_by_issue_suffix(issue_suffix=issue_no)
+        return self.repository.get_draw_by_issue(issue_no)
 
     def get_latest_draw(self) -> dict[str, object]:
         draw = self.repository.get_latest_draw()

@@ -154,3 +154,39 @@ def test_lottery_service_returns_same_period_analysis(db_session: Session) -> No
     assert analysis["items"][0]["back_matches"] == [5]
     assert analysis["items"][1]["front_matches"] == [1]
     assert analysis["items"][1]["back_matches"] == [2]
+
+
+def test_lottery_service_accepts_issue_suffix_for_same_period(
+    db_session: Session,
+) -> None:
+    repository = LotteryRepository(db_session)
+    repository.ensure_dlt_seed_data()
+    fixtures = [
+        ("23080", date(2023, 7, 10), [1, 2, 3, 4, 5], [1, 2]),
+        ("24080", date(2024, 7, 10), [1, 6, 7, 8, 9], [2, 3]),
+        ("25080", date(2025, 7, 10), [10, 11, 12, 13, 14], [4, 5]),
+    ]
+    for issue_no, draw_date, front_numbers, back_numbers in fixtures:
+        repository.upsert_draw(
+            DrawRecord(
+                game_code=DLT_GAME_CODE,
+                issue_no=issue_no,
+                draw_date=draw_date,
+                front_numbers=front_numbers,
+                back_numbers=back_numbers,
+                sales_amount=Decimal("100.00"),
+                pool_amount=Decimal("200.00"),
+                source_url=f"https://example.test/{issue_no}",
+                raw_data={"fixture": issue_no},
+            )
+        )
+    db_session.commit()
+
+    analysis = LotteryService(db_session).get_same_period_analysis(
+        issue_no="080",
+        count=2,
+    )
+
+    assert analysis["issue_suffix"] == "080"
+    assert analysis["target"]["issue_no"] == "25080"
+    assert [item["draw"]["issue_no"] for item in analysis["items"]] == ["24080", "23080"]

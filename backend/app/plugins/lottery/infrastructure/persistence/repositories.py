@@ -115,6 +115,22 @@ class LotteryRepository:
             )
         )
 
+    def get_latest_draw_by_issue_suffix(
+        self,
+        *,
+        issue_suffix: str,
+        game_code: str = DLT_GAME_CODE,
+    ) -> LotteryDrawModel | None:
+        return self.db.scalar(
+            select(LotteryDrawModel)
+            .where(
+                LotteryDrawModel.game_code == game_code,
+                LotteryDrawModel.issue_no.like(f"%{issue_suffix}"),
+            )
+            .order_by(LotteryDrawModel.issue_no.desc())
+            .limit(1)
+        )
+
     def has_running_sync(self, game_code: str = DLT_GAME_CODE) -> bool:
         running_id = self.db.scalar(
             select(LotterySyncRunModel.id)

@@ -11,7 +11,7 @@
           v-model="targetIssueInput"
           class="issue-input"
           clearable
-          placeholder="默认最新期"
+          placeholder="完整期号或后三位"
           @keyup.enter="reloadSamePeriod"
         />
         <el-button :icon="Refresh" :loading="lottery.loading" @click="reloadSamePeriod">
