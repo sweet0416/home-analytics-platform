@@ -1,6 +1,7 @@
 import json
 from dataclasses import replace
 from math import ceil
+from statistics import mean
 
 from loguru import logger
 from sqlalchemy.orm import Session
@@ -83,6 +84,71 @@ class LotteryService:
                 "total": total,
                 "pages": ceil(total / page_size) if total else 0,
             },
+        }
+
+    def get_basic_statistics(self, limit: int = 100) -> dict[str, object]:
+        draws = self.repository.list_recent_draws(limit=limit)
+        serialized_draws = [self._serialize_draw(draw) for draw in draws]
+        front_rows = [item["front_numbers"] for item in serialized_draws]
+        back_rows = [item["back_numbers"] for item in serialized_draws]
+        issue_numbers = [str(item["issue_no"]) for item in serialized_draws]
+
+        front_frequency = self._build_frequency(
+            rows=front_rows,
+            min_number=1,
+            max_number=35,
+            recent_issue_numbers=issue_numbers,
+        )
+        back_frequency = self._build_frequency(
+            rows=back_rows,
+            min_number=1,
+            max_number=12,
+            recent_issue_numbers=issue_numbers,
+        )
+        per_draw = [
+            self._build_draw_metrics(
+                issue_no=str(item["issue_no"]),
+                front_numbers=list(item["front_numbers"]),
+                back_numbers=list(item["back_numbers"]),
+            )
+            for item in serialized_draws
+        ]
+
+        return {
+            "sample_size": len(serialized_draws),
+            "requested_limit": limit,
+            "latest_issue_no": issue_numbers[0] if issue_numbers else None,
+            "front_frequency": front_frequency,
+            "back_frequency": back_frequency,
+            "hot_numbers": {
+                "front": sorted(
+                    front_frequency,
+                    key=lambda item: (-item["count"], item["number"]),
+                )[:10],
+                "back": sorted(
+                    back_frequency,
+                    key=lambda item: (-item["count"], item["number"]),
+                )[:6],
+            },
+            "cold_numbers": {
+                "front": sorted(
+                    front_frequency,
+                    key=lambda item: (item["count"], item["number"]),
+                )[:10],
+                "back": sorted(
+                    back_frequency,
+                    key=lambda item: (item["count"], item["number"]),
+                )[:6],
+            },
+            "sum": self._summarize_numeric([int(item["front_sum"]) for item in per_draw]),
+            "span": self._summarize_numeric([int(item["front_span"]) for item in per_draw]),
+            "parity": self._summarize_distribution(
+                [str(item["front_parity_pattern"]) for item in per_draw]
+            ),
+            "size": self._summarize_distribution(
+                [str(item["front_size_pattern"]) for item in per_draw]
+            ),
+            "recent_metrics": per_draw[:20],
         }
 
     def get_latest_draw(self) -> dict[str, object]:
@@ -293,6 +359,78 @@ class LotteryService:
                 "pages": ceil(total / page_size) if total else 0,
             },
         }
+
+    @staticmethod
+    def _build_frequency(
+        *,
+        rows: list[list[int]],
+        min_number: int,
+        max_number: int,
+        recent_issue_numbers: list[str],
+    ) -> list[dict[str, object]]:
+        counts = {number: 0 for number in range(min_number, max_number + 1)}
+        last_seen_issue: dict[int, str | None] = {
+            number: None for number in range(min_number, max_number + 1)
+        }
+        missing = {number: len(rows) for number in range(min_number, max_number + 1)}
+
+        for index, numbers in enumerate(rows):
+            issue_no = recent_issue_numbers[index]
+            for number in numbers:
+                counts[number] += 1
+                if last_seen_issue[number] is None:
+                    last_seen_issue[number] = issue_no
+                    missing[number] = index
+
+        return [
+            {
+                "number": number,
+                "count": counts[number],
+                "missing": missing[number],
+                "last_seen_issue_no": last_seen_issue[number],
+            }
+            for number in range(min_number, max_number + 1)
+        ]
+
+    @staticmethod
+    def _build_draw_metrics(
+        *,
+        issue_no: str,
+        front_numbers: list[int],
+        back_numbers: list[int],
+    ) -> dict[str, object]:
+        front_sum = sum(front_numbers)
+        front_span = max(front_numbers) - min(front_numbers)
+        odd_count = sum(1 for number in front_numbers if number % 2 == 1)
+        big_count = sum(1 for number in front_numbers if number >= 18)
+        return {
+            "issue_no": issue_no,
+            "front_sum": front_sum,
+            "front_span": front_span,
+            "front_parity_pattern": f"{odd_count}:{len(front_numbers) - odd_count}",
+            "front_size_pattern": f"{big_count}:{len(front_numbers) - big_count}",
+            "back_sum": sum(back_numbers),
+        }
+
+    @staticmethod
+    def _summarize_numeric(values: list[int]) -> dict[str, object]:
+        if not values:
+            return {"min": None, "max": None, "average": None}
+        return {
+            "min": min(values),
+            "max": max(values),
+            "average": round(mean(values), 2),
+        }
+
+    @staticmethod
+    def _summarize_distribution(values: list[str]) -> list[dict[str, object]]:
+        counts: dict[str, int] = {}
+        for value in values:
+            counts[value] = counts.get(value, 0) + 1
+        return [
+            {"pattern": pattern, "count": count}
+            for pattern, count in sorted(counts.items(), key=lambda item: (-item[1], item[0]))
+        ]
 
     @staticmethod
     def _serialize_draw(draw: LotteryDrawModel) -> dict[str, object]:

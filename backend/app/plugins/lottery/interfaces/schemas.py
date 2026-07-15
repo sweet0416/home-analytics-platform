@@ -92,3 +92,50 @@ class LotterySyncStatusRead(BaseModel):
     page_size: int
     next_run_at: str | None
     latest_run: LotterySyncRunRead | None
+
+
+class LotteryNumberFrequencyRead(BaseModel):
+    number: int
+    count: int
+    missing: int
+    last_seen_issue_no: str | None
+
+
+class LotteryNumericSummaryRead(BaseModel):
+    min: int | None
+    max: int | None
+    average: float | None
+
+
+class LotteryDistributionItemRead(BaseModel):
+    pattern: str
+    count: int
+
+
+class LotteryDrawMetricRead(BaseModel):
+    issue_no: str
+    front_sum: int
+    front_span: int
+    front_parity_pattern: str
+    front_size_pattern: str
+    back_sum: int
+
+
+class LotteryHotColdRead(BaseModel):
+    front: list[LotteryNumberFrequencyRead]
+    back: list[LotteryNumberFrequencyRead]
+
+
+class LotteryBasicStatisticsRead(BaseModel):
+    sample_size: int
+    requested_limit: int
+    latest_issue_no: str | None
+    front_frequency: list[LotteryNumberFrequencyRead]
+    back_frequency: list[LotteryNumberFrequencyRead]
+    hot_numbers: LotteryHotColdRead
+    cold_numbers: LotteryHotColdRead
+    sum: LotteryNumericSummaryRead
+    span: LotteryNumericSummaryRead
+    parity: list[LotteryDistributionItemRead]
+    size: list[LotteryDistributionItemRead]
+    recent_metrics: list[LotteryDrawMetricRead]

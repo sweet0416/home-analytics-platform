@@ -101,6 +101,49 @@ export interface LotterySyncStatus {
   latest_run: LotterySyncRun | null;
 }
 
+export interface LotteryNumberFrequency {
+  number: number;
+  count: number;
+  missing: number;
+  last_seen_issue_no: string | null;
+}
+
+export interface LotteryBasicStatistics {
+  sample_size: number;
+  requested_limit: number;
+  latest_issue_no: string | null;
+  front_frequency: LotteryNumberFrequency[];
+  back_frequency: LotteryNumberFrequency[];
+  hot_numbers: {
+    front: LotteryNumberFrequency[];
+    back: LotteryNumberFrequency[];
+  };
+  cold_numbers: {
+    front: LotteryNumberFrequency[];
+    back: LotteryNumberFrequency[];
+  };
+  sum: {
+    min: number | null;
+    max: number | null;
+    average: number | null;
+  };
+  span: {
+    min: number | null;
+    max: number | null;
+    average: number | null;
+  };
+  parity: Array<{ pattern: string; count: number }>;
+  size: Array<{ pattern: string; count: number }>;
+  recent_metrics: Array<{
+    issue_no: string;
+    front_sum: number;
+    front_span: number;
+    front_parity_pattern: string;
+    front_size_pattern: string;
+    back_sum: number;
+  }>;
+}
+
 export function fetchCurrentRule(): Promise<LotteryRule> {
   return getApiData<LotteryRule>('/lottery/dlt/rules/current');
 }
@@ -123,6 +166,10 @@ export function fetchSyncRuns(page = 1, pageSize = 10): Promise<SyncRunPage> {
 
 export function fetchSyncStatus(): Promise<LotterySyncStatus> {
   return getApiData<LotterySyncStatus>('/lottery/dlt/sync/status');
+}
+
+export function fetchBasicStatistics(limit = 100): Promise<LotteryBasicStatistics> {
+  return getApiData<LotteryBasicStatistics>(`/lottery/dlt/statistics/basic?limit=${limit}`);
 }
 
 export function triggerDrawSync(payload: LotterySyncRequest): Promise<LotterySyncRun> {

@@ -67,6 +67,21 @@ class LotteryRepository:
             .limit(1)
         )
 
+    def list_recent_draws(
+        self,
+        *,
+        game_code: str = DLT_GAME_CODE,
+        limit: int = 100,
+    ) -> list[LotteryDrawModel]:
+        return list(
+            self.db.scalars(
+                select(LotteryDrawModel)
+                .where(LotteryDrawModel.game_code == game_code)
+                .order_by(LotteryDrawModel.draw_date.desc())
+                .limit(limit)
+            )
+        )
+
     def get_draw_by_issue(
         self,
         issue_no: str,

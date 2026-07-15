@@ -61,3 +61,15 @@ def test_sync_status_endpoint_returns_scheduler_state(client: TestClient) -> Non
     assert body["timezone"] == "Asia/Shanghai"
     assert body["page_size"] == 100
     assert body["latest_run"] is None
+
+
+def test_basic_statistics_endpoint_returns_empty_statistics(client: TestClient) -> None:
+    response = client.get("/api/v1/lottery/dlt/statistics/basic")
+
+    assert response.status_code == 200
+    body = response.json()["data"]
+    assert body["sample_size"] == 0
+    assert body["requested_limit"] == 100
+    assert len(body["front_frequency"]) == 35
+    assert len(body["back_frequency"]) == 12
+    assert body["sum"] == {"min": None, "max": None, "average": None}

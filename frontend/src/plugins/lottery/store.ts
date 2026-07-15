@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia';
 
 import {
+  fetchBasicStatistics,
   fetchCurrentRule,
   fetchDisclaimer,
   fetchDraws,
@@ -9,6 +10,7 @@ import {
   fetchSyncStatus,
   triggerDrawSync,
   type DrawPage,
+  type LotteryBasicStatistics,
   type LotteryRule,
   type LotterySyncRun,
   type LotterySyncStatus,
@@ -22,6 +24,7 @@ export const useLotteryStore = defineStore('lottery', {
     latestSyncRun: null as LotterySyncRun | null,
     syncStatus: null as LotterySyncStatus | null,
     syncRuns: null as SyncRunPage | null,
+    statistics: null as LotteryBasicStatistics | null,
     disclaimer: '',
     loading: false,
     syncing: false,
@@ -73,6 +76,9 @@ export const useLotteryStore = defineStore('lottery', {
         this.syncError = error instanceof Error ? error.message : 'Failed to load sync status';
       }
     },
+    async loadStatistics(limit = 100): Promise<void> {
+      this.statistics = await fetchBasicStatistics(limit);
+    },
     async syncNow(): Promise<void> {
       this.syncing = true;
       this.syncError = '';
@@ -83,7 +89,7 @@ export const useLotteryStore = defineStore('lottery', {
           page_size: 100,
           force: false,
         });
-        await Promise.all([this.loadDraws(), this.loadSyncState()]);
+        await Promise.all([this.loadDraws(), this.loadSyncState(), this.loadStatistics()]);
       } catch (error) {
         this.syncError = error instanceof Error ? error.message : 'Failed to sync lottery draws';
       } finally {

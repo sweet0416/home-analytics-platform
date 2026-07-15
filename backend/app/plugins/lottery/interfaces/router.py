@@ -7,6 +7,7 @@ from app.plugins.lottery.domain.constants import DLT_DISCLAIMER
 from app.plugins.lottery.domain.sync import DrawSyncCommand
 from app.plugins.lottery.interfaces.schemas import (
     DisclaimerRead,
+    LotteryBasicStatisticsRead,
     LotteryDrawPageRead,
     LotteryDrawRead,
     LotteryRuleRead,
@@ -49,6 +50,15 @@ def get_latest_draw(db: Session = Depends(get_db)) -> ApiResponse[LotteryDrawRea
 def get_draw_by_issue(issue_no: str, db: Session = Depends(get_db)) -> ApiResponse[LotteryDrawRead]:
     service = LotteryService(db)
     return ok(service.get_draw_by_issue(issue_no))
+
+
+@router.get("/statistics/basic", response_model=ApiResponse[LotteryBasicStatisticsRead])
+def get_basic_statistics(
+    limit: int = Query(default=100, ge=10, le=500),
+    db: Session = Depends(get_db),
+) -> ApiResponse[LotteryBasicStatisticsRead]:
+    service = LotteryService(db)
+    return ok(service.get_basic_statistics(limit=limit))
 
 
 @router.post("/sync", response_model=ApiResponse[LotterySyncRunRead])
