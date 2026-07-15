@@ -7,6 +7,7 @@
       </div>
       <div class="omission-actions">
         <RouterLink to="/lottery/dlt/statistics" class="back-link">返回统计</RouterLink>
+        <RouterLink to="/lottery/dlt/heatmap" class="back-link">热力图</RouterLink>
         <el-radio-group v-model="selectedArea" size="small" @change="handleAreaChange">
           <el-radio-button label="front">前区</el-radio-button>
           <el-radio-button label="back">后区</el-radio-button>

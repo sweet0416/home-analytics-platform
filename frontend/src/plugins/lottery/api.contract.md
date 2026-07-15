@@ -30,3 +30,6 @@ All responses must use the shared backend envelope:
 
 The frontend treats missing draw data as a valid empty state, but rule loading failure is treated as
 an integration failure.
+
+The heatmap view composes the basic statistics and omission statistics endpoints instead of adding
+a dedicated backend endpoint.
