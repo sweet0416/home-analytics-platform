@@ -12,6 +12,11 @@ class PluginRegistry:
         for hook in plugin.startup_hooks:
             hook()
 
+    def shutdown(self) -> None:
+        for plugin in reversed(list(self._plugins.values())):
+            for hook in plugin.shutdown_hooks:
+                hook()
+
     def list_plugins(self) -> list[PluginManifest]:
         return sorted(self._plugins.values(), key=lambda item: item.name)
 
@@ -27,4 +32,3 @@ class PluginRegistry:
 
 
 plugin_registry = PluginRegistry()
-

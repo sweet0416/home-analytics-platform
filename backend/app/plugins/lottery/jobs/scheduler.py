@@ -36,6 +36,30 @@ def start_lottery_scheduler() -> None:
     logger.info("DLT auto sync scheduler started: {}", settings.lottery_dlt_sync_cron)
 
 
+def stop_lottery_scheduler() -> None:
+    global _scheduler
+    if _scheduler is None:
+        return
+
+    if _scheduler.running:
+        _scheduler.shutdown(wait=False)
+        logger.info("DLT auto sync scheduler stopped.")
+    _scheduler = None
+
+
+def get_lottery_scheduler_status() -> dict[str, object]:
+    settings = get_settings()
+    job = _scheduler.get_job("lottery_dlt_auto_sync") if _scheduler is not None else None
+    return {
+        "enabled": settings.lottery_dlt_auto_sync_enabled,
+        "running": bool(_scheduler is not None and _scheduler.running),
+        "cron": settings.lottery_dlt_sync_cron,
+        "timezone": "Asia/Shanghai",
+        "page_size": settings.lottery_dlt_sync_page_size,
+        "next_run_at": job.next_run_time.isoformat() if job and job.next_run_time else None,
+    }
+
+
 def _run_scheduled_dlt_sync() -> None:
     settings = get_settings()
     db = SessionLocal()

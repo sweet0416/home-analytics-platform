@@ -48,3 +48,16 @@ def test_sync_runs_endpoint_returns_empty_page(client: TestClient) -> None:
     body = response.json()["data"]
     assert body["items"] == []
     assert body["pagination"]["total"] == 0
+
+
+def test_sync_status_endpoint_returns_scheduler_state(client: TestClient) -> None:
+    response = client.get("/api/v1/lottery/dlt/sync/status")
+
+    assert response.status_code == 200
+    body = response.json()["data"]
+    assert body["enabled"] is True
+    assert body["running"] is True
+    assert body["cron"] == "30 22 * * *"
+    assert body["timezone"] == "Asia/Shanghai"
+    assert body["page_size"] == 100
+    assert body["latest_run"] is None

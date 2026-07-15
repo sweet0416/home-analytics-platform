@@ -2,7 +2,7 @@ from app.core.database.session import SessionLocal
 from app.core.plugins.contracts import PluginManifest
 from app.plugins.lottery.infrastructure.persistence.repositories import LotteryRepository
 from app.plugins.lottery.interfaces.router import router
-from app.plugins.lottery.jobs.scheduler import start_lottery_scheduler
+from app.plugins.lottery.jobs.scheduler import start_lottery_scheduler, stop_lottery_scheduler
 
 
 def seed_lottery_data() -> None:
@@ -23,4 +23,5 @@ lottery_plugin = PluginManifest(
         {"name": "lottery-overview", "label": "大乐透", "path": "/lottery/dlt"},
     ],
     startup_hooks=[seed_lottery_data, start_lottery_scheduler],
+    shutdown_hooks=[stop_lottery_scheduler],
 )

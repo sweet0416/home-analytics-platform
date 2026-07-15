@@ -82,3 +82,13 @@ class LotterySyncRunRead(BaseModel):
 class LotterySyncRunPageRead(BaseModel):
     items: list[LotterySyncRunRead]
     pagination: dict[str, int]
+
+
+class LotterySyncStatusRead(BaseModel):
+    enabled: bool
+    running: bool
+    cron: str
+    timezone: str
+    page_size: int
+    next_run_at: str | None
+    latest_run: LotterySyncRunRead | None

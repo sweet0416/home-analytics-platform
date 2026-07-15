@@ -14,4 +14,4 @@ class PluginManifest:
     routes: list[APIRouter] = field(default_factory=list)
     menu_items: list[dict[str, str]] = field(default_factory=list)
     startup_hooks: list[Callable[[], None]] = field(default_factory=list)
-
+    shutdown_hooks: list[Callable[[], None]] = field(default_factory=list)

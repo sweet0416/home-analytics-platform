@@ -20,7 +20,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     configure_logging(settings)
     create_database_schema()
     plugin_registry.register(lottery_plugin)
-    yield
+    try:
+        yield
+    finally:
+        plugin_registry.shutdown()
 
 
 def create_app() -> FastAPI:

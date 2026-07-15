@@ -13,7 +13,11 @@ from app.plugins.lottery.interfaces.schemas import (
     LotterySyncRequest,
     LotterySyncRunPageRead,
     LotterySyncRunRead,
+    LotterySyncStatusRead,
 )
+from app.plugins.lottery.jobs.scheduler import get_lottery_scheduler_status
+from app.shared.exceptions.base import AppError
+from app.shared.exceptions.codes import ErrorCode
 from app.shared.responses.schemas import ApiResponse, ok
 
 router = APIRouter(prefix="/dlt")
@@ -66,6 +70,20 @@ def sync_draws(
 def get_latest_sync_run(db: Session = Depends(get_db)) -> ApiResponse[LotterySyncRunRead]:
     service = LotteryService(db)
     return ok(service.get_latest_sync_run())
+
+
+@router.get("/sync/status", response_model=ApiResponse[LotterySyncStatusRead])
+def get_sync_status(db: Session = Depends(get_db)) -> ApiResponse[LotterySyncStatusRead]:
+    service = LotteryService(db)
+    latest_run: dict[str, object] | None
+    try:
+        latest_run = service.get_latest_sync_run()
+    except AppError as exc:
+        if exc.code is not ErrorCode.lottery_sync_run_not_found:
+            raise
+        latest_run = None
+
+    return ok({**get_lottery_scheduler_status(), "latest_run": latest_run})
 
 
 @router.get("/sync/runs", response_model=ApiResponse[LotterySyncRunPageRead])
