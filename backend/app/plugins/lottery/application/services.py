@@ -148,7 +148,14 @@ class LotteryService:
             "size": self._summarize_distribution(
                 [str(item["front_size_pattern"]) for item in per_draw]
             ),
+            "zone": self._summarize_distribution(
+                [str(item["front_zone_pattern"]) for item in per_draw]
+            ),
+            "route012": self._summarize_distribution(
+                [str(item["front_route012_pattern"]) for item in per_draw]
+            ),
             "recent_metrics": per_draw[:20],
+            "trend": list(reversed(per_draw)),
         }
 
     def get_latest_draw(self) -> dict[str, object]:
@@ -403,12 +410,25 @@ class LotteryService:
         front_span = max(front_numbers) - min(front_numbers)
         odd_count = sum(1 for number in front_numbers if number % 2 == 1)
         big_count = sum(1 for number in front_numbers if number >= 18)
+        zone_counts = [
+            sum(1 for number in front_numbers if 1 <= number <= 12),
+            sum(1 for number in front_numbers if 13 <= number <= 24),
+            sum(1 for number in front_numbers if 25 <= number <= 35),
+        ]
+        route_counts = [
+            sum(1 for number in front_numbers if number % 3 == residue)
+            for residue in (0, 1, 2)
+        ]
         return {
             "issue_no": issue_no,
             "front_sum": front_sum,
             "front_span": front_span,
             "front_parity_pattern": f"{odd_count}:{len(front_numbers) - odd_count}",
             "front_size_pattern": f"{big_count}:{len(front_numbers) - big_count}",
+            "front_zone_pattern": ":".join(str(count) for count in zone_counts),
+            "front_route012_pattern": ":".join(str(count) for count in route_counts),
+            "front_zone_counts": zone_counts,
+            "front_route012_counts": route_counts,
             "back_sum": sum(back_numbers),
         }
 

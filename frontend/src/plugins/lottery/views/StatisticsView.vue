@@ -22,6 +22,17 @@
 
     <section class="panel statistics-panel">
       <div class="panel-header">
+        <h2 class="panel-title">走势图</h2>
+        <span class="table-meta">最近 {{ lottery.statistics?.sample_size ?? 0 }} 期</span>
+      </div>
+      <div class="panel-body chart-grid">
+        <div ref="sumSpanChartRef" class="chart-box" />
+        <div ref="structureChartRef" class="chart-box" />
+      </div>
+    </section>
+
+    <section class="panel statistics-panel">
+      <div class="panel-header">
         <h2 class="panel-title">冷热号码</h2>
         <span class="table-meta">按最近 {{ lottery.statistics?.sample_size ?? 0 }} 期计算</span>
       </div>
@@ -48,6 +59,20 @@
         <div class="distribution-block">
           <h3>大小</h3>
           <div v-for="item in lottery.statistics?.size ?? []" :key="item.pattern" class="distribution-row">
+            <span>{{ item.pattern }}</span>
+            <strong>{{ item.count }}</strong>
+          </div>
+        </div>
+        <div class="distribution-block">
+          <h3>区间</h3>
+          <div v-for="item in lottery.statistics?.zone ?? []" :key="item.pattern" class="distribution-row">
+            <span>{{ item.pattern }}</span>
+            <strong>{{ item.count }}</strong>
+          </div>
+        </div>
+        <div class="distribution-block">
+          <h3>012 路</h3>
+          <div v-for="item in lottery.statistics?.route012 ?? []" :key="item.pattern" class="distribution-row">
             <span>{{ item.pattern }}</span>
             <strong>{{ item.count }}</strong>
           </div>
@@ -81,6 +106,8 @@
           <el-table-column prop="front_span" label="跨度" width="100" />
           <el-table-column prop="front_parity_pattern" label="奇偶" width="120" />
           <el-table-column prop="front_size_pattern" label="大小" width="120" />
+          <el-table-column prop="front_zone_pattern" label="区间" width="120" />
+          <el-table-column prop="front_route012_pattern" label="012 路" width="120" />
           <el-table-column prop="back_sum" label="后区和值" width="120" />
         </el-table>
         <EmptyState
@@ -95,8 +122,21 @@
 
 <script setup lang="ts">
 import { Refresh } from '@element-plus/icons-vue';
-import { computed, defineComponent, h, onMounted, type PropType } from 'vue';
+import * as echarts from 'echarts';
+import type { ECharts, EChartsOption } from 'echarts';
+import {
+  computed,
+  defineComponent,
+  h,
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+  watch,
+  type PropType,
+} from 'vue';
 
+import { chartTheme } from '@/charts/useChartTheme';
 import EmptyState from '@/components/common/EmptyState.vue';
 import MetricCard from '@/components/metric/MetricCard.vue';
 import LotteryBall from '@/plugins/lottery/components/LotteryBall.vue';
@@ -106,6 +146,10 @@ import { useLotteryStore } from '@/plugins/lottery/store';
 type BallArea = 'front' | 'back';
 
 const lottery = useLotteryStore();
+const sumSpanChartRef = ref<HTMLDivElement | null>(null);
+const structureChartRef = ref<HTMLDivElement | null>(null);
+let sumSpanChart: ECharts | null = null;
+let structureChart: ECharts | null = null;
 
 const sampleSize = computed(() => String(lottery.statistics?.sample_size ?? 0));
 const sampleMeta = computed(() => `请求最近 ${lottery.statistics?.requested_limit ?? 100} 期`);
@@ -198,13 +242,136 @@ async function reloadStatistics(): Promise<void> {
   lottery.loading = true;
   try {
     await lottery.loadStatistics();
+    await nextTick();
+    renderCharts();
   } finally {
     lottery.loading = false;
   }
 }
 
+function renderCharts(): void {
+  renderSumSpanChart();
+  renderStructureChart();
+}
+
+function renderSumSpanChart(): void {
+  const trend = lottery.statistics?.trend ?? [];
+  if (!sumSpanChartRef.value || trend.length === 0) return;
+  sumSpanChart ??= echarts.init(sumSpanChartRef.value);
+  const option: EChartsOption = {
+    ...chartTheme,
+    tooltip: { trigger: 'axis' },
+    legend: { data: ['和值', '跨度'], textStyle: { color: '#cbd5e1' } },
+    xAxis: {
+      type: 'category',
+      data: trend.map((item) => item.issue_no),
+      axisLabel: { color: '#94a3b8' },
+    },
+    yAxis: {
+      type: 'value',
+      axisLabel: { color: '#94a3b8' },
+      splitLine: { lineStyle: { color: 'rgba(148, 163, 184, 0.12)' } },
+    },
+    series: [
+      {
+        name: '和值',
+        type: 'line',
+        smooth: true,
+        data: trend.map((item) => item.front_sum),
+      },
+      {
+        name: '跨度',
+        type: 'line',
+        smooth: true,
+        data: trend.map((item) => item.front_span),
+      },
+    ],
+  };
+  sumSpanChart.setOption(option);
+}
+
+function renderStructureChart(): void {
+  const trend = lottery.statistics?.trend ?? [];
+  if (!structureChartRef.value || trend.length === 0) return;
+  structureChart ??= echarts.init(structureChartRef.value);
+  const option: EChartsOption = {
+    ...chartTheme,
+    tooltip: { trigger: 'axis' },
+    legend: {
+      data: ['一区', '二区', '三区', '0路', '1路', '2路'],
+      textStyle: { color: '#cbd5e1' },
+    },
+    xAxis: {
+      type: 'category',
+      data: trend.map((item) => item.issue_no),
+      axisLabel: { color: '#94a3b8' },
+    },
+    yAxis: {
+      type: 'value',
+      minInterval: 1,
+      axisLabel: { color: '#94a3b8' },
+      splitLine: { lineStyle: { color: 'rgba(148, 163, 184, 0.12)' } },
+    },
+    series: [
+      {
+        name: '一区',
+        type: 'bar',
+        stack: 'zone',
+        data: trend.map((item) => item.front_zone_counts[0]),
+      },
+      {
+        name: '二区',
+        type: 'bar',
+        stack: 'zone',
+        data: trend.map((item) => item.front_zone_counts[1]),
+      },
+      {
+        name: '三区',
+        type: 'bar',
+        stack: 'zone',
+        data: trend.map((item) => item.front_zone_counts[2]),
+      },
+      {
+        name: '0路',
+        type: 'line',
+        data: trend.map((item) => item.front_route012_counts[0]),
+      },
+      {
+        name: '1路',
+        type: 'line',
+        data: trend.map((item) => item.front_route012_counts[1]),
+      },
+      {
+        name: '2路',
+        type: 'line',
+        data: trend.map((item) => item.front_route012_counts[2]),
+      },
+    ],
+  };
+  structureChart.setOption(option);
+}
+
+function resizeCharts(): void {
+  sumSpanChart?.resize();
+  structureChart?.resize();
+}
+
 onMounted(() => {
   void reloadStatistics();
+  window.addEventListener('resize', resizeCharts);
+});
+
+watch(
+  () => lottery.statistics,
+  () => {
+    void nextTick(() => renderCharts());
+  },
+);
+
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', resizeCharts);
+  sumSpanChart?.dispose();
+  structureChart?.dispose();
 });
 </script>
 
@@ -232,6 +399,7 @@ onMounted(() => {
 }
 
 .hot-cold-grid,
+.chart-grid,
 .distribution-grid,
 .frequency-grid {
   display: grid;
@@ -245,6 +413,15 @@ onMounted(() => {
 .distribution-grid,
 .frequency-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.chart-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.chart-box {
+  height: 320px;
+  min-width: 0;
 }
 
 .number-list,
@@ -323,6 +500,7 @@ onMounted(() => {
   }
 
   .hot-cold-grid,
+  .chart-grid,
   .distribution-grid,
   .frequency-grid {
     grid-template-columns: 1fr;

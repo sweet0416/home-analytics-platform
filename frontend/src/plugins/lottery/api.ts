@@ -108,6 +108,19 @@ export interface LotteryNumberFrequency {
   last_seen_issue_no: string | null;
 }
 
+export interface LotteryDrawMetric {
+  issue_no: string;
+  front_sum: number;
+  front_span: number;
+  front_parity_pattern: string;
+  front_size_pattern: string;
+  front_zone_pattern: string;
+  front_route012_pattern: string;
+  front_zone_counts: number[];
+  front_route012_counts: number[];
+  back_sum: number;
+}
+
 export interface LotteryBasicStatistics {
   sample_size: number;
   requested_limit: number;
@@ -134,14 +147,10 @@ export interface LotteryBasicStatistics {
   };
   parity: Array<{ pattern: string; count: number }>;
   size: Array<{ pattern: string; count: number }>;
-  recent_metrics: Array<{
-    issue_no: string;
-    front_sum: number;
-    front_span: number;
-    front_parity_pattern: string;
-    front_size_pattern: string;
-    back_sum: number;
-  }>;
+  zone: Array<{ pattern: string; count: number }>;
+  route012: Array<{ pattern: string; count: number }>;
+  recent_metrics: LotteryDrawMetric[];
+  trend: LotteryDrawMetric[];
 }
 
 export function fetchCurrentRule(): Promise<LotteryRule> {

@@ -118,6 +118,10 @@ class LotteryDrawMetricRead(BaseModel):
     front_span: int
     front_parity_pattern: str
     front_size_pattern: str
+    front_zone_pattern: str
+    front_route012_pattern: str
+    front_zone_counts: list[int] = Field(min_length=3, max_length=3)
+    front_route012_counts: list[int] = Field(min_length=3, max_length=3)
     back_sum: int
 
 
@@ -138,4 +142,7 @@ class LotteryBasicStatisticsRead(BaseModel):
     span: LotteryNumericSummaryRead
     parity: list[LotteryDistributionItemRead]
     size: list[LotteryDistributionItemRead]
+    zone: list[LotteryDistributionItemRead]
+    route012: list[LotteryDistributionItemRead]
     recent_metrics: list[LotteryDrawMetricRead]
+    trend: list[LotteryDrawMetricRead]

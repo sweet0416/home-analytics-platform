@@ -57,6 +57,10 @@ def test_lottery_service_returns_basic_statistics(db_session: Session) -> None:
     assert statistics["latest_issue_no"] == "25002"
     assert statistics["sum"] == {"min": 15, "max": 31, "average": 23}
     assert statistics["span"] == {"min": 4, "max": 8, "average": 6}
+    assert statistics["trend"][0]["issue_no"] == "25001"
+    assert statistics["trend"][1]["issue_no"] == "25002"
+    assert statistics["recent_metrics"][0]["front_zone_pattern"] == "5:0:0"
+    assert statistics["recent_metrics"][0]["front_route012_pattern"] == "2:2:1"
     front_one = next(item for item in statistics["front_frequency"] if item["number"] == 1)
     front_five = next(item for item in statistics["front_frequency"] if item["number"] == 5)
     assert front_one["count"] == 2
