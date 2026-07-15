@@ -74,6 +74,18 @@
           title="暂无开奖数据"
           description="点击同步后会优先从官方来源获取数据，异常时自动使用备用源。"
         />
+        <div v-if="lottery.draws?.pagination.total" class="history-pagination">
+          <el-pagination
+            v-model:current-page="currentDrawPage"
+            v-model:page-size="drawPageSize"
+            :total="lottery.draws.pagination.total"
+            :page-sizes="[20, 50, 100, 200]"
+            background
+            layout="total, sizes, prev, pager, next, jumper"
+            @current-change="handleDrawPageChange"
+            @size-change="handleDrawPageSizeChange"
+          />
+        </div>
       </div>
     </section>
 
@@ -132,6 +144,8 @@ import { useLotteryStore } from '@/plugins/lottery/store';
 
 const lottery = useLotteryStore();
 const now = ref(new Date());
+const currentDrawPage = ref(1);
+const drawPageSize = ref(20);
 let countdownTimer: number | undefined;
 
 const nextDrawAt = computed(() => calculateNextDltDraw(now.value));
@@ -193,6 +207,17 @@ function formatCountdown(milliseconds: number): string {
   const seconds = totalSeconds % 60;
   const clock = [hours, minutes, seconds].map((item) => String(item).padStart(2, '0')).join(':');
   return days > 0 ? `${days}天 ${clock}` : clock;
+}
+
+async function handleDrawPageChange(page: number): Promise<void> {
+  currentDrawPage.value = page;
+  await lottery.loadDraws(currentDrawPage.value, drawPageSize.value);
+}
+
+async function handleDrawPageSizeChange(pageSize: number): Promise<void> {
+  drawPageSize.value = pageSize;
+  currentDrawPage.value = 1;
+  await lottery.loadDraws(currentDrawPage.value, drawPageSize.value);
 }
 
 onMounted(() => {
@@ -264,6 +289,13 @@ onBeforeUnmount(() => {
   gap: 6px;
 }
 
+.history-pagination {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 16px;
+  overflow-x: auto;
+}
+
 .sync-history-panel {
   margin-top: 16px;
 }
@@ -290,6 +322,10 @@ onBeforeUnmount(() => {
 
   .draw-countdown {
     grid-template-columns: 1fr;
+  }
+
+  .history-pagination {
+    justify-content: flex-start;
   }
 }
 </style>
