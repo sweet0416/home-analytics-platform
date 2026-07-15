@@ -14,6 +14,18 @@
           placeholder="完整期号或后三位"
           @keyup.enter="reloadSamePeriod"
         />
+        <div class="count-control">
+          <span>显示</span>
+          <el-input-number
+            v-model="displayCount"
+            :min="1"
+            :max="20"
+            :step="1"
+            size="small"
+            @change="reloadSamePeriod"
+          />
+          <span>期</span>
+        </div>
         <el-button :icon="Refresh" :loading="lottery.loading" @click="reloadSamePeriod">
           查询
         </el-button>
@@ -60,7 +72,7 @@
     <section class="panel same-period-panel">
       <div class="panel-header">
         <h2 class="panel-title">历史同期列表</h2>
-        <span class="table-meta">默认显示最近 5 期历史同期</span>
+        <span class="table-meta">显示最近 {{ displayCount }} 期历史同期</span>
       </div>
       <div class="panel-body">
         <el-table
@@ -131,12 +143,13 @@ import { useLotteryStore } from '@/plugins/lottery/store';
 
 const lottery = useLotteryStore();
 const targetIssueInput = ref('');
+const displayCount = ref(10);
 
 const targetIssue = computed(() => lottery.samePeriod?.target.issue_no ?? '--');
 const targetDate = computed(() => lottery.samePeriod?.target.draw_date ?? '默认最新一期');
 const issueSuffix = computed(() => lottery.samePeriod?.issue_suffix ?? '--');
 const itemCount = computed(() => String(lottery.samePeriod?.items.length ?? 0));
-const requestedCount = computed(() => `请求 ${lottery.samePeriod?.requested_count ?? 5} 期`);
+const requestedCount = computed(() => `请求 ${lottery.samePeriod?.requested_count ?? 10} 期`);
 const bestMatch = computed(() =>
   [...(lottery.samePeriod?.items ?? [])].sort(
     (left, right) =>
@@ -155,7 +168,7 @@ const bestMatchMeta = computed(() => bestMatch.value?.draw.issue_no ?? '暂无�
 async function reloadSamePeriod(): Promise<void> {
   lottery.loading = true;
   try {
-    await lottery.loadSamePeriod(targetIssueInput.value.trim() || undefined, 5);
+    await lottery.loadSamePeriod(targetIssueInput.value.trim() || undefined, displayCount.value);
   } finally {
     lottery.loading = false;
   }
@@ -190,6 +203,19 @@ onMounted(() => {
 
 .issue-input {
   width: 180px;
+}
+
+.count-control {
+  align-items: center;
+  color: var(--color-muted);
+  display: flex;
+  flex-shrink: 0;
+  font-size: 13px;
+  gap: 8px;
+}
+
+.count-control :deep(.el-input-number) {
+  width: 96px;
 }
 
 .same-period-metrics,
@@ -243,6 +269,10 @@ onMounted(() => {
 
   .issue-input {
     width: 100%;
+  }
+
+  .count-control {
+    justify-content: space-between;
   }
 
   :deep(.el-table) {
