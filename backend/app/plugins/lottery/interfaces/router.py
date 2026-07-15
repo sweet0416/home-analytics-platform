@@ -13,6 +13,7 @@ from app.plugins.lottery.interfaces.schemas import (
     LotteryNumberOmissionDetailRead,
     LotteryOmissionStatisticsRead,
     LotteryRuleRead,
+    LotterySamePeriodAnalysisRead,
     LotterySyncRequest,
     LotterySyncRunPageRead,
     LotterySyncRunRead,
@@ -84,6 +85,16 @@ def get_number_omission_detail(
 ) -> ApiResponse[LotteryNumberOmissionDetailRead]:
     service = LotteryService(db)
     return ok(service.get_number_omission_detail(area=area, number=number, limit=limit))
+
+
+@router.get("/analysis/same-period", response_model=ApiResponse[LotterySamePeriodAnalysisRead])
+def get_same_period_analysis(
+    issue_no: str | None = Query(default=None, min_length=3, max_length=16),
+    count: int = Query(default=5, ge=1, le=20),
+    db: Session = Depends(get_db),
+) -> ApiResponse[LotterySamePeriodAnalysisRead]:
+    service = LotteryService(db)
+    return ok(service.get_same_period_analysis(issue_no=issue_no, count=count))
 
 
 @router.post("/sync", response_model=ApiResponse[LotterySyncRunRead])

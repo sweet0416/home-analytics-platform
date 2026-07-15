@@ -115,3 +115,42 @@ def test_lottery_service_returns_omission_statistics(db_session: Session) -> Non
     assert detail["sample_size"] == 3
     assert [item["issue_no"] for item in detail["hit_issues"]] == ["25003", "25001"]
     assert [item["missing"] for item in detail["trend"]] == [0, 1, 0]
+
+
+def test_lottery_service_returns_same_period_analysis(db_session: Session) -> None:
+    repository = LotteryRepository(db_session)
+    repository.ensure_dlt_seed_data()
+    fixtures = [
+        ("23078", date(2023, 7, 8), [1, 2, 3, 4, 5], [1, 2]),
+        ("24078", date(2024, 7, 8), [1, 6, 7, 8, 9], [2, 3]),
+        ("25078", date(2025, 7, 8), [10, 11, 12, 13, 14], [4, 5]),
+        ("26078", date(2026, 7, 8), [1, 2, 10, 20, 30], [2, 5]),
+    ]
+    for issue_no, draw_date, front_numbers, back_numbers in fixtures:
+        repository.upsert_draw(
+            DrawRecord(
+                game_code=DLT_GAME_CODE,
+                issue_no=issue_no,
+                draw_date=draw_date,
+                front_numbers=front_numbers,
+                back_numbers=back_numbers,
+                sales_amount=Decimal("100.00"),
+                pool_amount=Decimal("200.00"),
+                source_url=f"https://example.test/{issue_no}",
+                raw_data={"fixture": issue_no},
+            )
+        )
+    db_session.commit()
+
+    analysis = LotteryService(db_session).get_same_period_analysis(
+        issue_no="26078",
+        count=2,
+    )
+
+    assert analysis["issue_suffix"] == "078"
+    assert analysis["target"]["issue_no"] == "26078"
+    assert [item["draw"]["issue_no"] for item in analysis["items"]] == ["25078", "24078"]
+    assert analysis["items"][0]["front_matches"] == [10]
+    assert analysis["items"][0]["back_matches"] == [5]
+    assert analysis["items"][1]["front_matches"] == [1]
+    assert analysis["items"][1]["back_matches"] == [2]

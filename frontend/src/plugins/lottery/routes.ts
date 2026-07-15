@@ -4,6 +4,7 @@ import DrawHistory from './views/DrawHistory.vue';
 import HeatmapView from './views/HeatmapView.vue';
 import LotteryOverview from './views/LotteryOverview.vue';
 import OmissionView from './views/OmissionView.vue';
+import SamePeriodView from './views/SamePeriodView.vue';
 import StatisticsView from './views/StatisticsView.vue';
 
 export const lotteryRoutes: RouteRecordRaw[] = [
@@ -31,5 +32,10 @@ export const lotteryRoutes: RouteRecordRaw[] = [
     path: 'lottery/dlt/heatmap',
     name: 'lottery-dlt-heatmap',
     component: HeatmapView,
+  },
+  {
+    path: 'lottery/dlt/same-period',
+    name: 'lottery-dlt-same-period',
+    component: SamePeriodView,
   },
 ];

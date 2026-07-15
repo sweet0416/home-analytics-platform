@@ -9,6 +9,7 @@ GET /api/v1/lottery/dlt/draws/latest
 GET /api/v1/lottery/dlt/statistics/basic
 GET /api/v1/lottery/dlt/statistics/omissions
 GET /api/v1/lottery/dlt/numbers/{area}/{number}/omission
+GET /api/v1/lottery/dlt/analysis/same-period
 POST /api/v1/lottery/dlt/sync
 GET /api/v1/lottery/dlt/sync/latest
 GET /api/v1/lottery/dlt/sync/status

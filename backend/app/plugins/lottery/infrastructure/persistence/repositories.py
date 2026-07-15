@@ -94,6 +94,27 @@ class LotteryRepository:
             )
         )
 
+    def list_draws_by_issue_suffix(
+        self,
+        *,
+        issue_suffix: str,
+        exclude_issue_no: str | None = None,
+        game_code: str = DLT_GAME_CODE,
+        limit: int = 5,
+    ) -> list[LotteryDrawModel]:
+        statement = select(LotteryDrawModel).where(
+            LotteryDrawModel.game_code == game_code,
+            LotteryDrawModel.issue_no.like(f"%{issue_suffix}"),
+        )
+        if exclude_issue_no is not None:
+            statement = statement.where(LotteryDrawModel.issue_no != exclude_issue_no)
+
+        return list(
+            self.db.scalars(
+                statement.order_by(LotteryDrawModel.issue_no.desc()).limit(limit)
+            )
+        )
+
     def has_running_sync(self, game_code: str = DLT_GAME_CODE) -> bool:
         running_id = self.db.scalar(
             select(LotterySyncRunModel.id)

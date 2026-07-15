@@ -163,6 +163,21 @@ class LotteryOmissionStatisticsRead(BaseModel):
     back: list[LotteryNumberOmissionRead]
 
 
+class LotterySamePeriodItemRead(BaseModel):
+    draw: LotteryDrawRead
+    front_matches: list[int]
+    back_matches: list[int]
+    front_match_count: int
+    back_match_count: int
+
+
+class LotterySamePeriodAnalysisRead(BaseModel):
+    target: LotteryDrawRead
+    issue_suffix: str
+    requested_count: int
+    items: list[LotterySamePeriodItemRead]
+
+
 class LotteryHotColdRead(BaseModel):
     front: list[LotteryNumberFrequencyRead]
     back: list[LotteryNumberFrequencyRead]

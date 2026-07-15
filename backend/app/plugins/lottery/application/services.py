@@ -226,6 +226,61 @@ class LotteryService:
             "hit_issues": hit_issues,
         }
 
+    def get_same_period_analysis(
+        self,
+        *,
+        issue_no: str | None = None,
+        count: int = 5,
+    ) -> dict[str, object]:
+        target_draw = (
+            self.repository.get_draw_by_issue(issue_no)
+            if issue_no is not None
+            else self.repository.get_latest_draw()
+        )
+        if target_draw is None:
+            raise AppError(
+                code=ErrorCode.lottery_draw_not_found,
+                message="Target lottery draw was not found.",
+                status_code=404,
+            )
+
+        target = self._serialize_draw(target_draw)
+        target_issue_no = str(target["issue_no"])
+        if len(target_issue_no) < 3:
+            raise AppError(
+                code=ErrorCode.validation_error,
+                message="Target lottery issue number is too short for same-period analysis.",
+                status_code=422,
+            )
+
+        issue_suffix = target_issue_no[-3:]
+        historical_draws = [
+            self._serialize_draw(draw)
+            for draw in self.repository.list_draws_by_issue_suffix(
+                issue_suffix=issue_suffix,
+                exclude_issue_no=target_issue_no,
+                limit=count,
+            )
+        ]
+        target_front_numbers = set(target["front_numbers"])
+        target_back_numbers = set(target["back_numbers"])
+
+        return {
+            "target": target,
+            "issue_suffix": issue_suffix,
+            "requested_count": count,
+            "items": [
+                {
+                    "draw": draw,
+                    "front_matches": sorted(target_front_numbers & set(draw["front_numbers"])),
+                    "back_matches": sorted(target_back_numbers & set(draw["back_numbers"])),
+                    "front_match_count": len(target_front_numbers & set(draw["front_numbers"])),
+                    "back_match_count": len(target_back_numbers & set(draw["back_numbers"])),
+                }
+                for draw in historical_draws
+            ],
+        }
+
     def get_latest_draw(self) -> dict[str, object]:
         draw = self.repository.get_latest_draw()
         if draw is None:

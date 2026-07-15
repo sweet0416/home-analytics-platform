@@ -157,6 +157,21 @@ export interface LotteryOmissionStatistics {
   back: LotteryNumberOmission[];
 }
 
+export interface LotterySamePeriodItem {
+  draw: LotteryDraw;
+  front_matches: number[];
+  back_matches: number[];
+  front_match_count: number;
+  back_match_count: number;
+}
+
+export interface LotterySamePeriodAnalysis {
+  target: LotteryDraw;
+  issue_suffix: string;
+  requested_count: number;
+  items: LotterySamePeriodItem[];
+}
+
 export interface LotteryBasicStatistics {
   sample_size: number;
   requested_limit: number;
@@ -228,6 +243,17 @@ export function fetchNumberOmissionDetail(
 ): Promise<LotteryNumberOmissionDetail> {
   return getApiData<LotteryNumberOmissionDetail>(
     `/lottery/dlt/numbers/${area}/${number}/omission?limit=${limit}`,
+  );
+}
+
+export function fetchSamePeriodAnalysis(
+  issueNo?: string,
+  count = 5,
+): Promise<LotterySamePeriodAnalysis> {
+  const params = new URLSearchParams({ count: String(count) });
+  if (issueNo) params.set('issue_no', issueNo);
+  return getApiData<LotterySamePeriodAnalysis>(
+    `/lottery/dlt/analysis/same-period?${params.toString()}`,
   );
 }
 

@@ -12,6 +12,7 @@
           <RouterLink to="/lottery/dlt/statistics">统计</RouterLink>
           <RouterLink to="/lottery/dlt/omissions">遗漏</RouterLink>
           <RouterLink to="/lottery/dlt/heatmap">热力图</RouterLink>
+          <RouterLink to="/lottery/dlt/same-period">历史同期</RouterLink>
         </div>
         <el-button
           type="primary"
