@@ -62,44 +62,54 @@
         <h2 class="panel-title">历史同期列表</h2>
         <span class="table-meta">默认显示最近 5 期历史同期</span>
       </div>
-      <div class="panel-body same-period-list">
-        <article
-          v-for="item in lottery.samePeriod?.items ?? []"
-          :key="item.draw.issue_no"
-          class="same-period-card"
+      <div class="panel-body">
+        <el-table
+          v-if="lottery.samePeriod?.items.length"
+          :data="lottery.samePeriod.items"
+          class="same-period-table"
         >
-          <div class="card-head">
-            <div>
-              <strong>{{ item.draw.issue_no }}</strong>
-              <span>{{ item.draw.draw_date }}</span>
-            </div>
-            <el-tag effect="dark" type="info">
-              {{ item.front_match_count }} + {{ item.back_match_count }}
-            </el-tag>
-          </div>
-          <div class="draw-line">
-            <span class="draw-label">前区</span>
-            <LotteryBall
-              v-for="number in item.draw.front_numbers"
-              :key="`${item.draw.issue_no}-front-${number}`"
-              :area="item.front_matches.includes(number) ? 'back' : 'front'"
-              :value="number"
-            />
-          </div>
-          <div class="draw-line">
-            <span class="draw-label">后区</span>
-            <LotteryBall
-              v-for="number in item.draw.back_numbers"
-              :key="`${item.draw.issue_no}-back-${number}`"
-              area="back"
-              :value="number"
-            />
-          </div>
-          <div class="match-summary">
-            <span>前区重合：{{ formatMatches(item.front_matches) }}</span>
-            <span>后区重合：{{ formatMatches(item.back_matches) }}</span>
-          </div>
-        </article>
+          <el-table-column prop="draw.issue_no" label="期号" width="110" />
+          <el-table-column prop="draw.draw_date" label="开奖日期" width="130" />
+          <el-table-column label="前区" min-width="190">
+            <template #default="{ row }">
+              <div class="draw-line">
+                <LotteryBall
+                  v-for="number in row.draw.front_numbers"
+                  :key="`${row.draw.issue_no}-front-${number}`"
+                  :area="row.front_matches.includes(number) ? 'back' : 'front'"
+                  :value="number"
+                />
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column label="后区" min-width="90">
+            <template #default="{ row }">
+              <div class="draw-line">
+                <LotteryBall
+                  v-for="number in row.draw.back_numbers"
+                  :key="`${row.draw.issue_no}-back-${number}`"
+                  area="back"
+                  :value="number"
+                />
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column label="重合" width="110">
+            <template #default="{ row }">
+              <el-tag effect="dark" type="info">
+                {{ row.front_match_count }} + {{ row.back_match_count }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="重合号码" min-width="210">
+            <template #default="{ row }">
+              <div class="match-summary">
+                <span>前区：{{ formatMatches(row.front_matches) }}</span>
+                <span>后区：{{ formatMatches(row.back_matches) }}</span>
+              </div>
+            </template>
+          </el-table-column>
+        </el-table>
         <EmptyState
           v-if="lottery.samePeriod && lottery.samePeriod.items.length === 0"
           title="暂无历史同期"
@@ -187,38 +197,11 @@ onMounted(() => {
   margin-top: 16px;
 }
 
-.target-draw,
-.same-period-list {
+.target-draw {
   display: grid;
   gap: 12px;
 }
 
-.same-period-list {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.same-period-card {
-  border: 1px solid rgba(148, 163, 184, 0.14);
-  border-radius: 8px;
-  display: grid;
-  gap: 12px;
-  min-width: 0;
-  padding: 12px;
-}
-
-.card-head {
-  align-items: center;
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.card-head strong {
-  display: block;
-  font-size: 18px;
-}
-
-.card-head span,
 .draw-label,
 .match-summary {
   color: var(--color-muted);
@@ -242,6 +225,15 @@ onMounted(() => {
   gap: 10px;
 }
 
+:deep(.el-table) {
+  --el-table-bg-color: transparent;
+  --el-table-tr-bg-color: transparent;
+  --el-table-header-bg-color: rgba(15, 23, 42, 0.5);
+  --el-table-text-color: var(--color-text);
+  --el-table-header-text-color: var(--color-muted);
+  --el-table-border-color: rgba(148, 163, 184, 0.14);
+}
+
 @media (max-width: 860px) {
   .same-period-header,
   .same-period-actions {
@@ -253,8 +245,8 @@ onMounted(() => {
     width: 100%;
   }
 
-  .same-period-list {
-    grid-template-columns: 1fr;
+  :deep(.el-table) {
+    font-size: 12px;
   }
 }
 </style>
