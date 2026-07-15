@@ -91,6 +91,16 @@ export interface SyncRunPage {
   };
 }
 
+export interface LotterySyncStatus {
+  enabled: boolean;
+  running: boolean;
+  cron: string;
+  timezone: string;
+  page_size: number;
+  next_run_at: string | null;
+  latest_run: LotterySyncRun | null;
+}
+
 export function fetchCurrentRule(): Promise<LotteryRule> {
   return getApiData<LotteryRule>('/lottery/dlt/rules/current');
 }
@@ -109,6 +119,10 @@ export function fetchLatestSyncRun(): Promise<LotterySyncRun> {
 
 export function fetchSyncRuns(page = 1, pageSize = 10): Promise<SyncRunPage> {
   return getApiData<SyncRunPage>(`/lottery/dlt/sync/runs?page=${page}&page_size=${pageSize}`);
+}
+
+export function fetchSyncStatus(): Promise<LotterySyncStatus> {
+  return getApiData<LotterySyncStatus>('/lottery/dlt/sync/status');
 }
 
 export function triggerDrawSync(payload: LotterySyncRequest): Promise<LotterySyncRun> {

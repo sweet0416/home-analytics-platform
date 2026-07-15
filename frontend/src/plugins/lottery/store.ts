@@ -6,10 +6,12 @@ import {
   fetchDraws,
   fetchLatestSyncRun,
   fetchSyncRuns,
+  fetchSyncStatus,
   triggerDrawSync,
   type DrawPage,
   type LotteryRule,
   type LotterySyncRun,
+  type LotterySyncStatus,
   type SyncRunPage,
 } from './api';
 
@@ -18,6 +20,7 @@ export const useLotteryStore = defineStore('lottery', {
     rule: null as LotteryRule | null,
     draws: null as DrawPage | null,
     latestSyncRun: null as LotterySyncRun | null,
+    syncStatus: null as LotterySyncStatus | null,
     syncRuns: null as SyncRunPage | null,
     disclaimer: '',
     loading: false,
@@ -51,11 +54,19 @@ export const useLotteryStore = defineStore('lottery', {
     async loadSyncState(): Promise<void> {
       this.syncError = '';
       try {
-        const [runs, latest] = await Promise.allSettled([fetchSyncRuns(), fetchLatestSyncRun()]);
+        const [status, runs, latest] = await Promise.allSettled([
+          fetchSyncStatus(),
+          fetchSyncRuns(),
+          fetchLatestSyncRun(),
+        ]);
+        if (status.status === 'fulfilled') {
+          this.syncStatus = status.value;
+          this.latestSyncRun = status.value.latest_run;
+        }
         if (runs.status === 'fulfilled') {
           this.syncRuns = runs.value;
         }
-        if (latest.status === 'fulfilled') {
+        if (!this.latestSyncRun && latest.status === 'fulfilled') {
           this.latestSyncRun = latest.value;
         }
       } catch (error) {

@@ -43,9 +43,26 @@
     <section class="panel sync-panel">
       <div class="panel-header">
         <h2 class="panel-title">数据同步</h2>
-        <span class="panel-meta">默认每日 22:30 自动同步</span>
+        <span class="panel-meta">{{ schedulerSummary }}</span>
       </div>
       <div class="panel-body sync-grid">
+        <div class="sync-block">
+          <div class="sync-label">自动调度</div>
+          <div class="sync-value">
+            <el-tag :type="schedulerTagType" effect="dark">{{ schedulerStatusText }}</el-tag>
+          </div>
+          <div class="sync-meta">{{ schedulerMeta }}</div>
+        </div>
+        <div class="sync-block">
+          <div class="sync-label">下次运行</div>
+          <div class="sync-value compact-value">{{ nextRunLabel }}</div>
+          <div class="sync-meta">{{ schedulerTimezone }}</div>
+        </div>
+        <div class="sync-block">
+          <div class="sync-label">同步批量</div>
+          <div class="sync-value">{{ syncPageSize }}</div>
+          <div class="sync-meta">每次拉取期数</div>
+        </div>
         <div class="sync-block">
           <div class="sync-label">最近任务</div>
           <div class="sync-value">{{ latestRunLabel }}</div>
@@ -144,6 +161,31 @@ const syncChangeSummary = computed(() => {
   if (!run) return '--';
   return `${run.inserted_count} / ${run.updated_count} / ${run.skipped_count}`;
 });
+const schedulerStatusText = computed(() => {
+  if (!lottery.syncStatus) return '读取中';
+  if (!lottery.syncStatus.enabled) return '已关闭';
+  return lottery.syncStatus.running ? '运行中' : '未运行';
+});
+const schedulerTagType = computed((): 'success' | 'warning' | 'info' => {
+  if (!lottery.syncStatus) return 'info';
+  if (!lottery.syncStatus.enabled) return 'info';
+  return lottery.syncStatus.running ? 'success' : 'warning';
+});
+const schedulerMeta = computed(() => {
+  if (!lottery.syncStatus) return '等待后端状态';
+  return `Cron ${lottery.syncStatus.cron}`;
+});
+const schedulerSummary = computed(() => {
+  if (!lottery.syncStatus) return '自动同步状态加载中';
+  return lottery.syncStatus.enabled
+    ? `自动同步已启用 · ${lottery.syncStatus.cron}`
+    : '自动同步已关闭';
+});
+const schedulerTimezone = computed(() => lottery.syncStatus?.timezone ?? 'Asia/Shanghai');
+const syncPageSize = computed(() => String(lottery.syncStatus?.page_size ?? 100));
+const nextRunLabel = computed(() =>
+  lottery.syncStatus?.next_run_at ? formatDateTime(lottery.syncStatus.next_run_at) : '--',
+);
 
 function formatDateTime(value: string): string {
   return new Date(value).toLocaleString('zh-CN', { hour12: false });
@@ -225,10 +267,17 @@ onMounted(() => {
   font-weight: 720;
 }
 
+.compact-value {
+  font-size: 16px;
+  line-height: 1.35;
+}
+
 .sync-meta {
   margin-top: 6px;
   color: var(--color-muted);
   font-size: 12px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
 }
 
 .tier-grid {
