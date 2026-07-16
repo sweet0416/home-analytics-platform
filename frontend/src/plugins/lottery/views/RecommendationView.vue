@@ -145,6 +145,43 @@
           </article>
         </div>
 
+        <div v-if="lottery.recommendations?.recommendations.length" class="summary-block">
+          <div class="summary-header">
+            <div>
+              <h3 class="summary-title">五组号码汇总</h3>
+              <div class="summary-meta">集中查看，方便截图、抄写或对照筛选。</div>
+            </div>
+            <el-tag effect="dark" type="success">
+              {{ recommendationCount }} 组
+            </el-tag>
+          </div>
+          <div class="summary-list">
+            <div
+              v-for="item in lottery.recommendations.recommendations"
+              :key="`summary-${item.rank}`"
+              class="summary-row"
+            >
+              <span class="summary-rank">第 {{ item.rank }} 组</span>
+              <div class="summary-numbers">
+                <span class="number-label">前区</span>
+                <LotteryBall
+                  v-for="number in item.front_numbers"
+                  :key="`summary-front-${item.rank}-${number}`"
+                  area="front"
+                  :value="number"
+                />
+                <span class="number-label back-label">后区</span>
+                <LotteryBall
+                  v-for="number in item.back_numbers"
+                  :key="`summary-back-${item.rank}-${number}`"
+                  area="back"
+                  :value="number"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
         <EmptyState
           v-else
           title="暂无推荐结果"
@@ -365,6 +402,58 @@ onMounted(() => {
   margin-top: 8px;
 }
 
+.summary-block {
+  border-top: 1px solid rgba(148, 163, 184, 0.14);
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+  padding-top: 18px;
+}
+
+.summary-header {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.summary-title {
+  font-size: 15px;
+  margin: 0;
+}
+
+.summary-meta {
+  color: var(--color-muted);
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.summary-list {
+  display: grid;
+  gap: 10px;
+}
+
+.summary-row {
+  align-items: center;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 86px minmax(0, 1fr);
+  padding: 12px;
+}
+
+.summary-rank {
+  font-weight: 700;
+}
+
+.summary-numbers {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .methodology-list {
   display: grid;
   gap: 10px;
@@ -389,7 +478,8 @@ onMounted(() => {
   }
 
   .control-grid,
-  .detail-grid {
+  .detail-grid,
+  .summary-row {
     grid-template-columns: 1fr;
   }
 
