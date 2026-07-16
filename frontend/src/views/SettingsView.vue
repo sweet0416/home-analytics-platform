@@ -77,6 +77,9 @@
             <p>
               远程备份会先压缩并加密数据库，再上传到 GitHub Release；Token 和加密密码只通过后端环境变量配置，不会在页面显示。
             </p>
+            <p>
+              推荐使用单独的私有备份仓库，Token 只授予该仓库 Contents 读写权限。
+            </p>
           </div>
 
           <div class="backup-actions">
