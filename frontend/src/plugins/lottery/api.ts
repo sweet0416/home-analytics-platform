@@ -291,6 +291,53 @@ export interface LotterySimulationAnalysis {
   back_frequency: LotterySimulationFrequency[];
 }
 
+export interface LotteryDantuoRequest {
+  front_dan: number[];
+  front_tuo: number[];
+  front_kill: number[];
+  back_dan: number[];
+  back_tuo: number[];
+  back_kill: number[];
+  addon: boolean;
+  preview_limit: number;
+}
+
+export interface LotteryDantuoCombination {
+  rank: number;
+  front_numbers: number[];
+  back_numbers: number[];
+  front_sum: number;
+  front_span: number;
+  front_parity_pattern: string;
+  front_zone_pattern: string;
+  front_route012_pattern: string;
+}
+
+export interface LotteryDantuoAnalysis {
+  disclaimer: string;
+  addon: boolean;
+  front_required: number;
+  back_required: number;
+  front_combination_count: number;
+  back_combination_count: number;
+  total_bets: number;
+  base_cost: number;
+  addon_cost: number;
+  total_cost: number;
+  front_dan: number[];
+  front_tuo: number[];
+  front_kill: number[];
+  back_dan: number[];
+  back_tuo: number[];
+  back_kill: number[];
+  available_front: number[];
+  available_back: number[];
+  preview_limit: number;
+  preview: LotteryDantuoCombination[];
+  warnings: string[];
+  methodology: string[];
+}
+
 export interface LotteryBasicStatistics {
   sample_size: number;
   requested_limit: number;
@@ -409,6 +456,13 @@ export function fetchSimulationAnalysis(
   if (seed !== undefined) params.set('seed', String(seed));
   return getApiData<LotterySimulationAnalysis>(
     `/lottery/dlt/analysis/simulation?${params.toString()}`,
+  );
+}
+
+export function analyzeDantuo(payload: LotteryDantuoRequest): Promise<LotteryDantuoAnalysis> {
+  return postApiData<LotteryDantuoAnalysis, LotteryDantuoRequest>(
+    '/lottery/dlt/analysis/dantuo',
+    payload,
   );
 }
 

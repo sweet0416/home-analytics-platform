@@ -299,6 +299,53 @@ class LotterySimulationRead(BaseModel):
     back_frequency: list[LotterySimulationFrequencyRead]
 
 
+class LotteryDantuoRequest(BaseModel):
+    front_dan: list[int] = Field(default_factory=list)
+    front_tuo: list[int] = Field(default_factory=list)
+    front_kill: list[int] = Field(default_factory=list)
+    back_dan: list[int] = Field(default_factory=list)
+    back_tuo: list[int] = Field(default_factory=list)
+    back_kill: list[int] = Field(default_factory=list)
+    addon: bool = False
+    preview_limit: int = Field(default=20, ge=1, le=200)
+
+
+class LotteryDantuoCombinationRead(BaseModel):
+    rank: int
+    front_numbers: list[int] = Field(min_length=5, max_length=5)
+    back_numbers: list[int] = Field(min_length=2, max_length=2)
+    front_sum: int
+    front_span: int
+    front_parity_pattern: str
+    front_zone_pattern: str
+    front_route012_pattern: str
+
+
+class LotteryDantuoAnalysisRead(BaseModel):
+    disclaimer: str
+    addon: bool
+    front_required: int
+    back_required: int
+    front_combination_count: int
+    back_combination_count: int
+    total_bets: int
+    base_cost: int
+    addon_cost: int
+    total_cost: int
+    front_dan: list[int]
+    front_tuo: list[int]
+    front_kill: list[int]
+    back_dan: list[int]
+    back_tuo: list[int]
+    back_kill: list[int]
+    available_front: list[int]
+    available_back: list[int]
+    preview_limit: int
+    preview: list[LotteryDantuoCombinationRead]
+    warnings: list[str]
+    methodology: list[str]
+
+
 class LotteryHotColdRead(BaseModel):
     front: list[LotteryNumberFrequencyRead]
     back: list[LotteryNumberFrequencyRead]

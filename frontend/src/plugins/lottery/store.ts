@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia';
 
 import {
+  analyzeDantuo as analyzeDantuoRequest,
   fetchBasicStatistics,
   fetchCurrentRule,
   fetchDisclaimer,
@@ -17,6 +18,8 @@ import {
   startBackfill,
   triggerDrawSync,
   type DrawPage,
+  type LotteryDantuoAnalysis,
+  type LotteryDantuoRequest,
   type LotteryBackfillJob,
   type LotteryBackfillRequest,
   type LotteryBackfillRun,
@@ -47,6 +50,7 @@ export const useLotteryStore = defineStore('lottery', {
     samePeriod: null as LotterySamePeriodAnalysis | null,
     recommendations: null as LotteryRecommendationAnalysis | null,
     simulation: null as LotterySimulationAnalysis | null,
+    dantuo: null as LotteryDantuoAnalysis | null,
     latestBackfillRun: null as LotteryBackfillRun | null,
     latestBackfillJob: null as LotteryBackfillJob | null,
     disclaimer: '',
@@ -136,6 +140,9 @@ export const useLotteryStore = defineStore('lottery', {
     },
     async loadSimulation(simulations = 10000, sets = 5, seed?: number): Promise<void> {
       this.simulation = await fetchSimulationAnalysis(simulations, sets, seed);
+    },
+    async analyzeDantuo(payload: LotteryDantuoRequest): Promise<void> {
+      this.dantuo = await analyzeDantuoRequest(payload);
     },
     async backfill(payload: LotteryBackfillRequest): Promise<void> {
       this.syncing = true;

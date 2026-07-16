@@ -15,6 +15,7 @@
           <RouterLink to="/lottery/dlt/same-period">历史同期</RouterLink>
           <RouterLink to="/lottery/dlt/recommendations">选号推荐</RouterLink>
           <RouterLink to="/lottery/dlt/simulation">模拟选号</RouterLink>
+          <RouterLink to="/lottery/dlt/dantuo">胆拖辅助</RouterLink>
         </div>
         <el-button
           type="primary"

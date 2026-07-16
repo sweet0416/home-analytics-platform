@@ -2,7 +2,7 @@ import json
 import random
 from dataclasses import replace
 from itertools import combinations
-from math import ceil
+from math import ceil, comb
 from statistics import mean
 
 from loguru import logger
@@ -470,6 +470,103 @@ class LotteryService:
             ),
         }
 
+    def analyze_dantuo(
+        self,
+        *,
+        front_dan: list[int],
+        front_tuo: list[int],
+        front_kill: list[int],
+        back_dan: list[int],
+        back_tuo: list[int],
+        back_kill: list[int],
+        addon: bool = False,
+        preview_limit: int = 20,
+    ) -> dict[str, object]:
+        front_dan = self._normalize_number_list(front_dan)
+        front_tuo = self._normalize_number_list(front_tuo)
+        front_kill = self._normalize_number_list(front_kill)
+        back_dan = self._normalize_number_list(back_dan)
+        back_tuo = self._normalize_number_list(back_tuo)
+        back_kill = self._normalize_number_list(back_kill)
+
+        self._validate_dantuo_area(
+            area_label="front",
+            dan=front_dan,
+            tuo=front_tuo,
+            kill=front_kill,
+            min_number=1,
+            max_number=35,
+            required_count=5,
+        )
+        self._validate_dantuo_area(
+            area_label="back",
+            dan=back_dan,
+            tuo=back_tuo,
+            kill=back_kill,
+            min_number=1,
+            max_number=12,
+            required_count=2,
+        )
+
+        front_required = 5 - len(front_dan)
+        back_required = 2 - len(back_dan)
+        front_combination_count = comb(len(front_tuo), front_required)
+        back_combination_count = comb(len(back_tuo), back_required)
+        total_bets = front_combination_count * back_combination_count
+        base_cost = total_bets * 2
+        addon_cost = total_bets if addon else 0
+        preview = self._build_dantuo_preview(
+            front_dan=front_dan,
+            front_tuo=front_tuo,
+            front_required=front_required,
+            back_dan=back_dan,
+            back_tuo=back_tuo,
+            back_required=back_required,
+            limit=preview_limit,
+        )
+
+        warnings: list[str] = []
+        if total_bets >= 500:
+            warnings.append("注数较高，建议先缩小拖码范围或减少胆码不确定性。")
+        if front_kill:
+            warnings.append("前区杀号已从可选池排除，但杀号本身不代表号码一定不会出现。")
+        if back_kill:
+            warnings.append("后区杀号已从可选池排除，但后区波动更大，建议谨慎使用。")
+
+        return {
+            "disclaimer": DLT_DISCLAIMER,
+            "addon": addon,
+            "front_required": front_required,
+            "back_required": back_required,
+            "front_combination_count": front_combination_count,
+            "back_combination_count": back_combination_count,
+            "total_bets": total_bets,
+            "base_cost": base_cost,
+            "addon_cost": addon_cost,
+            "total_cost": base_cost + addon_cost,
+            "front_dan": front_dan,
+            "front_tuo": front_tuo,
+            "front_kill": front_kill,
+            "back_dan": back_dan,
+            "back_tuo": back_tuo,
+            "back_kill": back_kill,
+            "available_front": [
+                number for number in range(1, 36) if number not in set(front_kill)
+            ],
+            "available_back": [
+                number for number in range(1, 13) if number not in set(back_kill)
+            ],
+            "preview_limit": preview_limit,
+            "preview": preview,
+            "warnings": warnings,
+            "methodology": [
+                "胆码：你认为更值得保留的号码，计算时每一注都会包含它。",
+                "拖码：和胆码一起组合的候选号码，系统按组合数学展开。",
+                "杀号：从可选池中排除的号码，只作为人工辅助，不代表确定不会开奖。",
+                "注数 = 前区组合数 x 后区组合数；普通投注每注 2 元，追加每注再加 1 元。",
+            ],
+        }
+
     def _resolve_same_period_target(
         self,
         issue_no: str | None,
@@ -536,6 +633,102 @@ class LotteryService:
                 key=lambda item: (-item[1], item[0]),
             )
         ]
+
+    @staticmethod
+    def _normalize_number_list(numbers: list[int]) -> list[int]:
+        return sorted(set(numbers))
+
+    @staticmethod
+    def _validate_dantuo_area(
+        *,
+        area_label: str,
+        dan: list[int],
+        tuo: list[int],
+        kill: list[int],
+        min_number: int,
+        max_number: int,
+        required_count: int,
+    ) -> None:
+        all_numbers = [*dan, *tuo, *kill]
+        invalid_numbers = [
+            number for number in all_numbers if number < min_number or number > max_number
+        ]
+        if invalid_numbers:
+            raise AppError(
+                code=ErrorCode.validation_error,
+                message=(
+                    f"Lottery {area_label} numbers must be between "
+                    f"{min_number} and {max_number}."
+                ),
+                status_code=422,
+            )
+
+        if set(dan) & set(tuo) or set(dan) & set(kill) or set(tuo) & set(kill):
+            raise AppError(
+                code=ErrorCode.validation_error,
+                message=f"Lottery {area_label} dan, tuo and kill numbers cannot overlap.",
+                status_code=422,
+            )
+
+        if len(dan) >= required_count:
+            raise AppError(
+                code=ErrorCode.validation_error,
+                message=(
+                    f"Lottery {area_label} dan count must be less than "
+                    f"{required_count} for dantuo analysis."
+                ),
+                status_code=422,
+            )
+
+        needed = required_count - len(dan)
+        if len(tuo) < needed:
+            raise AppError(
+                code=ErrorCode.validation_error,
+                message=(
+                    f"Lottery {area_label} tuo count must be at least {needed} "
+                    "after dan numbers are selected."
+                ),
+                status_code=422,
+            )
+
+    @staticmethod
+    def _build_dantuo_preview(
+        *,
+        front_dan: list[int],
+        front_tuo: list[int],
+        front_required: int,
+        back_dan: list[int],
+        back_tuo: list[int],
+        back_required: int,
+        limit: int,
+    ) -> list[dict[str, object]]:
+        preview: list[dict[str, object]] = []
+        rank = 1
+        for front_tail in combinations(front_tuo, front_required):
+            front_numbers = sorted([*front_dan, *front_tail])
+            for back_tail in combinations(back_tuo, back_required):
+                back_numbers = sorted([*back_dan, *back_tail])
+                metrics = LotteryService._build_draw_metrics(
+                    issue_no="dantuo",
+                    front_numbers=front_numbers,
+                    back_numbers=back_numbers,
+                )
+                preview.append(
+                    {
+                        "rank": rank,
+                        "front_numbers": front_numbers,
+                        "back_numbers": back_numbers,
+                        "front_sum": metrics["front_sum"],
+                        "front_span": metrics["front_span"],
+                        "front_parity_pattern": metrics["front_parity_pattern"],
+                        "front_zone_pattern": metrics["front_zone_pattern"],
+                        "front_route012_pattern": metrics["front_route012_pattern"],
+                    }
+                )
+                rank += 1
+                if len(preview) >= limit:
+                    return preview
+        return preview
 
     def get_latest_draw(self) -> dict[str, object]:
         draw = self.repository.get_latest_draw()
