@@ -45,8 +45,8 @@
               备份不会覆盖正在使用的数据。
             </p>
             <p>
-              现在先提供“创建备份”和“查看备份”。恢复数据库属于高风险操作，
-              后续会做成带确认、停服务和回滚记录的独立流程。
+              恢复数据库属于高风险操作，需要输入确认短语才会执行；
+              系统会在恢复前先创建一份安全备份，并记录恢复审计。
             </p>
             <p>
               当前建议最多保留 {{ retentionCount }} 份备份；后续会增加自动清理和恢复审计。
@@ -107,10 +107,13 @@
                 {{ formatDateTime(row.created_at) }}
               </template>
             </el-table-column>
-            <el-table-column label="操作" width="110" fixed="right">
+            <el-table-column label="操作" width="170" fixed="right">
               <template #default="{ row }">
                 <el-button text type="primary" @click="downloadBackup(row.file_name)">
                   下载
+                </el-button>
+                <el-button text type="danger" @click="restoreBackup(row.file_name)">
+                  恢复
                 </el-button>
               </template>
             </el-table-column>
@@ -141,13 +144,14 @@
 
 <script setup lang="ts">
 import { FolderChecked, Refresh } from '@element-plus/icons-vue';
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import { computed, onMounted } from 'vue';
 
 import EmptyState from '@/components/common/EmptyState.vue';
 import { useSystemStore } from '@/stores/system';
 
 const system = useSystemStore();
+const RESTORE_CONFIRMATION = 'RESTORE HAP DATABASE';
 
 const backupCount = computed(() => String(system.backups?.items.length ?? 0));
 const databaseEngine = computed(() => system.backups?.database_engine.toUpperCase() ?? 'SQLITE');
@@ -230,6 +234,34 @@ async function createBackup(): Promise<void> {
 
 function downloadBackup(fileName: string): void {
   window.location.href = `/api/v1/system/backups/${encodeURIComponent(fileName)}/download`;
+}
+
+async function restoreBackup(fileName: string): Promise<void> {
+  try {
+    const promptMessage = [
+      `恢复会先创建安全备份，然后用 ${fileName} 替换当前 SQLite 数据库。`,
+      `请输入 ${RESTORE_CONFIRMATION} 确认。`,
+    ].join('');
+    const { value } = await ElMessageBox.prompt(
+      promptMessage,
+      '恢复数据库',
+      {
+        confirmButtonText: '确认恢复',
+        cancelButtonText: '取消',
+        inputPattern: /^RESTORE HAP DATABASE$/,
+        inputErrorMessage: `请输入 ${RESTORE_CONFIRMATION}`,
+        type: 'warning',
+        distinguishCancelAndClose: true,
+      },
+    );
+    const result = await system.restoreBackup(fileName, String(value ?? ''));
+    ElMessage.success(`数据库已恢复，安全备份：${result.safety_backup_file_name}`);
+  } catch (error) {
+    if (error === 'cancel' || error === 'close') {
+      return;
+    }
+    ElMessage.error('数据库恢复失败，请查看后端日志。');
+  }
 }
 
 onMounted(() => {

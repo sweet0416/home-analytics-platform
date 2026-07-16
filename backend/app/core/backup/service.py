@@ -1,3 +1,5 @@
+import os
+import shutil
 import sqlite3
 from datetime import datetime
 from pathlib import Path
@@ -5,17 +7,21 @@ from urllib.parse import unquote
 
 from loguru import logger
 
-from app.core.backup.schemas import DatabaseBackupListRead, DatabaseBackupRead
+from app.core.backup.repository import DatabaseRestoreRunRepository
+from app.core.backup.schemas import DatabaseBackupListRead, DatabaseBackupRead, DatabaseRestoreRead
 from app.core.config.settings import Settings
+from app.core.database.session import SessionLocal, create_database_schema, engine
 from app.shared.exceptions.base import AppError
 from app.shared.exceptions.codes import ErrorCode
 
 
 class DatabaseBackupService:
+    RESTORE_CONFIRMATION = "RESTORE HAP DATABASE"
+
     def __init__(self, settings: Settings) -> None:
         self._settings = settings
 
-    def create_sqlite_backup(self) -> DatabaseBackupRead:
+    def create_sqlite_backup(self, label: str | None = None) -> DatabaseBackupRead:
         source_path = self._get_sqlite_database_path()
         if not source_path.exists():
             raise AppError(
@@ -25,7 +31,7 @@ class DatabaseBackupService:
             )
 
         self._settings.backup_dir.mkdir(parents=True, exist_ok=True)
-        target_path = self._settings.backup_dir / self._build_backup_name()
+        target_path = self._settings.backup_dir / self._build_backup_name(label=label)
 
         source = sqlite3.connect(str(source_path))
         target = sqlite3.connect(str(target_path))
@@ -44,6 +50,45 @@ class DatabaseBackupService:
         )
         self.prune_sqlite_backups()
         return backup
+
+    def restore_sqlite_backup(self, file_name: str, confirmation: str) -> DatabaseRestoreRead:
+        if confirmation != self.RESTORE_CONFIRMATION:
+            raise AppError(
+                code=ErrorCode.validation_error,
+                message=f"Type '{self.RESTORE_CONFIRMATION}' to confirm database restore.",
+                status_code=400,
+            )
+
+        restore_path = self.get_sqlite_backup_path(file_name)
+        self._assert_sqlite_integrity(restore_path)
+        safety_backup = self.create_sqlite_backup(label="pre_restore")
+        database_path = self._get_sqlite_database_path()
+        temp_restore_path = database_path.with_suffix(".restore.tmp")
+        started_at = datetime.now()
+
+        try:
+            shutil.copy2(restore_path, temp_restore_path)
+            self._assert_sqlite_integrity(temp_restore_path)
+            engine.dispose()
+            os.replace(temp_restore_path, database_path)
+            create_database_schema()
+        finally:
+            temp_restore_path.unlink(missing_ok=True)
+
+        logger.warning(
+            "SQLite database restored from {} with safety backup {}",
+            restore_path.name,
+            safety_backup.file_name,
+        )
+        result = DatabaseRestoreRead(
+            source_file_name=restore_path.name,
+            safety_backup_file_name=safety_backup.file_name,
+            status="success",
+            message="Database restored successfully. Review application health after restore.",
+            restored_at=started_at,
+        )
+        self._record_restore_result(result=result)
+        return result
 
     def list_sqlite_backups(
         self,
@@ -118,8 +163,47 @@ class DatabaseBackupService:
         return Path(unquote(raw_path))
 
     @staticmethod
-    def _build_backup_name() -> str:
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    def _assert_sqlite_integrity(path: Path) -> None:
+        try:
+            connection = sqlite3.connect(str(path))
+            try:
+                result = connection.execute("PRAGMA integrity_check").fetchone()
+            finally:
+                connection.close()
+        except sqlite3.DatabaseError as exc:
+            raise AppError(
+                code=ErrorCode.validation_error,
+                message=f"Invalid SQLite backup file: {path.name}",
+                status_code=400,
+            ) from exc
+
+        if result is None or result[0] != "ok":
+            raise AppError(
+                code=ErrorCode.validation_error,
+                message=f"SQLite integrity check failed for backup: {path.name}",
+                status_code=400,
+            )
+
+    @staticmethod
+    def _record_restore_result(result: DatabaseRestoreRead) -> None:
+        db = SessionLocal()
+        try:
+            DatabaseRestoreRunRepository(db).record_run(
+                source_file_name=result.source_file_name,
+                safety_backup_file_name=result.safety_backup_file_name,
+                confirmation="matched",
+                status=result.status,
+                message=result.message,
+            )
+        finally:
+            db.close()
+
+    @staticmethod
+    def _build_backup_name(label: str | None = None) -> str:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+        if label:
+            normalized = "".join(char for char in label if char.isalnum() or char in {"_", "-"})
+            return f"hap_{normalized}_{timestamp}.db"
         return f"hap_{timestamp}.db"
 
     @staticmethod

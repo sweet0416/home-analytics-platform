@@ -16,3 +16,16 @@ class DatabaseBackupListRead(BaseModel):
     retention_count: int = Field(ge=1)
     total_size_bytes: int = Field(ge=0)
     scheduler: dict[str, object]
+
+
+class DatabaseRestoreRequest(BaseModel):
+    file_name: str
+    confirmation: str
+
+
+class DatabaseRestoreRead(BaseModel):
+    source_file_name: str
+    safety_backup_file_name: str
+    status: str
+    message: str
+    restored_at: datetime

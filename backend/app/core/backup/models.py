@@ -26,3 +26,22 @@ class DatabaseBackupRunModel(Base):
     remote_uploaded_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class DatabaseRestoreRunModel(Base):
+    __tablename__ = "database_restore_runs"
+    __table_args__ = (
+        Index("ix_database_restore_runs_created_at", "created_at"),
+        Index("ix_database_restore_runs_status", "status"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    source_file_name: Mapped[str] = mapped_column(String(255), index=True)
+    safety_backup_file_name: Mapped[str] = mapped_column(String(255))
+    confirmation: Mapped[str] = mapped_column(String(64))
+    status: Mapped[str] = mapped_column(String(32), default="success")
+    message: Mapped[str] = mapped_column(Text, default="")
+    started_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

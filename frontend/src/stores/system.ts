@@ -14,6 +14,19 @@ export interface DatabaseBackup {
   created_at: string;
 }
 
+export interface DatabaseRestoreResult {
+  source_file_name: string;
+  safety_backup_file_name: string;
+  status: string;
+  message: string;
+  restored_at: string;
+}
+
+interface DatabaseRestorePayload {
+  file_name: string;
+  confirmation: string;
+}
+
 export interface DatabaseBackupList {
   items: DatabaseBackup[];
   directory: string;
@@ -86,6 +99,23 @@ export const useSystemStore = defineStore('system', {
         return backup;
       } catch (error) {
         this.backupError = error instanceof Error ? error.message : '数据库备份失败';
+        throw error;
+      } finally {
+        this.backupLoading = false;
+      }
+    },
+    async restoreBackup(fileName: string, confirmation: string): Promise<DatabaseRestoreResult> {
+      this.backupLoading = true;
+      this.backupError = '';
+      try {
+        const result = await postApiData<DatabaseRestoreResult, DatabaseRestorePayload>(
+          `/system/backups/${encodeURIComponent(fileName)}/restore`,
+          { file_name: fileName, confirmation },
+        );
+        await this.fetchBackups();
+        return result;
+      } catch (error) {
+        this.backupError = error instanceof Error ? error.message : '数据库恢复失败';
         throw error;
       } finally {
         this.backupLoading = false;

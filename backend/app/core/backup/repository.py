@@ -1,7 +1,7 @@
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.backup.models import DatabaseBackupRunModel
+from app.core.backup.models import DatabaseBackupRunModel, DatabaseRestoreRunModel
 from app.core.backup.remote import RemoteBackupResult
 from app.core.backup.schemas import DatabaseBackupRead
 
@@ -41,3 +41,28 @@ class DatabaseBackupRunRepository:
             .limit(1)
         )
         return self._db.execute(statement).scalar_one_or_none()
+
+
+class DatabaseRestoreRunRepository:
+    def __init__(self, db: Session) -> None:
+        self._db = db
+
+    def record_run(
+        self,
+        source_file_name: str,
+        safety_backup_file_name: str,
+        confirmation: str,
+        status: str,
+        message: str,
+    ) -> DatabaseRestoreRunModel:
+        model = DatabaseRestoreRunModel(
+            source_file_name=source_file_name,
+            safety_backup_file_name=safety_backup_file_name,
+            confirmation=confirmation,
+            status=status,
+            message=message,
+        )
+        self._db.add(model)
+        self._db.commit()
+        self._db.refresh(model)
+        return model
