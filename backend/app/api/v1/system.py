@@ -1,5 +1,7 @@
 from fastapi import APIRouter
 
+from app.core.backup.schemas import DatabaseBackupListRead, DatabaseBackupRead
+from app.core.backup.service import DatabaseBackupService
 from app.core.config.settings import get_settings
 from app.shared.responses.schemas import ApiResponse, ok
 
@@ -17,3 +19,16 @@ def health_check() -> ApiResponse[dict[str, str]]:
         }
     )
 
+
+@router.get("/backups", response_model=ApiResponse[DatabaseBackupListRead])
+def list_database_backups() -> ApiResponse[DatabaseBackupListRead]:
+    settings = get_settings()
+    service = DatabaseBackupService(settings=settings)
+    return ok(service.list_sqlite_backups())
+
+
+@router.post("/backups", response_model=ApiResponse[DatabaseBackupRead])
+def create_database_backup() -> ApiResponse[DatabaseBackupRead]:
+    settings = get_settings()
+    service = DatabaseBackupService(settings=settings)
+    return ok(service.create_sqlite_backup(), message="backup created")
