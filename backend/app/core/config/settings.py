@@ -18,6 +18,12 @@ class Settings(BaseSettings):
     backup_retention_count: int = Field(default=30, ge=1, le=365)
     backup_auto_enabled: bool = True
     backup_cron: str = "10 3 * * *"
+    github_backup_enabled: bool = False
+    github_backup_repo: str = ""
+    github_backup_token: str = ""
+    github_backup_release_tag: str = "hap-backups"
+    github_backup_encryption_passphrase: str = ""
+    github_backup_timeout_seconds: int = Field(default=30, ge=5, le=120)
     lottery_dlt_auto_sync_enabled: bool = True
     lottery_dlt_sync_cron: str = "30 22 * * *"
     lottery_dlt_sync_page_size: int = Field(default=100, ge=1, le=500)

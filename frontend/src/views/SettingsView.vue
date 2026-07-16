@@ -64,6 +64,21 @@
             </div>
           </div>
 
+          <div class="remote-box">
+            <div class="scheduler-status">
+              <span class="status-dot" :class="{ online: githubBackupReady }" />
+              <strong>{{ githubBackupStatusText }}</strong>
+            </div>
+            <div class="scheduler-meta">
+              <span>仓库：{{ githubBackupRepo }}</span>
+              <span>Release：{{ githubBackupReleaseTag }}</span>
+              <span>最近：{{ lastGithubBackupText }}</span>
+            </div>
+            <p>
+              远程备份会先压缩并加密数据库，再上传到 GitHub Release；Token 和加密密码只通过后端环境变量配置，不会在页面显示。
+            </p>
+          </div>
+
           <div class="backup-actions">
             <el-button type="primary" :icon="FolderChecked" :loading="system.backupLoading" @click="createBackup">
               创建当前数据库备份
@@ -154,6 +169,28 @@ const lastAutoBackupText = computed(() => {
   }
   const status = scheduler.last_status === 'success' ? '成功' : '失败';
   return `${formatDateTime(scheduler.last_run_at)} · ${status}`;
+});
+const githubBackup = computed(() => system.backups?.scheduler.remote ?? {});
+const githubBackupReady = computed(() => {
+  return Boolean(githubBackup.value.enabled && githubBackup.value.configured);
+});
+const githubBackupStatusText = computed(() => {
+  if (!githubBackup.value.enabled) {
+    return 'GitHub 远程备份已关闭';
+  }
+  if (!githubBackup.value.configured) {
+    return 'GitHub 远程备份未配置完整';
+  }
+  return 'GitHub 加密远程备份已就绪';
+});
+const githubBackupRepo = computed(() => githubBackup.value.repo || '未配置');
+const githubBackupReleaseTag = computed(() => githubBackup.value.release_tag || 'hap-backups');
+const lastGithubBackupText = computed(() => {
+  if (!githubBackup.value.last_uploaded_at) {
+    return githubBackup.value.last_message || '暂无远程备份记录';
+  }
+  const asset = githubBackup.value.last_asset_name ?? '加密备份';
+  return `${formatDateTime(githubBackup.value.last_uploaded_at)} · ${asset}`;
 });
 const latestBackupTime = computed(() => {
   const latest = system.backups?.items[0];
@@ -276,6 +313,22 @@ onMounted(() => {
   background: rgba(34, 197, 94, 0.07);
   margin-bottom: 14px;
   padding: 12px 14px;
+}
+
+.remote-box {
+  display: grid;
+  gap: 8px;
+  border: 1px solid rgba(167, 139, 250, 0.2);
+  border-radius: 8px;
+  background: rgba(167, 139, 250, 0.08);
+  color: var(--color-muted);
+  line-height: 1.6;
+  margin-bottom: 14px;
+  padding: 12px 14px;
+}
+
+.remote-box p {
+  margin: 0;
 }
 
 .scheduler-status {

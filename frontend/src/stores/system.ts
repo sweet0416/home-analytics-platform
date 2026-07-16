@@ -30,6 +30,16 @@ export interface DatabaseBackupList {
     last_status?: string | null;
     last_message?: string | null;
     last_backup_file_name?: string | null;
+    remote?: {
+      enabled?: boolean;
+      configured?: boolean;
+      repo?: string;
+      release_tag?: string;
+      last_status?: string | null;
+      last_message?: string | null;
+      last_asset_name?: string | null;
+      last_uploaded_at?: string | null;
+    };
   };
 }
 
