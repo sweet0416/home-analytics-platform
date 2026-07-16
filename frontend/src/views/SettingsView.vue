@@ -41,7 +41,8 @@
             <div class="explain-title">这是什么意思？</div>
             <p>
               备份会把当前 SQLite 数据库复制一份到 Docker 的备份卷里，路径是
-              <code>{{ backupDirectory }}</code>。它不会上传到 GitHub，也不会覆盖正在使用的数据。
+              <code>{{ backupDirectory }}</code>。如果 GitHub 远程备份已配置，会同时上传一份加密副本。
+              备份不会覆盖正在使用的数据。
             </p>
             <p>
               现在先提供“创建备份”和“查看备份”。恢复数据库属于高风险操作，
