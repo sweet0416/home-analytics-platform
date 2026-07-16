@@ -20,6 +20,17 @@ export interface DatabaseBackupList {
   database_engine: string;
   retention_count: number;
   total_size_bytes: number;
+  scheduler: {
+    enabled?: boolean;
+    running?: boolean;
+    cron?: string;
+    timezone?: string;
+    next_run_at?: string | null;
+    last_run_at?: string | null;
+    last_status?: string | null;
+    last_message?: string | null;
+    last_backup_file_name?: string | null;
+  };
 }
 
 export const useSystemStore = defineStore('system', {

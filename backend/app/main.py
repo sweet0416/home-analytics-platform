@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.v1.router import api_router
+from app.core.backup.scheduler import start_backup_scheduler, stop_backup_scheduler
 from app.core.config.settings import get_settings
 from app.core.database.session import create_database_schema
 from app.core.logging.setup import configure_logging
@@ -19,10 +20,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings = get_settings()
     configure_logging(settings)
     create_database_schema()
+    start_backup_scheduler()
     plugin_registry.register(lottery_plugin)
     try:
         yield
     finally:
+        stop_backup_scheduler()
         plugin_registry.shutdown()
 
 

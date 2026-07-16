@@ -2,6 +2,7 @@ from fastapi import APIRouter
 from fastapi.responses import FileResponse
 
 from app.core.backup.schemas import DatabaseBackupListRead, DatabaseBackupRead
+from app.core.backup.scheduler import get_backup_scheduler_status
 from app.core.backup.service import DatabaseBackupService
 from app.core.config.settings import get_settings
 from app.shared.responses.schemas import ApiResponse, ok
@@ -25,7 +26,7 @@ def health_check() -> ApiResponse[dict[str, str]]:
 def list_database_backups() -> ApiResponse[DatabaseBackupListRead]:
     settings = get_settings()
     service = DatabaseBackupService(settings=settings)
-    return ok(service.list_sqlite_backups())
+    return ok(service.list_sqlite_backups(scheduler_status=get_backup_scheduler_status()))
 
 
 @router.post("/backups", response_model=ApiResponse[DatabaseBackupRead])

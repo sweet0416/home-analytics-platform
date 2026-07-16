@@ -42,9 +42,13 @@ class DatabaseBackupService:
             target_path,
             backup.size_bytes,
         )
+        self.prune_sqlite_backups()
         return backup
 
-    def list_sqlite_backups(self) -> DatabaseBackupListRead:
+    def list_sqlite_backups(
+        self,
+        scheduler_status: dict[str, object] | None = None,
+    ) -> DatabaseBackupListRead:
         backups = self._list_backup_files()
         return DatabaseBackupListRead(
             items=backups,
@@ -52,7 +56,22 @@ class DatabaseBackupService:
             database_engine="sqlite",
             retention_count=self._settings.backup_retention_count,
             total_size_bytes=sum(item.size_bytes for item in backups),
+            scheduler=scheduler_status or {},
         )
+
+    def prune_sqlite_backups(self) -> int:
+        backups = self._list_backup_files()
+        expired = backups[self._settings.backup_retention_count :]
+        deleted_count = 0
+        for backup in expired:
+            path = self._settings.backup_dir / backup.file_name
+            try:
+                path.unlink(missing_ok=True)
+                deleted_count += 1
+                logger.info("Expired SQLite backup removed: {}", path)
+            except OSError as exc:
+                logger.warning("Failed to remove expired SQLite backup {}: {}", path, exc)
+        return deleted_count
 
     def get_sqlite_backup_path(self, file_name: str) -> Path:
         if Path(file_name).name != file_name or not file_name.startswith("hap_"):

@@ -52,6 +52,18 @@
             </p>
           </div>
 
+          <div class="scheduler-box">
+            <div class="scheduler-status">
+              <span class="status-dot" :class="{ online: autoBackupRunning }" />
+              <strong>{{ autoBackupStatusText }}</strong>
+            </div>
+            <div class="scheduler-meta">
+              <span>计划：{{ autoBackupCron }}</span>
+              <span>下次：{{ nextAutoBackupTime }}</span>
+              <span>最近：{{ lastAutoBackupText }}</span>
+            </div>
+          </div>
+
           <div class="backup-actions">
             <el-button type="primary" :icon="FolderChecked" :loading="system.backupLoading" @click="createBackup">
               创建当前数据库备份
@@ -123,6 +135,26 @@ const databaseEngine = computed(() => system.backups?.database_engine.toUpperCas
 const backupDirectory = computed(() => system.backups?.directory ?? '/app/data/sqlite/backups');
 const retentionCount = computed(() => system.backups?.retention_count ?? 30);
 const totalBackupSize = computed(() => formatBytes(system.backups?.total_size_bytes ?? 0));
+const autoBackupRunning = computed(() => Boolean(system.backups?.scheduler.running));
+const autoBackupStatusText = computed(() => {
+  if (!system.backups?.scheduler.enabled) {
+    return '自动备份已关闭';
+  }
+  return autoBackupRunning.value ? '自动备份运行中' : '自动备份未运行';
+});
+const autoBackupCron = computed(() => system.backups?.scheduler.cron ?? '10 3 * * *');
+const nextAutoBackupTime = computed(() => {
+  const value = system.backups?.scheduler.next_run_at;
+  return value ? formatDateTime(value) : '暂无';
+});
+const lastAutoBackupText = computed(() => {
+  const scheduler = system.backups?.scheduler;
+  if (!scheduler?.last_run_at) {
+    return '暂无自动备份记录';
+  }
+  const status = scheduler.last_status === 'success' ? '成功' : '失败';
+  return `${formatDateTime(scheduler.last_run_at)} · ${status}`;
+});
 const latestBackupTime = computed(() => {
   const latest = system.backups?.items[0];
   return latest ? formatDateTime(latest.created_at) : '暂无';
@@ -234,6 +266,30 @@ onMounted(() => {
   flex-wrap: wrap;
   gap: 12px;
   margin-bottom: 14px;
+}
+
+.scheduler-box {
+  display: grid;
+  gap: 8px;
+  border: 1px solid rgba(34, 197, 94, 0.18);
+  border-radius: 8px;
+  background: rgba(34, 197, 94, 0.07);
+  margin-bottom: 14px;
+  padding: 12px 14px;
+}
+
+.scheduler-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.scheduler-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  color: var(--color-muted);
+  font-size: 13px;
 }
 
 .error-text {
