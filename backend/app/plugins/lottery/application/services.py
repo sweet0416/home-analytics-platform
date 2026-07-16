@@ -1,5 +1,6 @@
 import json
 from dataclasses import replace
+from itertools import combinations
 from math import ceil
 from statistics import mean
 
@@ -7,7 +8,7 @@ from loguru import logger
 from sqlalchemy.orm import Session
 
 from app.core.config.settings import Settings, get_settings
-from app.plugins.lottery.domain.constants import DLT_GAME_CODE
+from app.plugins.lottery.domain.constants import DLT_DISCLAIMER, DLT_GAME_CODE
 from app.plugins.lottery.domain.sync import (
     DrawSource,
     DrawSourcePage,
@@ -327,6 +328,76 @@ class LotteryService:
             ],
         }
 
+    def get_recommendations(
+        self,
+        *,
+        issue_no: str | None = None,
+        sets: int = 5,
+        same_period_count: int = 10,
+        sample_limit: int = 200,
+    ) -> dict[str, object]:
+        latest_draw = self.repository.get_latest_draw()
+        if latest_draw is None:
+            raise AppError(
+                code=ErrorCode.lottery_draw_not_found,
+                message="No lottery draw data is available for recommendation analysis.",
+                status_code=404,
+            )
+
+        target_issue_no = self._resolve_recommendation_issue_no(issue_no, latest_draw.issue_no)
+        issue_suffix = target_issue_no[-3:]
+        recent_draws = [
+            self._serialize_draw(draw)
+            for draw in self.repository.list_recent_draws(limit=sample_limit)
+        ]
+        same_period_draws = [
+            self._serialize_draw(draw)
+            for draw in self.repository.list_draws_by_issue_suffix(
+                issue_suffix=issue_suffix,
+                exclude_issue_no=None,
+                limit=same_period_count,
+            )
+            if str(draw.issue_no) != target_issue_no
+        ]
+        front_scores = self._score_recommendation_numbers(
+            area="front",
+            min_number=1,
+            max_number=35,
+            recent_draws=recent_draws,
+            same_period_draws=same_period_draws,
+        )
+        back_scores = self._score_recommendation_numbers(
+            area="back",
+            min_number=1,
+            max_number=12,
+            recent_draws=recent_draws,
+            same_period_draws=same_period_draws,
+        )
+        recommendations = self._build_recommendation_sets(
+            front_scores=front_scores,
+            back_scores=back_scores,
+            recent_draws=recent_draws,
+            limit=sets,
+        )
+
+        return {
+            "target_issue_no": target_issue_no,
+            "issue_suffix": issue_suffix,
+            "sample_size": len(recent_draws),
+            "same_period_count": len(same_period_draws),
+            "requested_sets": sets,
+            "disclaimer": DLT_DISCLAIMER,
+            "methodology": [
+                "历史同期：优先考虑目标期号后三位相同的往年开奖中重复出现的号码。",
+                "近期统计：结合最近样本内的出现频次、当前遗漏和冷热状态。",
+                "结构约束：前区组合会参考和值、跨度、奇偶、三区和012路分布，避免结构过于极端。",
+                "组合去重：多组结果之间会控制重合度，避免只给出高度相似的号码。",
+            ],
+            "same_period_repeated_front": self._top_recommendation_numbers(front_scores, limit=10),
+            "same_period_repeated_back": self._top_recommendation_numbers(back_scores, limit=6),
+            "recommendations": recommendations,
+        }
+
     def _resolve_same_period_target(
         self,
         issue_no: str | None,
@@ -336,6 +407,312 @@ class LotteryService:
         if len(issue_no) == 3 and issue_no.isdigit():
             return self.repository.get_latest_draw_by_issue_suffix(issue_suffix=issue_no)
         return self.repository.get_draw_by_issue(issue_no)
+
+    @staticmethod
+    def _resolve_recommendation_issue_no(issue_no: str | None, latest_issue_no: str) -> str:
+        normalized = issue_no.strip() if issue_no is not None else None
+        if normalized:
+            if len(normalized) == 3 and normalized.isdigit():
+                prefix = latest_issue_no[:-3] if len(latest_issue_no) > 3 else ""
+                return f"{prefix}{normalized}"
+            return normalized
+        if latest_issue_no.isdigit():
+            return str(int(latest_issue_no) + 1).zfill(len(latest_issue_no))
+        return latest_issue_no
+
+    @classmethod
+    def _score_recommendation_numbers(
+        cls,
+        *,
+        area: str,
+        min_number: int,
+        max_number: int,
+        recent_draws: list[dict[str, object]],
+        same_period_draws: list[dict[str, object]],
+    ) -> list[dict[str, object]]:
+        recent_rows = [list(draw[f"{area}_numbers"]) for draw in recent_draws]
+        same_period_rows = [list(draw[f"{area}_numbers"]) for draw in same_period_draws]
+        issue_numbers = [str(draw["issue_no"]) for draw in recent_draws]
+        frequency_items = cls._build_frequency(
+            rows=recent_rows,
+            min_number=min_number,
+            max_number=max_number,
+            recent_issue_numbers=issue_numbers,
+        )
+        frequency_by_number = {int(item["number"]): item for item in frequency_items}
+        same_counts = {
+            number: sum(1 for row in same_period_rows if number in row)
+            for number in range(min_number, max_number + 1)
+        }
+        max_same_count = max(same_counts.values(), default=0) or 1
+        max_frequency = max((int(item["count"]) for item in frequency_items), default=0) or 1
+        expected_gap = max(
+            1,
+            round(len(recent_rows) / ((max_number - min_number + 1) / len(recent_rows[0]))),
+        )
+        scored: list[dict[str, object]] = []
+
+        for number in range(min_number, max_number + 1):
+            frequency = int(frequency_by_number[number]["count"])
+            missing = int(frequency_by_number[number]["missing"])
+            same_hits = same_counts[number]
+            same_score = 45 * (same_hits / max_same_count)
+            frequency_score = 25 * (frequency / max_frequency)
+            missing_score = 20 * min(missing / expected_gap, 1.25)
+            balance_score = 10 if 1 <= same_hits or missing <= expected_gap * 2 else 4
+            score = round(same_score + frequency_score + missing_score + balance_score, 2)
+            reasons = cls._build_number_reasons(
+                same_hits=same_hits,
+                frequency=frequency,
+                missing=missing,
+                expected_gap=expected_gap,
+            )
+            scored.append(
+                {
+                    "number": number,
+                    "score": score,
+                    "same_period_hits": same_hits,
+                    "recent_frequency": frequency,
+                    "current_missing": missing,
+                    "reasons": reasons,
+                }
+            )
+
+        return sorted(scored, key=lambda item: (-float(item["score"]), int(item["number"])))
+
+    @staticmethod
+    def _build_number_reasons(
+        *,
+        same_hits: int,
+        frequency: int,
+        missing: int,
+        expected_gap: int,
+    ) -> list[str]:
+        reasons: list[str] = []
+        if same_hits > 0:
+            reasons.append(f"历史同期出现 {same_hits} 次")
+        if frequency > 0:
+            reasons.append(f"近期样本出现 {frequency} 次")
+        if missing >= expected_gap:
+            reasons.append(f"当前遗漏 {missing} 期，高于理论间隔约 {expected_gap} 期")
+        elif missing <= 2:
+            reasons.append("近期刚出现，偏热")
+        else:
+            reasons.append(f"当前遗漏 {missing} 期，处于中间区间")
+        return reasons
+
+    @classmethod
+    def _build_recommendation_sets(
+        cls,
+        *,
+        front_scores: list[dict[str, object]],
+        back_scores: list[dict[str, object]],
+        recent_draws: list[dict[str, object]],
+        limit: int,
+    ) -> list[dict[str, object]]:
+        front_pool = [int(item["number"]) for item in front_scores[:14]]
+        back_pool = [int(item["number"]) for item in back_scores[:7]]
+        front_score_map = {int(item["number"]): item for item in front_scores}
+        back_score_map = {int(item["number"]): item for item in back_scores}
+        historical_metrics = [
+            cls._build_draw_metrics(
+                issue_no=str(draw["issue_no"]),
+                front_numbers=list(draw["front_numbers"]),
+                back_numbers=list(draw["back_numbers"]),
+            )
+            for draw in recent_draws[:120]
+        ]
+        sum_average = mean([int(item["front_sum"]) for item in historical_metrics])
+        span_average = mean([int(item["front_span"]) for item in historical_metrics])
+        candidates: list[dict[str, object]] = []
+
+        for front_combo in combinations(front_pool, 5):
+            front_numbers = sorted(front_combo)
+            metrics = cls._build_draw_metrics(
+                issue_no="candidate",
+                front_numbers=front_numbers,
+                back_numbers=[],
+            )
+            front_structure_score = cls._score_front_structure(
+                front_numbers=front_numbers,
+                metrics=metrics,
+                sum_average=sum_average,
+                span_average=span_average,
+            )
+            for back_combo in combinations(back_pool, 2):
+                back_numbers = sorted(back_combo)
+                number_score = sum(
+                    float(front_score_map[number]["score"]) for number in front_numbers
+                ) + sum(float(back_score_map[number]["score"]) for number in back_numbers)
+                total_score = round(number_score + front_structure_score, 2)
+                candidates.append(
+                    {
+                        "front_numbers": front_numbers,
+                        "back_numbers": back_numbers,
+                        "score": total_score,
+                        "metrics": metrics,
+                    }
+                )
+
+        selected: list[dict[str, object]] = []
+        for candidate in sorted(candidates, key=lambda item: -float(item["score"])):
+            if cls._is_recommendation_too_similar(candidate, selected):
+                continue
+            selected.append(candidate)
+            if len(selected) >= limit:
+                break
+
+        return [
+            cls._serialize_recommendation_set(
+                rank=index,
+                candidate=candidate,
+                front_score_map=front_score_map,
+                back_score_map=back_score_map,
+                sum_average=sum_average,
+                span_average=span_average,
+            )
+            for index, candidate in enumerate(selected, start=1)
+        ]
+
+    @staticmethod
+    def _score_front_structure(
+        *,
+        front_numbers: list[int],
+        metrics: dict[str, object],
+        sum_average: float,
+        span_average: float,
+    ) -> float:
+        front_sum = int(metrics["front_sum"])
+        front_span = int(metrics["front_span"])
+        score = 0.0
+        score += max(0, 18 - abs(front_sum - sum_average) * 0.75)
+        score += max(0, 12 - abs(front_span - span_average) * 0.8)
+        odd_count = sum(1 for number in front_numbers if number % 2 == 1)
+        if odd_count in {2, 3}:
+            score += 10
+        zone_counts = list(metrics["front_zone_counts"])
+        if all(count > 0 for count in zone_counts):
+            score += 8
+        route_counts = list(metrics["front_route012_counts"])
+        if all(count > 0 for count in route_counts):
+            score += 6
+        return round(score, 2)
+
+    @staticmethod
+    def _is_recommendation_too_similar(
+        candidate: dict[str, object],
+        selected: list[dict[str, object]],
+    ) -> bool:
+        front_numbers = set(candidate["front_numbers"])
+        back_numbers = set(candidate["back_numbers"])
+        for item in selected:
+            front_overlap = len(front_numbers & set(item["front_numbers"]))
+            back_overlap = len(back_numbers & set(item["back_numbers"]))
+            if front_overlap >= 4 and back_overlap >= 1:
+                return True
+        return False
+
+    @classmethod
+    def _serialize_recommendation_set(
+        cls,
+        *,
+        rank: int,
+        candidate: dict[str, object],
+        front_score_map: dict[int, dict[str, object]],
+        back_score_map: dict[int, dict[str, object]],
+        sum_average: float,
+        span_average: float,
+    ) -> dict[str, object]:
+        front_numbers = list(candidate["front_numbers"])
+        back_numbers = list(candidate["back_numbers"])
+        metrics = candidate["metrics"]
+        return {
+            "rank": rank,
+            "front_numbers": front_numbers,
+            "back_numbers": back_numbers,
+            "score": candidate["score"],
+            "rationale": cls._build_set_rationale(
+                front_numbers=front_numbers,
+                back_numbers=back_numbers,
+                front_score_map=front_score_map,
+                back_score_map=back_score_map,
+                metrics=metrics,
+                sum_average=sum_average,
+                span_average=span_average,
+            ),
+            "front_sum": metrics["front_sum"],
+            "front_span": metrics["front_span"],
+            "front_parity_pattern": metrics["front_parity_pattern"],
+            "front_zone_pattern": metrics["front_zone_pattern"],
+            "front_route012_pattern": metrics["front_route012_pattern"],
+            "front_details": [front_score_map[number] for number in front_numbers],
+            "back_details": [back_score_map[number] for number in back_numbers],
+        }
+
+    @staticmethod
+    def _build_set_rationale(
+        *,
+        front_numbers: list[int],
+        back_numbers: list[int],
+        front_score_map: dict[int, dict[str, object]],
+        back_score_map: dict[int, dict[str, object]],
+        metrics: dict[str, object],
+        sum_average: float,
+        span_average: float,
+    ) -> list[str]:
+        same_front = [
+            number
+            for number in front_numbers
+            if int(front_score_map[number]["same_period_hits"]) > 0
+        ]
+        same_back = [
+            number
+            for number in back_numbers
+            if int(back_score_map[number]["same_period_hits"]) > 0
+        ]
+        rationale = [
+            f"前区和值 {metrics['front_sum']}，接近近期均值 {round(sum_average, 1)}。",
+            f"前区跨度 {metrics['front_span']}，近期平均跨度约 {round(span_average, 1)}。",
+            (
+                f"奇偶结构 {metrics['front_parity_pattern']}，"
+                f"三区 {metrics['front_zone_pattern']}，012路 {metrics['front_route012_pattern']}。"
+            ),
+        ]
+        if same_front or same_back:
+            rationale.append(
+                "包含历史同期重复号："
+                f"前区 {same_front or '无'}，后区 {same_back or '无'}。"
+            )
+        hot_front = [
+            number
+            for number in front_numbers
+            if int(front_score_map[number]["current_missing"]) <= 2
+        ]
+        missing_front = [
+            number
+            for number in front_numbers
+            if int(front_score_map[number]["current_missing"]) >= 10
+        ]
+        rationale.append(
+            f"冷热搭配：近期热号 {hot_front or '无'}，较高遗漏号 {missing_front or '无'}。"
+        )
+        return rationale
+
+    @staticmethod
+    def _top_recommendation_numbers(
+        scored_numbers: list[dict[str, object]],
+        *,
+        limit: int,
+    ) -> list[dict[str, object]]:
+        return sorted(
+            scored_numbers,
+            key=lambda item: (
+                -int(item["same_period_hits"]),
+                -float(item["score"]),
+                int(item["number"]),
+            ),
+        )[:limit]
+
 
     def get_latest_draw(self) -> dict[str, object]:
         draw = self.repository.get_latest_draw()

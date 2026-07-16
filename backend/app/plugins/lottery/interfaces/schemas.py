@@ -223,6 +223,43 @@ class LotterySamePeriodAnalysisRead(BaseModel):
     items: list[LotterySamePeriodItemRead]
 
 
+class LotteryRecommendationNumberRead(BaseModel):
+    number: int
+    score: float
+    same_period_hits: int
+    recent_frequency: int
+    current_missing: int
+    reasons: list[str]
+
+
+class LotteryRecommendationSetRead(BaseModel):
+    rank: int
+    front_numbers: list[int] = Field(min_length=5, max_length=5)
+    back_numbers: list[int] = Field(min_length=2, max_length=2)
+    score: float
+    rationale: list[str]
+    front_sum: int
+    front_span: int
+    front_parity_pattern: str
+    front_zone_pattern: str
+    front_route012_pattern: str
+    front_details: list[LotteryRecommendationNumberRead]
+    back_details: list[LotteryRecommendationNumberRead]
+
+
+class LotteryRecommendationRead(BaseModel):
+    target_issue_no: str
+    issue_suffix: str
+    sample_size: int
+    same_period_count: int
+    requested_sets: int
+    disclaimer: str
+    methodology: list[str]
+    same_period_repeated_front: list[LotteryRecommendationNumberRead]
+    same_period_repeated_back: list[LotteryRecommendationNumberRead]
+    recommendations: list[LotteryRecommendationSetRead]
+
+
 class LotteryHotColdRead(BaseModel):
     front: list[LotteryNumberFrequencyRead]
     back: list[LotteryNumberFrequencyRead]

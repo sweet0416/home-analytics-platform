@@ -11,6 +11,7 @@ GET /api/v1/lottery/dlt/statistics/basic
 GET /api/v1/lottery/dlt/statistics/omissions
 GET /api/v1/lottery/dlt/numbers/{area}/{number}/omission
 GET /api/v1/lottery/dlt/analysis/same-period
+GET /api/v1/lottery/dlt/analysis/recommendations
 POST /api/v1/lottery/dlt/sync
 POST /api/v1/lottery/dlt/sync/backfill
 POST /api/v1/lottery/dlt/sync/backfill/start
@@ -37,3 +38,7 @@ an integration failure.
 
 The heatmap view composes the basic statistics and omission statistics endpoints instead of adding
 a dedicated backend endpoint.
+
+The recommendation view uses the recommendation endpoint for deterministic entertainment-only
+candidate sets. Each set must include rationale text explaining historical same-period hits,
+recent frequency, omission, and structural metrics.
