@@ -5,6 +5,7 @@ Frontend Lottery pages depend on these backend endpoints:
 ```text
 GET /api/v1/lottery/dlt/rules/current
 GET /api/v1/lottery/dlt/draws
+GET /api/v1/lottery/dlt/draws/coverage
 GET /api/v1/lottery/dlt/draws/latest
 GET /api/v1/lottery/dlt/statistics/basic
 GET /api/v1/lottery/dlt/statistics/omissions
@@ -12,6 +13,7 @@ GET /api/v1/lottery/dlt/numbers/{area}/{number}/omission
 GET /api/v1/lottery/dlt/analysis/same-period
 POST /api/v1/lottery/dlt/sync
 POST /api/v1/lottery/dlt/sync/backfill
+POST /api/v1/lottery/dlt/sync/backfill/start
 GET /api/v1/lottery/dlt/sync/latest
 GET /api/v1/lottery/dlt/sync/status
 GET /api/v1/lottery/dlt/sync/runs

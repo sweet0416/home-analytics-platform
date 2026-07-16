@@ -52,6 +52,20 @@ export interface DrawPage {
   };
 }
 
+export interface LotteryDrawCoverage {
+  total: number;
+  latest_issue_no: string | null;
+  latest_draw_date: string | null;
+  earliest_issue_no: string | null;
+  earliest_draw_date: string | null;
+  start_year: number | null;
+  end_year: number | null;
+  year_span: number;
+  status: string;
+  status_label: string;
+  description: string;
+}
+
 export interface LotterySyncRequest {
   sync_type: 'manual' | 'backfill';
   page: number;
@@ -111,6 +125,15 @@ export interface LotteryBackfillRun {
   skipped_count: number;
   failed_count: number;
   runs: LotterySyncRun[];
+}
+
+export interface LotteryBackfillJob {
+  status: string;
+  message: string;
+  start_page: number;
+  page_count: number;
+  page_size: number;
+  force: boolean;
 }
 
 export interface LotterySyncStatus {
@@ -234,6 +257,10 @@ export function fetchDraws(page = 1, pageSize = 20): Promise<DrawPage> {
   return getApiData<DrawPage>(`/lottery/dlt/draws?page=${page}&page_size=${pageSize}`);
 }
 
+export function fetchDrawCoverage(): Promise<LotteryDrawCoverage> {
+  return getApiData<LotteryDrawCoverage>('/lottery/dlt/draws/coverage');
+}
+
 export function fetchDisclaimer(): Promise<{ disclaimer: string }> {
   return getApiData<{ disclaimer: string }>('/lottery/dlt/disclaimer');
 }
@@ -286,6 +313,13 @@ export function triggerDrawSync(payload: LotterySyncRequest): Promise<LotterySyn
 export function triggerBackfill(payload: LotteryBackfillRequest): Promise<LotteryBackfillRun> {
   return postApiData<LotteryBackfillRun, LotteryBackfillRequest>(
     '/lottery/dlt/sync/backfill',
+    payload,
+  );
+}
+
+export function startBackfill(payload: LotteryBackfillRequest): Promise<LotteryBackfillJob> {
+  return postApiData<LotteryBackfillJob, LotteryBackfillRequest>(
+    '/lottery/dlt/sync/backfill/start',
     payload,
   );
 }

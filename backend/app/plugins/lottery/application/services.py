@@ -86,6 +86,55 @@ class LotteryService:
             },
         }
 
+    def get_draw_coverage(self) -> dict[str, object]:
+        latest_draw = self.repository.get_latest_draw()
+        earliest_draw = self.repository.get_earliest_draw()
+        total = self.repository.count_draws()
+        if latest_draw is None or earliest_draw is None:
+            return {
+                "total": 0,
+                "latest_issue_no": None,
+                "latest_draw_date": None,
+                "earliest_issue_no": None,
+                "earliest_draw_date": None,
+                "start_year": None,
+                "end_year": None,
+                "year_span": 0,
+                "status": "empty",
+                "status_label": "暂无数据",
+                "description": "还没有入库的开奖数据，先执行同步或历史回填。",
+            }
+
+        start_year = earliest_draw.draw_date.year
+        end_year = latest_draw.draw_date.year
+        year_span = end_year - start_year + 1
+        if total >= 1500:
+            status = "good"
+            status_label = "长期分析可用"
+            description = "历史数据覆盖较长，适合做趋势、遗漏、冷热和历史同期分析。"
+        elif total >= 500:
+            status = "usable"
+            status_label = "基础分析可用"
+            description = "数据量足够做基础统计，继续回填可提升长期分析稳定性。"
+        else:
+            status = "limited"
+            status_label = "样本偏少"
+            description = "当前数据较少，建议先补齐更多历史开奖。"
+
+        return {
+            "total": total,
+            "latest_issue_no": latest_draw.issue_no,
+            "latest_draw_date": latest_draw.draw_date.isoformat(),
+            "earliest_issue_no": earliest_draw.issue_no,
+            "earliest_draw_date": earliest_draw.draw_date.isoformat(),
+            "start_year": start_year,
+            "end_year": end_year,
+            "year_span": year_span,
+            "status": status,
+            "status_label": status_label,
+            "description": description,
+        }
+
     def get_basic_statistics(self, limit: int = 100) -> dict[str, object]:
         draws = self.repository.list_recent_draws(limit=limit)
         serialized_draws = [self._serialize_draw(draw) for draw in draws]

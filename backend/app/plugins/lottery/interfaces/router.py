@@ -1,15 +1,17 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, Query
 from sqlalchemy.orm import Session
 
-from app.core.database.session import get_db
+from app.core.database.session import SessionLocal, get_db
 from app.plugins.lottery.application.services import LotteryService
 from app.plugins.lottery.domain.constants import DLT_DISCLAIMER
 from app.plugins.lottery.domain.sync import DrawSyncCommand
 from app.plugins.lottery.interfaces.schemas import (
     DisclaimerRead,
+    LotteryBackfillJobRead,
     LotteryBackfillRequest,
     LotteryBackfillRunRead,
     LotteryBasicStatisticsRead,
+    LotteryDrawCoverageRead,
     LotteryDrawPageRead,
     LotteryDrawRead,
     LotteryNumberOmissionDetailRead,
@@ -27,6 +29,19 @@ from app.shared.exceptions.codes import ErrorCode
 from app.shared.responses.schemas import ApiResponse, ok
 
 router = APIRouter(prefix="/dlt")
+
+
+def _run_backfill_task(payload: LotteryBackfillRequest) -> None:
+    db = SessionLocal()
+    try:
+        LotteryService(db).backfill_draws(
+            start_page=payload.start_page,
+            page_count=payload.page_count,
+            page_size=payload.page_size,
+            force=payload.force,
+        )
+    finally:
+        db.close()
 
 
 @router.get("/rules/current", response_model=ApiResponse[LotteryRuleRead])
@@ -49,6 +64,12 @@ def list_draws(
 def get_latest_draw(db: Session = Depends(get_db)) -> ApiResponse[LotteryDrawRead]:
     service = LotteryService(db)
     return ok(service.get_latest_draw())
+
+
+@router.get("/draws/coverage", response_model=ApiResponse[LotteryDrawCoverageRead])
+def get_draw_coverage(db: Session = Depends(get_db)) -> ApiResponse[LotteryDrawCoverageRead]:
+    service = LotteryService(db)
+    return ok(service.get_draw_coverage())
 
 
 @router.get("/draws/{issue_no}", response_model=ApiResponse[LotteryDrawRead])
@@ -127,6 +148,32 @@ def backfill_draws(
             page_size=payload.page_size,
             force=payload.force,
         )
+    )
+
+
+@router.post("/sync/backfill/start", response_model=ApiResponse[LotteryBackfillJobRead])
+def start_backfill_draws(
+    payload: LotteryBackfillRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+) -> ApiResponse[LotteryBackfillJobRead]:
+    service = LotteryService(db)
+    if service.repository.has_running_sync():
+        raise AppError(
+            code=ErrorCode.lottery_sync_already_running,
+            message="A lottery sync or backfill task is already running.",
+            status_code=409,
+        )
+    background_tasks.add_task(_run_backfill_task, payload)
+    return ok(
+        {
+            "status": "queued",
+            "message": "历史回填已在后台开始，页面会自动刷新进度。",
+            "start_page": payload.start_page,
+            "page_count": payload.page_count,
+            "page_size": payload.page_size,
+            "force": payload.force,
+        }
     )
 
 

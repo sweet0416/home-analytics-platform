@@ -4,6 +4,7 @@ import {
   fetchBasicStatistics,
   fetchCurrentRule,
   fetchDisclaimer,
+  fetchDrawCoverage,
   fetchDraws,
   fetchLatestSyncRun,
   fetchNumberOmissionDetail,
@@ -11,12 +12,14 @@ import {
   fetchSamePeriodAnalysis,
   fetchSyncRuns,
   fetchSyncStatus,
-  triggerBackfill,
+  startBackfill,
   triggerDrawSync,
   type DrawPage,
+  type LotteryBackfillJob,
   type LotteryBackfillRequest,
   type LotteryBackfillRun,
   type LotteryBasicStatistics,
+  type LotteryDrawCoverage,
   type LotteryNumberOmissionDetail,
   type LotteryOmissionStatistics,
   type LotteryRule,
@@ -30,6 +33,7 @@ export const useLotteryStore = defineStore('lottery', {
   state: () => ({
     rule: null as LotteryRule | null,
     draws: null as DrawPage | null,
+    drawCoverage: null as LotteryDrawCoverage | null,
     latestSyncRun: null as LotterySyncRun | null,
     syncStatus: null as LotterySyncStatus | null,
     syncRuns: null as SyncRunPage | null,
@@ -38,6 +42,7 @@ export const useLotteryStore = defineStore('lottery', {
     omissionDetail: null as LotteryNumberOmissionDetail | null,
     samePeriod: null as LotterySamePeriodAnalysis | null,
     latestBackfillRun: null as LotteryBackfillRun | null,
+    latestBackfillJob: null as LotteryBackfillJob | null,
     disclaimer: '',
     loading: false,
     syncing: false,
@@ -49,13 +54,15 @@ export const useLotteryStore = defineStore('lottery', {
       this.loading = true;
       this.error = '';
       try {
-        const [rule, draws, disclaimer] = await Promise.all([
+        const [rule, draws, coverage, disclaimer] = await Promise.all([
           fetchCurrentRule(),
           fetchDraws(),
+          fetchDrawCoverage(),
           fetchDisclaimer(),
         ]);
         this.rule = rule;
         this.draws = draws;
+        this.drawCoverage = coverage;
         this.disclaimer = disclaimer.disclaimer;
         await this.loadSyncState();
       } catch (error) {
@@ -66,6 +73,9 @@ export const useLotteryStore = defineStore('lottery', {
     },
     async loadDraws(page = 1, pageSize = 20): Promise<void> {
       this.draws = await fetchDraws(page, pageSize);
+    },
+    async loadDrawCoverage(): Promise<void> {
+      this.drawCoverage = await fetchDrawCoverage();
     },
     async loadSyncState(): Promise<void> {
       this.syncError = '';
@@ -109,9 +119,10 @@ export const useLotteryStore = defineStore('lottery', {
       this.syncing = true;
       this.syncError = '';
       try {
-        this.latestBackfillRun = await triggerBackfill(payload);
+        this.latestBackfillJob = await startBackfill(payload);
         await Promise.all([
           this.loadDraws(),
+          this.loadDrawCoverage(),
           this.loadSyncState(),
           this.loadStatistics(),
           this.loadOmissionStatistics(),
@@ -120,7 +131,7 @@ export const useLotteryStore = defineStore('lottery', {
       } catch (error) {
         this.syncError = error instanceof Error ? error.message : 'Failed to backfill lottery draws';
       } finally {
-        this.syncing = false;
+        this.syncing = this.syncStatus?.running ?? false;
       }
     },
     async syncNow(): Promise<void> {
@@ -135,6 +146,7 @@ export const useLotteryStore = defineStore('lottery', {
         });
         await Promise.all([
           this.loadDraws(),
+          this.loadDrawCoverage(),
           this.loadSyncState(),
           this.loadStatistics(),
           this.loadOmissionStatistics(),

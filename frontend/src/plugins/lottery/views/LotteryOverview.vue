@@ -43,6 +43,35 @@
       <MetricCard label="同步状态" :value="syncStatusText" :meta="syncMeta" />
     </div>
 
+    <section class="panel data-range-panel">
+      <div class="panel-header">
+        <h2 class="panel-title">数据范围</h2>
+        <span class="panel-meta">{{ coverageStatus }}</span>
+      </div>
+      <div class="panel-body data-range-grid">
+        <div class="range-block">
+          <div class="sync-label">最新期号</div>
+          <div class="sync-value">{{ coverageLatestIssue }}</div>
+          <div class="sync-meta">{{ coverageLatestDate }}</div>
+        </div>
+        <div class="range-block">
+          <div class="sync-label">最早期号</div>
+          <div class="sync-value">{{ coverageEarliestIssue }}</div>
+          <div class="sync-meta">{{ coverageEarliestDate }}</div>
+        </div>
+        <div class="range-block">
+          <div class="sync-label">覆盖年份</div>
+          <div class="sync-value">{{ coverageYears }}</div>
+          <div class="sync-meta">{{ coverageYearSpan }}</div>
+        </div>
+        <div class="range-block">
+          <div class="sync-label">数据判断</div>
+          <div class="sync-value compact-value">{{ coverageStatus }}</div>
+          <div class="sync-meta">{{ coverageDescription }}</div>
+        </div>
+      </div>
+    </section>
+
     <section class="panel sync-panel">
       <div class="panel-header">
         <h2 class="panel-title">数据同步</h2>
@@ -115,6 +144,12 @@
         <div class="backfill-summary">
           {{ backfillSummary }}
         </div>
+        <div v-if="backfillProgressText" class="backfill-progress">
+          <span>{{ backfillProgressText }}</span>
+          <el-tag v-if="backfillProgressTag" :type="backfillProgressTag" effect="dark">
+            {{ backfillProgressStatus }}
+          </el-tag>
+        </div>
       </div>
     </section>
 
@@ -144,7 +179,7 @@
 
 <script setup lang="ts">
 import { Refresh } from '@element-plus/icons-vue';
-import { computed, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 
 import EmptyState from '@/components/common/EmptyState.vue';
 import MetricCard from '@/components/metric/MetricCard.vue';
@@ -160,6 +195,7 @@ const backfillStartPage = ref(2);
 const backfillPageCount = ref(5);
 const backfillPageSize = ref(100);
 const backfillForce = ref(false);
+let backfillPollTimer: number | undefined;
 
 const frontRule = computed(() =>
   lottery.rule ? `${lottery.rule.front.min}-${lottery.rule.front.max}` : '--',
@@ -170,6 +206,27 @@ const backRule = computed(() =>
 const frontMeta = computed(() => `${lottery.rule?.front.count ?? 5} 个号码`);
 const backMeta = computed(() => `${lottery.rule?.back.count ?? 2} 个号码`);
 const drawTotal = computed(() => String(lottery.draws?.pagination.total ?? 0));
+const coverageLatestIssue = computed(() => lottery.drawCoverage?.latest_issue_no ?? '--');
+const coverageLatestDate = computed(() =>
+  lottery.drawCoverage?.latest_draw_date ?? '等待同步',
+);
+const coverageEarliestIssue = computed(() => lottery.drawCoverage?.earliest_issue_no ?? '--');
+const coverageEarliestDate = computed(() =>
+  lottery.drawCoverage?.earliest_draw_date ?? '等待回填',
+);
+const coverageYears = computed(() => {
+  const coverage = lottery.drawCoverage;
+  if (!coverage?.start_year || !coverage.end_year) return '--';
+  return `${coverage.start_year} - ${coverage.end_year}`;
+});
+const coverageYearSpan = computed(() => {
+  const span = lottery.drawCoverage?.year_span ?? 0;
+  return span > 0 ? `约 ${span} 年数据` : '暂无覆盖年份';
+});
+const coverageStatus = computed(() => lottery.drawCoverage?.status_label ?? '读取中');
+const coverageDescription = computed(
+  () => lottery.drawCoverage?.description ?? '正在读取数据库覆盖范围。',
+);
 const syncStatusText = computed(() => {
   const status = lottery.latestSyncRun?.status;
   if (!status) return '未同步';
@@ -229,6 +286,9 @@ const nextRunLabel = computed(() =>
 );
 const backfillSummary = computed(() => {
   const run = lottery.latestBackfillRun;
+  if (lottery.latestBackfillJob) {
+    return lottery.latestBackfillJob.message;
+  }
   if (!run) return '历史回填用于补齐更早年份数据，完成后历史同期会显示更多结果。';
   return [
     `状态 ${run.status}`,
@@ -237,6 +297,35 @@ const backfillSummary = computed(() => {
     `更新 ${run.updated_count}`,
     `跳过 ${run.skipped_count}`,
   ].join(' · ');
+});
+const latestBackfillTask = computed(
+  () => lottery.syncRuns?.items.find((run) => run.sync_type === 'backfill') ?? null,
+);
+const backfillProgressText = computed(() => {
+  const task = latestBackfillTask.value;
+  if (!task && lottery.latestBackfillJob) {
+    return `后台任务已排队：从第 ${lottery.latestBackfillJob.start_page} 页开始，计划执行 ${lottery.latestBackfillJob.page_count} 页。`;
+  }
+  if (!task) return '';
+  const page = task.requested_page ? `第 ${task.requested_page} 页` : '回填页';
+  return `最近回填任务 #${task.run_id} · ${page} · 新增 ${task.inserted_count} / 更新 ${task.updated_count} / 跳过 ${task.skipped_count}`;
+});
+const backfillProgressStatus = computed(() => {
+  const status = latestBackfillTask.value?.status;
+  if (!status && lottery.latestBackfillJob) return '已排队';
+  if (status === 'running') return '运行中';
+  if (status === 'success') return '成功';
+  if (status === 'partial_success') return '部分成功';
+  if (status === 'failed') return '失败';
+  return status ?? '';
+});
+const backfillProgressTag = computed((): 'success' | 'warning' | 'danger' | 'info' | '' => {
+  const status = latestBackfillTask.value?.status;
+  if (!status && lottery.latestBackfillJob) return 'info';
+  if (status === 'success') return 'success';
+  if (status === 'partial_success' || status === 'running') return 'warning';
+  if (status === 'failed') return 'danger';
+  return '';
 });
 
 function formatDateTime(value: string): string {
@@ -254,11 +343,47 @@ async function handleBackfill(): Promise<void> {
     page_size: backfillPageSize.value,
     force: backfillForce.value,
   });
+  startBackfillPolling();
 }
 
 onMounted(() => {
   void lottery.loadOverview();
 });
+
+onBeforeUnmount(() => {
+  stopBackfillPolling();
+});
+
+function startBackfillPolling(): void {
+  stopBackfillPolling();
+  backfillPollTimer = window.setInterval(() => {
+    void refreshBackfillProgress();
+  }, 3000);
+  void refreshBackfillProgress();
+}
+
+function stopBackfillPolling(): void {
+  if (backfillPollTimer !== undefined) {
+    window.clearInterval(backfillPollTimer);
+    backfillPollTimer = undefined;
+  }
+}
+
+async function refreshBackfillProgress(): Promise<void> {
+  await Promise.all([lottery.loadSyncState(), lottery.loadDraws(), lottery.loadDrawCoverage()]);
+  const runningBackfill = lottery.syncRuns?.items.some(
+    (run) => run.sync_type === 'backfill' && run.status === 'running',
+  );
+  lottery.syncing = Boolean(runningBackfill);
+  if (!runningBackfill) {
+    stopBackfillPolling();
+    await Promise.all([
+      lottery.loadStatistics(),
+      lottery.loadOmissionStatistics(),
+      lottery.loadSamePeriod(),
+    ]);
+  }
+}
 </script>
 
 <style scoped>
@@ -294,6 +419,7 @@ onMounted(() => {
 }
 
 .sync-alert,
+.data-range-panel,
 .sync-panel,
 .rule-panel {
   margin-top: 16px;
@@ -305,10 +431,15 @@ onMounted(() => {
   font-size: 13px;
 }
 
-.sync-grid {
+.sync-grid,
+.data-range-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
+}
+
+.data-range-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .backfill-box {
@@ -338,7 +469,17 @@ onMounted(() => {
   font-size: 12px;
 }
 
-.sync-block {
+.backfill-progress {
+  align-items: center;
+  color: var(--color-muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 12px;
+  gap: 8px;
+}
+
+.sync-block,
+.range-block {
   border: 1px solid rgba(148, 163, 184, 0.14);
   border-radius: 8px;
   padding: 12px;
@@ -398,6 +539,7 @@ onMounted(() => {
   }
 
   .sync-grid,
+  .data-range-grid,
   .tier-grid {
     grid-template-columns: 1fr;
   }

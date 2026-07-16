@@ -46,6 +46,20 @@ class LotteryDrawPageRead(BaseModel):
     pagination: dict[str, int]
 
 
+class LotteryDrawCoverageRead(BaseModel):
+    total: int
+    latest_issue_no: str | None
+    latest_draw_date: str | None
+    earliest_issue_no: str | None
+    earliest_draw_date: str | None
+    start_year: int | None
+    end_year: int | None
+    year_span: int
+    status: str
+    status_label: str
+    description: str
+
+
 class DisclaimerRead(BaseModel):
     disclaimer: str
 
@@ -104,6 +118,15 @@ class LotteryBackfillRunRead(BaseModel):
     skipped_count: int
     failed_count: int
     runs: list[LotterySyncRunRead]
+
+
+class LotteryBackfillJobRead(BaseModel):
+    status: str
+    message: str
+    start_page: int
+    page_count: int
+    page_size: int
+    force: bool
 
 
 class LotterySyncStatusRead(BaseModel):

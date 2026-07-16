@@ -59,11 +59,31 @@ class LotteryRepository:
         )
         return items, total
 
+    def count_draws(self, game_code: str = DLT_GAME_CODE) -> int:
+        return (
+            self.db.scalar(
+                select(func.count()).select_from(
+                    select(LotteryDrawModel)
+                    .where(LotteryDrawModel.game_code == game_code)
+                    .subquery()
+                )
+            )
+            or 0
+        )
+
     def get_latest_draw(self, game_code: str = DLT_GAME_CODE) -> LotteryDrawModel | None:
         return self.db.scalar(
             select(LotteryDrawModel)
             .where(LotteryDrawModel.game_code == game_code)
             .order_by(LotteryDrawModel.draw_date.desc())
+            .limit(1)
+        )
+
+    def get_earliest_draw(self, game_code: str = DLT_GAME_CODE) -> LotteryDrawModel | None:
+        return self.db.scalar(
+            select(LotteryDrawModel)
+            .where(LotteryDrawModel.game_code == game_code)
+            .order_by(LotteryDrawModel.draw_date.asc())
             .limit(1)
         )
 
