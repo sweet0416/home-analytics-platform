@@ -9,6 +9,7 @@ import {
   fetchLatestSyncRun,
   fetchNumberOmissionDetail,
   fetchOmissionStatistics,
+  fetchRecommendationAnalysis,
   fetchSamePeriodAnalysis,
   fetchSyncRuns,
   fetchSyncStatus,
@@ -22,6 +23,7 @@ import {
   type LotteryDrawCoverage,
   type LotteryNumberOmissionDetail,
   type LotteryOmissionStatistics,
+  type LotteryRecommendationAnalysis,
   type LotteryRule,
   type LotterySamePeriodAnalysis,
   type LotterySyncRun,
@@ -41,6 +43,7 @@ export const useLotteryStore = defineStore('lottery', {
     omissionStatistics: null as LotteryOmissionStatistics | null,
     omissionDetail: null as LotteryNumberOmissionDetail | null,
     samePeriod: null as LotterySamePeriodAnalysis | null,
+    recommendations: null as LotteryRecommendationAnalysis | null,
     latestBackfillRun: null as LotteryBackfillRun | null,
     latestBackfillJob: null as LotteryBackfillJob | null,
     disclaimer: '',
@@ -114,6 +117,19 @@ export const useLotteryStore = defineStore('lottery', {
     },
     async loadSamePeriod(issueNo?: string, count = 5): Promise<void> {
       this.samePeriod = await fetchSamePeriodAnalysis(issueNo, count);
+    },
+    async loadRecommendations(
+      issueNo?: string,
+      sets = 5,
+      samePeriodCount = 10,
+      sampleLimit = 200,
+    ): Promise<void> {
+      this.recommendations = await fetchRecommendationAnalysis(
+        issueNo,
+        sets,
+        samePeriodCount,
+        sampleLimit,
+      );
     },
     async backfill(payload: LotteryBackfillRequest): Promise<void> {
       this.syncing = true;

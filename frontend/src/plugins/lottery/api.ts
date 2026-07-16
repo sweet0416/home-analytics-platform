@@ -217,6 +217,43 @@ export interface LotterySamePeriodAnalysis {
   items: LotterySamePeriodItem[];
 }
 
+export interface LotteryRecommendationNumberDetail {
+  number: number;
+  score: number;
+  same_period_hits: number;
+  recent_frequency: number;
+  current_missing: number;
+  reasons: string[];
+}
+
+export interface LotteryRecommendationSet {
+  rank: number;
+  front_numbers: number[];
+  back_numbers: number[];
+  score: number;
+  rationale: string[];
+  front_sum: number;
+  front_span: number;
+  front_parity_pattern: string;
+  front_zone_pattern: string;
+  front_route012_pattern: string;
+  front_details: LotteryRecommendationNumberDetail[];
+  back_details: LotteryRecommendationNumberDetail[];
+}
+
+export interface LotteryRecommendationAnalysis {
+  target_issue_no: string;
+  issue_suffix: string;
+  sample_size: number;
+  same_period_count: number;
+  requested_sets: number;
+  disclaimer: string;
+  methodology: string[];
+  same_period_repeated_front: number[];
+  same_period_repeated_back: number[];
+  recommendations: LotteryRecommendationSet[];
+}
+
 export interface LotteryBasicStatistics {
   sample_size: number;
   requested_limit: number;
@@ -303,6 +340,23 @@ export function fetchSamePeriodAnalysis(
   if (issueNo) params.set('issue_no', issueNo);
   return getApiData<LotterySamePeriodAnalysis>(
     `/lottery/dlt/analysis/same-period?${params.toString()}`,
+  );
+}
+
+export function fetchRecommendationAnalysis(
+  issueNo?: string,
+  sets = 5,
+  samePeriodCount = 10,
+  sampleLimit = 200,
+): Promise<LotteryRecommendationAnalysis> {
+  const params = new URLSearchParams({
+    sets: String(sets),
+    same_period_count: String(samePeriodCount),
+    sample_limit: String(sampleLimit),
+  });
+  if (issueNo) params.set('issue_no', issueNo);
+  return getApiData<LotteryRecommendationAnalysis>(
+    `/lottery/dlt/analysis/recommendations?${params.toString()}`,
   );
 }
 
