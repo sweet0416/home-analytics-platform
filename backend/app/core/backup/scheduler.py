@@ -1,4 +1,5 @@
 from datetime import datetime
+from pathlib import Path
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -94,18 +95,24 @@ def _run_scheduled_backup() -> None:
         _last_message = f"Backup created: {backup.file_name}"
         logger.info("Scheduled database backup finished: {}", backup.file_name)
         backup_path = service.get_sqlite_backup_path(backup.file_name)
-        try:
-            _record_remote_backup_result(
-                GithubBackupClient(settings=settings).upload_encrypted_backup(backup_path)
-            )
-        except Exception as exc:
-            _record_remote_backup_failure(exc)
-            logger.exception("Encrypted GitHub backup upload failed: {}", exc)
+        upload_remote_backup(backup_path)
     except Exception as exc:
         _last_backup_file_name = None
         _last_status = "failed"
         _last_message = str(exc)
         logger.exception("Scheduled database backup failed: {}", exc)
+
+
+def upload_remote_backup(backup_path: Path) -> RemoteBackupResult:
+    settings = get_settings()
+    try:
+        result = GithubBackupClient(settings=settings).upload_encrypted_backup(backup_path)
+        _record_remote_backup_result(result)
+        return result
+    except Exception as exc:
+        _record_remote_backup_failure(exc)
+        logger.exception("Encrypted GitHub backup upload failed: {}", exc)
+        raise
 
 
 def _record_remote_backup_result(result: RemoteBackupResult) -> None:
