@@ -16,6 +16,7 @@ from app.plugins.lottery.interfaces.schemas import (
     LotteryDrawRead,
     LotteryNumberOmissionDetailRead,
     LotteryOmissionStatisticsRead,
+    LotteryRecommendationRead,
     LotteryRuleRead,
     LotterySamePeriodAnalysisRead,
     LotterySyncRequest,
@@ -118,6 +119,25 @@ def get_same_period_analysis(
 ) -> ApiResponse[LotterySamePeriodAnalysisRead]:
     service = LotteryService(db)
     return ok(service.get_same_period_analysis(issue_no=issue_no, count=count))
+
+
+@router.get("/analysis/recommendations", response_model=ApiResponse[LotteryRecommendationRead])
+def get_recommendations(
+    issue_no: str | None = Query(default=None, min_length=3, max_length=16),
+    sets: int = Query(default=5, ge=1, le=12),
+    same_period_count: int = Query(default=10, ge=1, le=20),
+    sample_limit: int = Query(default=200, ge=50, le=500),
+    db: Session = Depends(get_db),
+) -> ApiResponse[LotteryRecommendationRead]:
+    service = LotteryService(db)
+    return ok(
+        service.get_recommendations(
+            issue_no=issue_no,
+            sets=sets,
+            same_period_count=same_period_count,
+            sample_limit=sample_limit,
+        )
+    )
 
 
 @router.post("/sync", response_model=ApiResponse[LotterySyncRunRead])
