@@ -66,3 +66,11 @@ class DatabaseRestoreRunRepository:
         self._db.commit()
         self._db.refresh(model)
         return model
+
+    def list_recent_runs(self, limit: int = 10) -> list[DatabaseRestoreRunModel]:
+        statement = (
+            select(DatabaseRestoreRunModel)
+            .order_by(DatabaseRestoreRunModel.created_at.desc())
+            .limit(limit)
+        )
+        return list(self._db.execute(statement).scalars().all())

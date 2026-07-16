@@ -22,6 +22,16 @@ export interface DatabaseRestoreResult {
   restored_at: string;
 }
 
+export interface DatabaseRestoreRun {
+  source_file_name: string;
+  safety_backup_file_name: string;
+  status: string;
+  message: string;
+  started_at: string;
+  finished_at: string | null;
+  created_at: string;
+}
+
 interface DatabaseRestorePayload {
   file_name: string;
   confirmation: string;
@@ -33,6 +43,8 @@ export interface DatabaseBackupList {
   database_engine: string;
   retention_count: number;
   total_size_bytes: number;
+  latest_restore: DatabaseRestoreRun | null;
+  restore_runs: DatabaseRestoreRun[];
   scheduler: {
     enabled?: boolean;
     running?: boolean;

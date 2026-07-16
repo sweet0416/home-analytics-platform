@@ -7,8 +7,14 @@ from urllib.parse import unquote
 
 from loguru import logger
 
+from app.core.backup.models import DatabaseRestoreRunModel
 from app.core.backup.repository import DatabaseRestoreRunRepository
-from app.core.backup.schemas import DatabaseBackupListRead, DatabaseBackupRead, DatabaseRestoreRead
+from app.core.backup.schemas import (
+    DatabaseBackupListRead,
+    DatabaseBackupRead,
+    DatabaseRestoreRead,
+    DatabaseRestoreRunRead,
+)
 from app.core.config.settings import Settings
 from app.core.database.session import SessionLocal, create_database_schema, engine
 from app.shared.exceptions.base import AppError
@@ -95,6 +101,7 @@ class DatabaseBackupService:
         scheduler_status: dict[str, object] | None = None,
     ) -> DatabaseBackupListRead:
         backups = self._list_backup_files()
+        restore_runs = self._list_restore_runs()
         return DatabaseBackupListRead(
             items=backups,
             directory=str(self._settings.backup_dir),
@@ -102,6 +109,8 @@ class DatabaseBackupService:
             retention_count=self._settings.backup_retention_count,
             total_size_bytes=sum(item.size_bytes for item in backups),
             scheduler=scheduler_status or {},
+            latest_restore=restore_runs[0] if restore_runs else None,
+            restore_runs=restore_runs,
         )
 
     def prune_sqlite_backups(self) -> int:
@@ -197,6 +206,27 @@ class DatabaseBackupService:
             )
         finally:
             db.close()
+
+    @staticmethod
+    def _list_restore_runs(limit: int = 10) -> list[DatabaseRestoreRunRead]:
+        db = SessionLocal()
+        try:
+            models = DatabaseRestoreRunRepository(db).list_recent_runs(limit=limit)
+            return [DatabaseBackupService._to_restore_run_read(model) for model in models]
+        finally:
+            db.close()
+
+    @staticmethod
+    def _to_restore_run_read(model: DatabaseRestoreRunModel) -> DatabaseRestoreRunRead:
+        return DatabaseRestoreRunRead(
+            source_file_name=model.source_file_name,
+            safety_backup_file_name=model.safety_backup_file_name,
+            status=model.status,
+            message=model.message,
+            started_at=model.started_at,
+            finished_at=model.finished_at,
+            created_at=model.created_at,
+        )
 
     @staticmethod
     def _build_backup_name(label: str | None = None) -> str:

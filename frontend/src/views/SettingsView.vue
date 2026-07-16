@@ -83,6 +83,48 @@
             </p>
           </div>
 
+          <div class="restore-box">
+            <div class="scheduler-status">
+              <span class="status-dot" :class="{ online: latestRestoreSuccess }" />
+              <strong>{{ latestRestoreStatusText }}</strong>
+              <el-tag v-if="latestRestore" size="small" :type="latestRestoreTagType">
+                {{ latestRestore.status }}
+              </el-tag>
+            </div>
+            <div class="scheduler-meta">
+              <span>最近恢复：{{ latestRestoreTime }}</span>
+              <span>审计记录：{{ restoreRunCount }}</span>
+            </div>
+            <p v-if="latestRestore">
+              从 <code>{{ latestRestore.source_file_name }}</code> 恢复；
+              恢复前安全备份为 <code>{{ latestRestore.safety_backup_file_name }}</code>。
+            </p>
+            <p v-else>
+              还没有执行过数据库恢复。只有输入确认短语后，恢复动作才会写入这里。
+            </p>
+            <el-table
+              v-if="system.backups?.restore_runs.length"
+              :data="system.backups.restore_runs"
+              class="restore-table"
+              size="small"
+            >
+              <el-table-column prop="source_file_name" label="来源备份" min-width="210" />
+              <el-table-column prop="safety_backup_file_name" label="安全备份" min-width="230" />
+              <el-table-column label="状态" width="110">
+                <template #default="{ row }">
+                  <el-tag size="small" :type="row.status === 'success' ? 'success' : 'danger'">
+                    {{ row.status }}
+                  </el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column label="恢复时间" min-width="180">
+                <template #default="{ row }">
+                  {{ formatDateTime(row.created_at) }}
+                </template>
+              </el-table-column>
+            </el-table>
+          </div>
+
           <div class="backup-actions">
             <el-button type="primary" :icon="FolderChecked" :loading="system.backupLoading" @click="createBackup">
               创建当前数据库备份
@@ -200,6 +242,21 @@ const lastGithubBackupText = computed(() => {
   const asset = githubBackup.value.last_asset_name ?? '加密备份';
   return `${formatDateTime(githubBackup.value.last_uploaded_at)} · ${asset}`;
 });
+const latestRestore = computed(() => system.backups?.latest_restore ?? null);
+const latestRestoreSuccess = computed(() => latestRestore.value?.status === 'success');
+const latestRestoreStatusText = computed(() => {
+  if (!latestRestore.value) {
+    return '暂无数据库恢复记录';
+  }
+  return latestRestoreSuccess.value ? '最近恢复成功' : '最近恢复异常';
+});
+const latestRestoreTagType = computed(() => {
+  return latestRestoreSuccess.value ? 'success' : 'danger';
+});
+const latestRestoreTime = computed(() => {
+  return latestRestore.value ? formatDateTime(latestRestore.value.created_at) : '暂无';
+});
+const restoreRunCount = computed(() => String(system.backups?.restore_runs.length ?? 0));
 const latestBackupTime = computed(() => {
   const latest = system.backups?.items[0];
   return latest ? formatDateTime(latest.created_at) : '暂无';
@@ -367,6 +424,26 @@ onMounted(() => {
   margin: 0;
 }
 
+.restore-box {
+  display: grid;
+  gap: 8px;
+  border: 1px solid rgba(251, 191, 36, 0.22);
+  border-radius: 8px;
+  background: rgba(251, 191, 36, 0.08);
+  color: var(--color-muted);
+  line-height: 1.6;
+  margin-bottom: 14px;
+  padding: 12px 14px;
+}
+
+.restore-box p {
+  margin: 0;
+}
+
+.restore-box code {
+  color: var(--color-warning);
+}
+
 .scheduler-status {
   display: flex;
   align-items: center;
@@ -387,6 +464,10 @@ onMounted(() => {
 }
 
 .backup-table {
+  width: 100%;
+}
+
+.restore-table {
   width: 100%;
 }
 
