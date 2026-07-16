@@ -72,6 +72,43 @@
         <span class="panel-meta">按综合评分排序</span>
       </div>
       <div class="panel-body">
+        <div v-if="lottery.recommendations?.recommendations.length" class="summary-block">
+          <div class="summary-header">
+            <div>
+              <h3 class="summary-title">快速汇总</h3>
+              <div class="summary-meta">五组集中查看，方便截图、抄写或对照筛选。</div>
+            </div>
+            <el-tag effect="dark" type="success">
+              {{ recommendationCount }} 组
+            </el-tag>
+          </div>
+          <div class="summary-list">
+            <div
+              v-for="item in lottery.recommendations.recommendations"
+              :key="`summary-${item.rank}`"
+              class="summary-row"
+            >
+              <span class="summary-rank">第 {{ item.rank }} 组</span>
+              <div class="summary-numbers">
+                <span class="number-label">前区</span>
+                <LotteryBall
+                  v-for="number in item.front_numbers"
+                  :key="`summary-front-${item.rank}-${number}`"
+                  area="front"
+                  :value="number"
+                />
+                <span class="number-label back-label">后区</span>
+                <LotteryBall
+                  v-for="number in item.back_numbers"
+                  :key="`summary-back-${item.rank}-${number}`"
+                  area="back"
+                  :value="number"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div v-if="lottery.recommendations?.recommendations.length" class="recommendation-list">
           <article
             v-for="item in lottery.recommendations.recommendations"
@@ -143,43 +180,6 @@
               </div>
             </div>
           </article>
-        </div>
-
-        <div v-if="lottery.recommendations?.recommendations.length" class="summary-block">
-          <div class="summary-header">
-            <div>
-              <h3 class="summary-title">五组号码汇总</h3>
-              <div class="summary-meta">集中查看，方便截图、抄写或对照筛选。</div>
-            </div>
-            <el-tag effect="dark" type="success">
-              {{ recommendationCount }} 组
-            </el-tag>
-          </div>
-          <div class="summary-list">
-            <div
-              v-for="item in lottery.recommendations.recommendations"
-              :key="`summary-${item.rank}`"
-              class="summary-row"
-            >
-              <span class="summary-rank">第 {{ item.rank }} 组</span>
-              <div class="summary-numbers">
-                <span class="number-label">前区</span>
-                <LotteryBall
-                  v-for="number in item.front_numbers"
-                  :key="`summary-front-${item.rank}-${number}`"
-                  area="front"
-                  :value="number"
-                />
-                <span class="number-label back-label">后区</span>
-                <LotteryBall
-                  v-for="number in item.back_numbers"
-                  :key="`summary-back-${item.rank}-${number}`"
-                  area="back"
-                  :value="number"
-                />
-              </div>
-            </div>
-          </div>
         </div>
 
         <EmptyState
@@ -334,6 +334,7 @@ onMounted(() => {
 .recommendation-list {
   display: grid;
   gap: 14px;
+  margin-top: 18px;
 }
 
 .recommendation-card {
@@ -403,11 +404,12 @@ onMounted(() => {
 }
 
 .summary-block {
-  border-top: 1px solid rgba(148, 163, 184, 0.14);
+  border: 1px solid rgba(34, 197, 94, 0.2);
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.36);
   display: grid;
   gap: 12px;
-  margin-top: 18px;
-  padding-top: 18px;
+  padding: 14px;
 }
 
 .summary-header {
