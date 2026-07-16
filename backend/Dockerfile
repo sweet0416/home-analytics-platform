@@ -16,7 +16,7 @@ COPY app ./app
 COPY alembic.ini ./alembic.ini
 COPY alembic ./alembic
 
-RUN mkdir -p /app/data/sqlite /app/logs \
+RUN mkdir -p /app/data/sqlite /app/data/exports /app/data/backups /app/logs \
     && chown -R hap:hap /app
 
 USER hap

@@ -13,6 +13,7 @@ services:
       DATABASE_URL: ${DATABASE_URL:-sqlite:////app/data/sqlite/hap.db}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       LOG_DIR: ${LOG_DIR:-/app/logs}
+      BACKUP_DIR: ${BACKUP_DIR:-/app/data/sqlite/backups}
       CORS_ORIGINS: '${CORS_ORIGINS:-["http://localhost:8088","http://127.0.0.1:8088"]}'
       BACKEND_WORKERS: ${BACKEND_WORKERS:-1}
       BACKEND_KEEP_ALIVE: ${BACKEND_KEEP_ALIVE:-5}

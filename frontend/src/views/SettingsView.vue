@@ -74,7 +74,7 @@
           <EmptyState
             v-else
             title="还没有数据库备份"
-            description="点击“创建当前数据库备份”后，会在 Docker 的 hap_backups 卷中生成一份 SQLite 备份。"
+            description="点击“创建当前数据库备份”后，会在 Docker 数据卷中生成一份 SQLite 备份。"
           />
         </div>
       </div>
