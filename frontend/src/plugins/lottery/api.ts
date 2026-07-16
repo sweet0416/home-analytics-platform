@@ -254,6 +254,43 @@ export interface LotteryRecommendationAnalysis {
   recommendations: LotteryRecommendationSet[];
 }
 
+export interface LotterySimulationSet {
+  rank: number;
+  front_numbers: number[];
+  back_numbers: number[];
+  front_sum: number;
+  front_span: number;
+  front_parity_pattern: string;
+  front_zone_pattern: string;
+  front_route012_pattern: string;
+}
+
+export interface LotterySimulationFrequency {
+  number: number;
+  count: number;
+  frequency: number;
+  expected_probability: number;
+  deviation: number;
+}
+
+export interface LotterySimulationAnalysis {
+  simulations: number;
+  requested_sets: number;
+  seed: number | null;
+  latest_issue_no: string;
+  disclaimer: string;
+  methodology: string[];
+  theoretical: {
+    front_probability: number;
+    back_probability: number;
+    jackpot_probability: string;
+    jackpot_probability_decimal: number;
+  };
+  generated_sets: LotterySimulationSet[];
+  front_frequency: LotterySimulationFrequency[];
+  back_frequency: LotterySimulationFrequency[];
+}
+
 export interface LotteryBasicStatistics {
   sample_size: number;
   requested_limit: number;
@@ -357,6 +394,21 @@ export function fetchRecommendationAnalysis(
   if (issueNo) params.set('issue_no', issueNo);
   return getApiData<LotteryRecommendationAnalysis>(
     `/lottery/dlt/analysis/recommendations?${params.toString()}`,
+  );
+}
+
+export function fetchSimulationAnalysis(
+  simulations = 10000,
+  sets = 5,
+  seed?: number,
+): Promise<LotterySimulationAnalysis> {
+  const params = new URLSearchParams({
+    simulations: String(simulations),
+    sets: String(sets),
+  });
+  if (seed !== undefined) params.set('seed', String(seed));
+  return getApiData<LotterySimulationAnalysis>(
+    `/lottery/dlt/analysis/simulation?${params.toString()}`,
   );
 }
 

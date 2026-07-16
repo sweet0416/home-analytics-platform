@@ -6,6 +6,7 @@ import LotteryOverview from './views/LotteryOverview.vue';
 import OmissionView from './views/OmissionView.vue';
 import RecommendationView from './views/RecommendationView.vue';
 import SamePeriodView from './views/SamePeriodView.vue';
+import SimulationView from './views/SimulationView.vue';
 import StatisticsView from './views/StatisticsView.vue';
 
 export const lotteryRoutes: RouteRecordRaw[] = [
@@ -43,5 +44,10 @@ export const lotteryRoutes: RouteRecordRaw[] = [
     path: 'lottery/dlt/recommendations',
     name: 'lottery-dlt-recommendations',
     component: RecommendationView,
+  },
+  {
+    path: 'lottery/dlt/simulation',
+    name: 'lottery-dlt-simulation',
+    component: SimulationView,
   },
 ];

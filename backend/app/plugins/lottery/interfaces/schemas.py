@@ -260,6 +260,45 @@ class LotteryRecommendationRead(BaseModel):
     recommendations: list[LotteryRecommendationSetRead]
 
 
+class LotterySimulationSetRead(BaseModel):
+    rank: int
+    front_numbers: list[int] = Field(min_length=5, max_length=5)
+    back_numbers: list[int] = Field(min_length=2, max_length=2)
+    front_sum: int
+    front_span: int
+    front_parity_pattern: str
+    front_zone_pattern: str
+    front_route012_pattern: str
+
+
+class LotterySimulationFrequencyRead(BaseModel):
+    number: int
+    count: int
+    frequency: float
+    expected_probability: float
+    deviation: float
+
+
+class LotterySimulationTheoreticalRead(BaseModel):
+    front_probability: float
+    back_probability: float
+    jackpot_probability: str
+    jackpot_probability_decimal: float
+
+
+class LotterySimulationRead(BaseModel):
+    simulations: int
+    requested_sets: int
+    seed: int | None
+    latest_issue_no: str
+    disclaimer: str
+    methodology: list[str]
+    theoretical: LotterySimulationTheoreticalRead
+    generated_sets: list[LotterySimulationSetRead]
+    front_frequency: list[LotterySimulationFrequencyRead]
+    back_frequency: list[LotterySimulationFrequencyRead]
+
+
 class LotteryHotColdRead(BaseModel):
     front: list[LotteryNumberFrequencyRead]
     back: list[LotteryNumberFrequencyRead]

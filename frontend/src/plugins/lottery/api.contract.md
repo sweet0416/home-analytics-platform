@@ -12,6 +12,7 @@ GET /api/v1/lottery/dlt/statistics/omissions
 GET /api/v1/lottery/dlt/numbers/{area}/{number}/omission
 GET /api/v1/lottery/dlt/analysis/same-period
 GET /api/v1/lottery/dlt/analysis/recommendations
+GET /api/v1/lottery/dlt/analysis/simulation
 POST /api/v1/lottery/dlt/sync
 POST /api/v1/lottery/dlt/sync/backfill
 POST /api/v1/lottery/dlt/sync/backfill/start

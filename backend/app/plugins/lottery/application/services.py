@@ -1,4 +1,5 @@
 import json
+import random
 from dataclasses import replace
 from itertools import combinations
 from math import ceil
@@ -402,6 +403,73 @@ class LotteryService:
             ),
         }
 
+    def simulate_numbers(
+        self,
+        *,
+        simulations: int = 10000,
+        sets: int = 5,
+        seed: int | None = None,
+    ) -> dict[str, object]:
+        latest_draw = self.repository.get_latest_draw()
+        if latest_draw is None:
+            raise AppError(
+                code=ErrorCode.lottery_draw_not_found,
+                message="No lottery draw data is available for simulation.",
+                status_code=404,
+            )
+
+        rng = random.Random(seed)
+        front_counts = {number: 0 for number in range(1, 36)}
+        back_counts = {number: 0 for number in range(1, 13)}
+        generated_sets: list[dict[str, object]] = []
+
+        for index in range(simulations):
+            front_numbers = sorted(rng.sample(range(1, 36), 5))
+            back_numbers = sorted(rng.sample(range(1, 13), 2))
+            for number in front_numbers:
+                front_counts[number] += 1
+            for number in back_numbers:
+                back_counts[number] += 1
+            if len(generated_sets) < sets:
+                generated_sets.append(
+                    self._serialize_simulation_set(
+                        rank=len(generated_sets) + 1,
+                        front_numbers=front_numbers,
+                        back_numbers=back_numbers,
+                    )
+                )
+
+        return {
+            "simulations": simulations,
+            "requested_sets": sets,
+            "seed": seed,
+            "latest_issue_no": latest_draw.issue_no,
+            "disclaimer": DLT_DISCLAIMER,
+            "methodology": [
+                "每次模拟都从前区 1-35 中不放回抽取 5 个号码。",
+                "每次模拟都从后区 1-12 中不放回抽取 2 个号码。",
+                "模拟结果只反映随机抽样的分布，不使用历史开奖作为预测依据。",
+                "号码频率越接近理论概率，说明模拟次数越充分。",
+            ],
+            "theoretical": {
+                "front_probability": round(5 / 35, 6),
+                "back_probability": round(2 / 12, 6),
+                "jackpot_probability": "1 / 21425712",
+                "jackpot_probability_decimal": round(1 / 21425712, 12),
+            },
+            "generated_sets": generated_sets,
+            "front_frequency": self._serialize_simulation_frequency(
+                counts=front_counts,
+                simulations=simulations,
+                expected_probability=5 / 35,
+            ),
+            "back_frequency": self._serialize_simulation_frequency(
+                counts=back_counts,
+                simulations=simulations,
+                expected_probability=2 / 12,
+            ),
+        }
+
     def _resolve_same_period_target(
         self,
         issue_no: str | None,
@@ -423,6 +491,51 @@ class LotteryService:
         if latest_issue_no.isdigit():
             return str(int(latest_issue_no) + 1).zfill(len(latest_issue_no))
         return latest_issue_no
+
+    @classmethod
+    def _serialize_simulation_set(
+        cls,
+        *,
+        rank: int,
+        front_numbers: list[int],
+        back_numbers: list[int],
+    ) -> dict[str, object]:
+        metrics = cls._build_draw_metrics(
+            issue_no="simulation",
+            front_numbers=front_numbers,
+            back_numbers=back_numbers,
+        )
+        return {
+            "rank": rank,
+            "front_numbers": front_numbers,
+            "back_numbers": back_numbers,
+            "front_sum": metrics["front_sum"],
+            "front_span": metrics["front_span"],
+            "front_parity_pattern": metrics["front_parity_pattern"],
+            "front_zone_pattern": metrics["front_zone_pattern"],
+            "front_route012_pattern": metrics["front_route012_pattern"],
+        }
+
+    @staticmethod
+    def _serialize_simulation_frequency(
+        *,
+        counts: dict[int, int],
+        simulations: int,
+        expected_probability: float,
+    ) -> list[dict[str, object]]:
+        return [
+            {
+                "number": number,
+                "count": count,
+                "frequency": round(count / simulations, 6),
+                "expected_probability": round(expected_probability, 6),
+                "deviation": round(count / simulations - expected_probability, 6),
+            }
+            for number, count in sorted(
+                counts.items(),
+                key=lambda item: (-item[1], item[0]),
+            )
+        ]
 
     def get_latest_draw(self) -> dict[str, object]:
         draw = self.repository.get_latest_draw()

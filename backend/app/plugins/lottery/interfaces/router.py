@@ -19,6 +19,7 @@ from app.plugins.lottery.interfaces.schemas import (
     LotteryRecommendationRead,
     LotteryRuleRead,
     LotterySamePeriodAnalysisRead,
+    LotterySimulationRead,
     LotterySyncRequest,
     LotterySyncRunPageRead,
     LotterySyncRunRead,
@@ -138,6 +139,17 @@ def get_recommendations(
             sample_limit=sample_limit,
         )
     )
+
+
+@router.get("/analysis/simulation", response_model=ApiResponse[LotterySimulationRead])
+def simulate_numbers(
+    simulations: int = Query(default=10000, ge=100, le=50000),
+    sets: int = Query(default=5, ge=1, le=20),
+    seed: int | None = Query(default=None, ge=0, le=2147483647),
+    db: Session = Depends(get_db),
+) -> ApiResponse[LotterySimulationRead]:
+    service = LotteryService(db)
+    return ok(service.simulate_numbers(simulations=simulations, sets=sets, seed=seed))
 
 
 @router.post("/sync", response_model=ApiResponse[LotterySyncRunRead])

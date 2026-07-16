@@ -14,6 +14,7 @@
           <RouterLink to="/lottery/dlt/heatmap">热力图</RouterLink>
           <RouterLink to="/lottery/dlt/same-period">历史同期</RouterLink>
           <RouterLink to="/lottery/dlt/recommendations">选号推荐</RouterLink>
+          <RouterLink to="/lottery/dlt/simulation">模拟选号</RouterLink>
         </div>
         <el-button
           type="primary"
