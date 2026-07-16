@@ -13,4 +13,5 @@ class DatabaseBackupListRead(BaseModel):
     items: list[DatabaseBackupRead]
     directory: str
     database_engine: str
-
+    retention_count: int = Field(ge=1)
+    total_size_bytes: int = Field(ge=0)

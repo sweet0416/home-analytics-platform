@@ -1,4 +1,5 @@
 from fastapi import APIRouter
+from fastapi.responses import FileResponse
 
 from app.core.backup.schemas import DatabaseBackupListRead, DatabaseBackupRead
 from app.core.backup.service import DatabaseBackupService
@@ -32,3 +33,15 @@ def create_database_backup() -> ApiResponse[DatabaseBackupRead]:
     settings = get_settings()
     service = DatabaseBackupService(settings=settings)
     return ok(service.create_sqlite_backup(), message="backup created")
+
+
+@router.get("/backups/{file_name}/download")
+def download_database_backup(file_name: str) -> FileResponse:
+    settings = get_settings()
+    service = DatabaseBackupService(settings=settings)
+    path = service.get_sqlite_backup_path(file_name)
+    return FileResponse(
+        path=path,
+        filename=file_name,
+        media_type="application/octet-stream",
+    )

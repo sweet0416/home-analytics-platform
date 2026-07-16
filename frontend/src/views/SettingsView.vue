@@ -31,6 +31,10 @@
               <span>最近备份</span>
               <strong>{{ latestBackupTime }}</strong>
             </div>
+            <div class="backup-summary-item">
+              <span>备份总大小</span>
+              <strong>{{ totalBackupSize }}</strong>
+            </div>
           </div>
 
           <div class="explain-box">
@@ -42,6 +46,9 @@
             <p>
               现在先提供“创建备份”和“查看备份”。恢复数据库属于高风险操作，
               后续会做成带确认、停服务和回滚记录的独立流程。
+            </p>
+            <p>
+              当前建议最多保留 {{ retentionCount }} 份备份；后续会增加自动清理和恢复审计。
             </p>
           </div>
 
@@ -67,6 +74,13 @@
             <el-table-column label="创建时间" min-width="180">
               <template #default="{ row }">
                 {{ formatDateTime(row.created_at) }}
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" width="110" fixed="right">
+              <template #default="{ row }">
+                <el-button text type="primary" @click="downloadBackup(row.file_name)">
+                  下载
+                </el-button>
               </template>
             </el-table-column>
           </el-table>
@@ -106,7 +120,9 @@ const system = useSystemStore();
 
 const backupCount = computed(() => String(system.backups?.items.length ?? 0));
 const databaseEngine = computed(() => system.backups?.database_engine.toUpperCase() ?? 'SQLITE');
-const backupDirectory = computed(() => system.backups?.directory ?? '/app/data/backups');
+const backupDirectory = computed(() => system.backups?.directory ?? '/app/data/sqlite/backups');
+const retentionCount = computed(() => system.backups?.retention_count ?? 30);
+const totalBackupSize = computed(() => formatBytes(system.backups?.total_size_bytes ?? 0));
 const latestBackupTime = computed(() => {
   const latest = system.backups?.items[0];
   return latest ? formatDateTime(latest.created_at) : '暂无';
@@ -139,6 +155,10 @@ async function createBackup(): Promise<void> {
   }
 }
 
+function downloadBackup(fileName: string): void {
+  window.location.href = `/api/v1/system/backups/${encodeURIComponent(fileName)}/download`;
+}
+
 onMounted(() => {
   void system.fetchBackups();
 });
@@ -158,7 +178,7 @@ onMounted(() => {
 
 .backup-summary {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
   margin-bottom: 14px;
 }
@@ -228,6 +248,12 @@ onMounted(() => {
 @media (max-width: 760px) {
   .backup-summary {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (min-width: 761px) and (max-width: 1100px) {
+  .backup-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 </style>

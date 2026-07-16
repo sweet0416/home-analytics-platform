@@ -45,17 +45,45 @@ class DatabaseBackupService:
         return backup
 
     def list_sqlite_backups(self) -> DatabaseBackupListRead:
+        backups = self._list_backup_files()
+        return DatabaseBackupListRead(
+            items=backups,
+            directory=str(self._settings.backup_dir),
+            database_engine="sqlite",
+            retention_count=self._settings.backup_retention_count,
+            total_size_bytes=sum(item.size_bytes for item in backups),
+        )
+
+    def get_sqlite_backup_path(self, file_name: str) -> Path:
+        if Path(file_name).name != file_name or not file_name.startswith("hap_"):
+            raise AppError(
+                code=ErrorCode.validation_error,
+                message="Invalid backup file name.",
+                status_code=400,
+            )
+        if not file_name.endswith(".db"):
+            raise AppError(
+                code=ErrorCode.validation_error,
+                message="Only SQLite backup files can be downloaded.",
+                status_code=400,
+            )
+
+        path = self._settings.backup_dir / file_name
+        if not path.exists() or not path.is_file():
+            raise AppError(
+                code=ErrorCode.not_found,
+                message=f"Backup file not found: {file_name}",
+                status_code=404,
+            )
+        return path
+
+    def _list_backup_files(self) -> list[DatabaseBackupRead]:
         backup_dir = self._settings.backup_dir
         backup_dir.mkdir(parents=True, exist_ok=True)
-        backups = sorted(
+        return sorted(
             [self._read_backup_file(path) for path in backup_dir.glob("hap_*.db")],
             key=lambda item: item.created_at,
             reverse=True,
-        )
-        return DatabaseBackupListRead(
-            items=backups,
-            directory=str(backup_dir),
-            database_engine="sqlite",
         )
 
     def _get_sqlite_database_path(self) -> Path:

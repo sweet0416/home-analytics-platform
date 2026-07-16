@@ -18,6 +18,8 @@ export interface DatabaseBackupList {
   items: DatabaseBackup[];
   directory: string;
   database_engine: string;
+  retention_count: number;
+  total_size_bytes: number;
 }
 
 export const useSystemStore = defineStore('system', {

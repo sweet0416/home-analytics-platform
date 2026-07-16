@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     log_dir: Path = Field(default=Path("logs"))
     backup_dir: Path = Field(default=Path("data/backups"))
+    backup_retention_count: int = Field(default=30, ge=1, le=365)
     lottery_dlt_auto_sync_enabled: bool = True
     lottery_dlt_sync_cron: str = "30 22 * * *"
     lottery_dlt_sync_page_size: int = Field(default=100, ge=1, le=500)
