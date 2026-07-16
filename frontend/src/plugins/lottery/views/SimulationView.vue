@@ -71,6 +71,43 @@
         <span class="panel-meta">随机生成，不代表推荐</span>
       </div>
       <div class="panel-body">
+        <div v-if="lottery.simulation?.generated_sets.length" class="summary-block">
+          <div class="summary-header">
+            <div>
+              <h3 class="summary-title">快速汇总</h3>
+              <div class="summary-meta">模拟号码集中查看，方便截图、抄写或对照筛选。</div>
+            </div>
+            <el-tag effect="dark" type="success">
+              {{ generatedCount }} 组
+            </el-tag>
+          </div>
+          <div class="summary-list">
+            <div
+              v-for="item in lottery.simulation.generated_sets"
+              :key="`summary-${item.rank}`"
+              class="summary-row"
+            >
+              <span class="summary-rank">第 {{ item.rank }} 组</span>
+              <div class="summary-numbers">
+                <span class="number-label">前区</span>
+                <LotteryBall
+                  v-for="number in item.front_numbers"
+                  :key="`summary-front-${item.rank}-${number}`"
+                  area="front"
+                  :value="number"
+                />
+                <span class="number-label back-label">后区</span>
+                <LotteryBall
+                  v-for="number in item.back_numbers"
+                  :key="`summary-back-${item.rank}-${number}`"
+                  area="back"
+                  :value="number"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div v-if="lottery.simulation?.generated_sets.length" class="generated-list">
           <div
             v-for="item in lottery.simulation.generated_sets"
@@ -299,6 +336,7 @@ onMounted(() => {
 .generated-list {
   display: grid;
   gap: 10px;
+  margin-top: 18px;
 }
 
 .generated-row {
@@ -327,6 +365,59 @@ onMounted(() => {
 
 .back-label {
   margin-left: 8px;
+}
+
+.summary-block {
+  border: 1px solid rgba(34, 197, 94, 0.2);
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.36);
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+}
+
+.summary-header {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.summary-title {
+  font-size: 15px;
+  margin: 0;
+}
+
+.summary-meta {
+  color: var(--color-muted);
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.summary-list {
+  display: grid;
+  gap: 10px;
+}
+
+.summary-row {
+  align-items: center;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 86px minmax(0, 1fr);
+  padding: 12px;
+}
+
+.summary-rank {
+  font-weight: 700;
+}
+
+.summary-numbers {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .frequency-card {
@@ -379,7 +470,8 @@ onMounted(() => {
   }
 
   .control-grid,
-  .frequency-grid {
+  .frequency-grid,
+  .summary-row {
     grid-template-columns: 1fr;
   }
 
