@@ -35,7 +35,7 @@ def create_database_backup() -> ApiResponse[DatabaseBackupRead]:
     service = DatabaseBackupService(settings=settings)
     backup = service.create_sqlite_backup()
     backup_path = service.get_sqlite_backup_path(backup.file_name)
-    upload_remote_backup(backup_path)
+    upload_remote_backup(backup=backup, backup_path=backup_path, trigger_type="manual")
     return ok(backup, message="backup created")
 
 

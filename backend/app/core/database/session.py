@@ -29,7 +29,7 @@ def get_db() -> Generator[Session, None, None]:
 
 
 def create_database_schema() -> None:
+    from app.core.backup import models as backup_models  # noqa: F401
     from app.plugins.lottery.infrastructure.persistence import models  # noqa: F401
 
     Base.metadata.create_all(bind=engine)
-
