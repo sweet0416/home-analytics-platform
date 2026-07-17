@@ -11,7 +11,7 @@ GET /api/v1/lottery/dlt/statistics/basic
 GET /api/v1/lottery/dlt/statistics/omissions
 GET /api/v1/lottery/dlt/numbers/{area}/{number}/omission
 GET /api/v1/lottery/dlt/analysis/same-period
-GET /api/v1/lottery/dlt/analysis/recommendations
+GET /api/v1/lottery/dlt/analysis/recommendations?sets&same_period_count&sample_limit&same_period_weight&frequency_weight&missing_weight&structure_weight
 GET /api/v1/lottery/dlt/analysis/simulation
 POST /api/v1/lottery/dlt/analysis/dantuo
 POST /api/v1/lottery/dlt/analysis/backtest

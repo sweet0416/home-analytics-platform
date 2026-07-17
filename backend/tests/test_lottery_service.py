@@ -190,3 +190,51 @@ def test_lottery_service_accepts_issue_suffix_for_same_period(
     assert analysis["issue_suffix"] == "080"
     assert analysis["target"]["issue_no"] == "25080"
     assert [item["draw"]["issue_no"] for item in analysis["items"]] == ["24080", "23080"]
+
+
+def test_lottery_service_applies_recommendation_weights(db_session: Session) -> None:
+    repository = LotteryRepository(db_session)
+    repository.ensure_dlt_seed_data()
+    fixtures = [
+        ("26076", date(2026, 6, 30), [1, 5, 9, 18, 28], [1, 8]),
+        ("26077", date(2026, 7, 2), [2, 6, 10, 19, 29], [2, 9]),
+        ("26078", date(2026, 7, 5), [3, 7, 11, 20, 30], [3, 10]),
+        ("26079", date(2026, 7, 7), [4, 8, 12, 21, 31], [4, 11]),
+        ("25080", date(2025, 7, 9), [5, 9, 13, 22, 32], [5, 12]),
+        ("24080", date(2024, 7, 8), [1, 9, 14, 23, 33], [1, 12]),
+    ]
+    for issue_no, draw_date, front_numbers, back_numbers in fixtures:
+        repository.upsert_draw(
+            DrawRecord(
+                game_code=DLT_GAME_CODE,
+                issue_no=issue_no,
+                draw_date=draw_date,
+                front_numbers=front_numbers,
+                back_numbers=back_numbers,
+                sales_amount=Decimal("100.00"),
+                pool_amount=Decimal("200.00"),
+                source_url=f"https://example.test/{issue_no}",
+                raw_data={"fixture": issue_no},
+            )
+        )
+    db_session.commit()
+
+    analysis = LotteryService(db_session).get_recommendations(
+        issue_no="26080",
+        sets=2,
+        same_period_count=2,
+        sample_limit=50,
+        same_period_weight=80,
+        frequency_weight=10,
+        missing_weight=5,
+        structure_weight=20,
+    )
+
+    assert analysis["strategy_weights"] == {
+        "same_period": 80,
+        "frequency": 10,
+        "missing": 5,
+        "structure": 20,
+    }
+    assert analysis["requested_sets"] == 2
+    assert len(analysis["recommendations"]) == 2

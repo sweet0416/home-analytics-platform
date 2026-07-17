@@ -132,6 +132,10 @@ def get_recommendations(
     sets: int = Query(default=5, ge=1, le=12),
     same_period_count: int = Query(default=10, ge=1, le=20),
     sample_limit: int = Query(default=200, ge=50, le=500),
+    same_period_weight: float = Query(default=45, ge=0, le=100),
+    frequency_weight: float = Query(default=25, ge=0, le=100),
+    missing_weight: float = Query(default=20, ge=0, le=100),
+    structure_weight: float = Query(default=10, ge=0, le=100),
     db: Session = Depends(get_db),
 ) -> ApiResponse[LotteryRecommendationRead]:
     service = LotteryService(db)
@@ -141,6 +145,10 @@ def get_recommendations(
             sets=sets,
             same_period_count=same_period_count,
             sample_limit=sample_limit,
+            same_period_weight=same_period_weight,
+            frequency_weight=frequency_weight,
+            missing_weight=missing_weight,
+            structure_weight=structure_weight,
         )
     )
 

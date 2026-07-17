@@ -254,6 +254,7 @@ class LotteryRecommendationRead(BaseModel):
     same_period_count: int
     requested_sets: int
     disclaimer: str
+    strategy_weights: dict[str, float]
     methodology: list[str]
     same_period_repeated_front: list[LotteryRecommendationNumberRead]
     same_period_repeated_back: list[LotteryRecommendationNumberRead]

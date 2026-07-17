@@ -57,6 +57,40 @@
           />
         </div>
       </div>
+      <div class="strategy-grid">
+        <div class="strategy-item">
+          <div class="strategy-label">
+            <span>历史同期权重</span>
+            <strong>{{ samePeriodWeight }}</strong>
+          </div>
+          <el-slider v-model="samePeriodWeight" :min="0" :max="100" :step="5" />
+          <p>越高越看重同序号往年重复出现过的号码。</p>
+        </div>
+        <div class="strategy-item">
+          <div class="strategy-label">
+            <span>近期热度权重</span>
+            <strong>{{ frequencyWeight }}</strong>
+          </div>
+          <el-slider v-model="frequencyWeight" :min="0" :max="100" :step="5" />
+          <p>越高越偏向最近样本里出现频率更高的号码。</p>
+        </div>
+        <div class="strategy-item">
+          <div class="strategy-label">
+            <span>遗漏权重</span>
+            <strong>{{ missingWeight }}</strong>
+          </div>
+          <el-slider v-model="missingWeight" :min="0" :max="100" :step="5" />
+          <p>越高越偏向较久没有出现、遗漏期数更高的号码。</p>
+        </div>
+        <div class="strategy-item">
+          <div class="strategy-label">
+            <span>结构均衡权重</span>
+            <strong>{{ structureWeight }}</strong>
+          </div>
+          <el-slider v-model="structureWeight" :min="0" :max="100" :step="5" />
+          <p>越高越看重和值、跨度、奇偶、区间和012路是否均衡。</p>
+        </div>
+      </div>
     </section>
 
     <div class="grid metrics recommendation-metrics">
@@ -233,6 +267,10 @@ const targetIssueInput = ref('');
 const setCount = ref(5);
 const samePeriodCount = ref(10);
 const sampleLimit = ref(200);
+const samePeriodWeight = ref(45);
+const frequencyWeight = ref(25);
+const missingWeight = ref(20);
+const structureWeight = ref(10);
 const fallbackDisclaimer = '本结果仅基于历史统计分析，仅供娱乐，不代表未来开奖结果。';
 
 const targetIssue = computed(() => lottery.recommendations?.target_issue_no ?? '--');
@@ -266,6 +304,12 @@ async function reloadRecommendations(): Promise<void> {
       setCount.value,
       samePeriodCount.value,
       sampleLimit.value,
+      {
+        same_period: samePeriodWeight.value,
+        frequency: frequencyWeight.value,
+        missing: missingWeight.value,
+        structure: structureWeight.value,
+      },
     );
   } finally {
     lottery.loading = false;
@@ -349,6 +393,40 @@ onMounted(() => {
   justify-content: space-between;
   gap: 10px;
   padding: 12px;
+}
+
+.strategy-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.strategy-item {
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 8px;
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+}
+
+.strategy-label {
+  align-items: center;
+  color: var(--color-text);
+  display: flex;
+  font-size: 13px;
+  justify-content: space-between;
+}
+
+.strategy-label strong {
+  color: var(--color-primary);
+}
+
+.strategy-item p {
+  color: var(--color-muted);
+  font-size: 12px;
+  line-height: 1.5;
+  margin: 0;
 }
 
 .recommendation-list {
@@ -513,6 +591,7 @@ onMounted(() => {
   }
 
   .control-grid,
+  .strategy-grid,
   .detail-grid,
   .summary-row {
     grid-template-columns: 1fr;

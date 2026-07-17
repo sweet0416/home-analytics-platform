@@ -31,6 +31,7 @@ import {
   type LotteryNumberOmissionDetail,
   type LotteryOmissionStatistics,
   type LotteryRecommendationAnalysis,
+  type LotteryRecommendationWeights,
   type LotteryRule,
   type LotterySamePeriodAnalysis,
   type LotterySimulationAnalysis,
@@ -134,12 +135,14 @@ export const useLotteryStore = defineStore('lottery', {
       sets = 5,
       samePeriodCount = 10,
       sampleLimit = 200,
+      weights?: LotteryRecommendationWeights,
     ): Promise<void> {
       this.recommendations = await fetchRecommendationAnalysis(
         issueNo,
         sets,
         samePeriodCount,
         sampleLimit,
+        weights,
       );
     },
     async loadSimulation(simulations = 10000, sets = 5, seed?: number): Promise<void> {

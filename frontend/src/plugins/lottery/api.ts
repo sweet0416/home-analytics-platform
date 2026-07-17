@@ -241,6 +241,13 @@ export interface LotteryRecommendationSet {
   back_details: LotteryRecommendationNumberDetail[];
 }
 
+export interface LotteryRecommendationWeights {
+  same_period: number;
+  frequency: number;
+  missing: number;
+  structure: number;
+}
+
 export interface LotteryRecommendationAnalysis {
   target_issue_no: string;
   issue_suffix: string;
@@ -248,9 +255,10 @@ export interface LotteryRecommendationAnalysis {
   same_period_count: number;
   requested_sets: number;
   disclaimer: string;
+  strategy_weights: LotteryRecommendationWeights;
   methodology: string[];
-  same_period_repeated_front: number[];
-  same_period_repeated_back: number[];
+  same_period_repeated_front: LotteryRecommendationNumberDetail[];
+  same_period_repeated_back: LotteryRecommendationNumberDetail[];
   recommendations: LotteryRecommendationSet[];
 }
 
@@ -488,12 +496,19 @@ export function fetchRecommendationAnalysis(
   sets = 5,
   samePeriodCount = 10,
   sampleLimit = 200,
+  weights?: LotteryRecommendationWeights,
 ): Promise<LotteryRecommendationAnalysis> {
   const params = new URLSearchParams({
     sets: String(sets),
     same_period_count: String(samePeriodCount),
     sample_limit: String(sampleLimit),
   });
+  if (weights) {
+    params.set('same_period_weight', String(weights.same_period));
+    params.set('frequency_weight', String(weights.frequency));
+    params.set('missing_weight', String(weights.missing));
+    params.set('structure_weight', String(weights.structure));
+  }
   if (issueNo) params.set('issue_no', issueNo);
   return getApiData<LotteryRecommendationAnalysis>(
     `/lottery/dlt/analysis/recommendations?${params.toString()}`,

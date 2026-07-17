@@ -336,6 +336,10 @@ class LotteryService:
         sets: int = 5,
         same_period_count: int = 10,
         sample_limit: int = 200,
+        same_period_weight: float = 45,
+        frequency_weight: float = 25,
+        missing_weight: float = 20,
+        structure_weight: float = 10,
     ) -> dict[str, object]:
         latest_draw = self.repository.get_latest_draw()
         if latest_draw is None:
@@ -347,6 +351,12 @@ class LotteryService:
 
         target_issue_no = self._resolve_recommendation_issue_no(issue_no, latest_draw.issue_no)
         issue_suffix = target_issue_no[-3:]
+        strategy_weights = self._normalize_recommendation_weights(
+            same_period_weight=same_period_weight,
+            frequency_weight=frequency_weight,
+            missing_weight=missing_weight,
+            structure_weight=structure_weight,
+        )
         recent_draws = [
             self._serialize_draw(draw)
             for draw in self.repository.list_recent_draws(limit=sample_limit)
@@ -365,6 +375,7 @@ class LotteryService:
             max_number=35,
             recent_draws=recent_draws,
             same_period_draws=same_period_draws,
+            strategy_weights=strategy_weights,
         )
         back_scores = self._score_recommendation_numbers(
             area="back",
@@ -372,6 +383,7 @@ class LotteryService:
             max_number=12,
             recent_draws=recent_draws,
             same_period_draws=same_period_draws,
+            strategy_weights=strategy_weights,
         )
 
         return {
@@ -381,6 +393,7 @@ class LotteryService:
             "same_period_count": len(same_period_draws),
             "requested_sets": sets,
             "disclaimer": DLT_DISCLAIMER,
+            "strategy_weights": strategy_weights,
             "methodology": [
                 "历史同期：优先考虑目标期号后三位相同的往年开奖中重复出现的号码。",
                 "近期统计：结合最近样本内的出现频次、当前遗漏和冷热状态。",
@@ -399,6 +412,7 @@ class LotteryService:
                 front_scores=front_scores,
                 back_scores=back_scores,
                 recent_draws=recent_draws,
+                structure_weight=float(strategy_weights["structure"]),
                 limit=sets,
             ),
         }
@@ -1210,6 +1224,29 @@ class LotteryService:
             for number in range(min_number, max_number + 1)
         ]
 
+    @staticmethod
+    def _normalize_recommendation_weights(
+        *,
+        same_period_weight: float,
+        frequency_weight: float,
+        missing_weight: float,
+        structure_weight: float,
+    ) -> dict[str, float]:
+        weights = {
+            "same_period": max(0.0, same_period_weight),
+            "frequency": max(0.0, frequency_weight),
+            "missing": max(0.0, missing_weight),
+            "structure": max(0.0, structure_weight),
+        }
+        if sum(weights.values()) <= 0:
+            return {
+                "same_period": 45.0,
+                "frequency": 25.0,
+                "missing": 20.0,
+                "structure": 10.0,
+            }
+        return {key: round(value, 2) for key, value in weights.items()}
+
     @classmethod
     def _score_recommendation_numbers(
         cls,
@@ -1219,6 +1256,7 @@ class LotteryService:
         max_number: int,
         recent_draws: list[dict[str, object]],
         same_period_draws: list[dict[str, object]],
+        strategy_weights: dict[str, float],
     ) -> list[dict[str, object]]:
         recent_rows = [list(draw[f"{area}_numbers"]) for draw in recent_draws]
         if not recent_rows:
@@ -1249,10 +1287,10 @@ class LotteryService:
             frequency = int(frequency_by_number[number]["count"])
             missing = int(frequency_by_number[number]["missing"])
             same_hits = same_counts[number]
-            same_score = 45 * (same_hits / max_same_count)
-            frequency_score = 25 * (frequency / max_frequency)
-            missing_score = 20 * min(missing / expected_gap, 1.25)
-            balance_score = 10 if same_hits >= 1 or missing <= expected_gap * 2 else 4
+            same_score = strategy_weights["same_period"] * (same_hits / max_same_count)
+            frequency_score = strategy_weights["frequency"] * (frequency / max_frequency)
+            missing_score = strategy_weights["missing"] * min(missing / expected_gap, 1.25)
+            balance_score = 6 if same_hits >= 1 or missing <= expected_gap * 2 else 2
             score = round(same_score + frequency_score + missing_score + balance_score, 2)
             scored.append(
                 {
@@ -1300,6 +1338,7 @@ class LotteryService:
         front_scores: list[dict[str, object]],
         back_scores: list[dict[str, object]],
         recent_draws: list[dict[str, object]],
+        structure_weight: float,
         limit: int,
     ) -> list[dict[str, object]]:
         if not front_scores or not back_scores or not recent_draws:
@@ -1343,7 +1382,10 @@ class LotteryService:
                     {
                         "front_numbers": front_numbers,
                         "back_numbers": back_numbers,
-                        "score": round(number_score + front_structure_score, 2),
+                        "score": round(
+                            number_score + front_structure_score * (structure_weight / 10),
+                            2,
+                        ),
                         "metrics": metrics,
                     }
                 )
