@@ -9,6 +9,7 @@
         <RouterLink to="/lottery/dlt" class="back-link">返回概览</RouterLink>
         <el-checkbox v-model="form.addon">按追加成本计算</el-checkbox>
         <el-input-number v-model="form.hitLimit" :min="1" :max="100" size="small" />
+        <el-button plain :disabled="!canAddCurrentSet" @click="addCurrentToPool">加入回测池</el-button>
         <el-button type="primary" :loading="analyzing" @click="handleBacktest">开始回测</el-button>
       </div>
     </section>
@@ -88,6 +89,80 @@
               />
             </div>
           </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel pool-panel">
+      <div class="panel-header">
+        <div>
+          <h2 class="panel-title">回测池</h2>
+          <span class="panel-meta">可放入多组 5+2 号码，批量比较历史表现</span>
+        </div>
+        <div class="pool-actions">
+          <el-button plain size="small" :disabled="!backtestPool.length" @click="clearBacktestPool">
+            清空
+          </el-button>
+          <el-button
+            type="primary"
+            size="small"
+            :loading="batchAnalyzing"
+            :disabled="!backtestPool.length"
+            @click="handleBatchBacktest"
+          >
+            批量回测
+          </el-button>
+        </div>
+      </div>
+      <div v-if="backtestPool.length" class="pool-list">
+        <article v-for="item in backtestPool" :key="item.id" class="pool-row">
+          <div>
+            <strong>{{ item.label }}</strong>
+            <span>{{ item.source }}</span>
+          </div>
+          <div class="pool-balls">
+            <LotteryBall
+              v-for="number in item.frontNumbers"
+              :key="`${item.id}-front-${number}`"
+              area="front"
+              :value="number"
+            />
+            <LotteryBall
+              v-for="number in item.backNumbers"
+              :key="`${item.id}-back-${number}`"
+              area="back"
+              :value="number"
+            />
+          </div>
+          <el-button plain size="small" @click="removePoolItem(item.id)">移除</el-button>
+        </article>
+      </div>
+      <EmptyState
+        v-else
+        title="回测池为空"
+        description="选好一组号码后点击加入回测池，或从推荐页跳转后先加入池子。"
+      />
+    </section>
+
+    <section v-if="batchResults.length" class="panel batch-panel">
+      <div class="panel-header">
+        <h2 class="panel-title">批量回测结果</h2>
+        <span class="panel-meta">{{ batchSummary }}</span>
+      </div>
+      <div class="batch-table">
+        <div class="batch-row batch-head">
+          <span>组合</span>
+          <span>号码</span>
+          <span>中奖期数</span>
+          <span>最高命中</span>
+          <span>固定奖净值</span>
+        </div>
+        <div v-for="item in batchResults" :key="item.id" class="batch-row">
+          <span>{{ item.label }}</span>
+          <span>{{ formatPoolNumbers(item) }}</span>
+          <span>{{ item.analysis.hit_count }} / {{ item.analysis.sample_size }}</span>
+          <span>{{ item.analysis.highest_hit?.match_key ?? '--' }}</span>
+          <strong>{{ formatCurrency(item.analysis.net_fixed_result) }}</strong>
         </div>
       </div>
     </section>
@@ -238,11 +313,28 @@ import MetricCard from '@/components/metric/MetricCard.vue';
 import DisclaimerAlert from '@/plugins/lottery/components/DisclaimerAlert.vue';
 import LotteryBall from '@/plugins/lottery/components/LotteryBall.vue';
 import LotteryNumberBoard from '@/plugins/lottery/components/LotteryNumberBoard.vue';
+import {
+  backtestNumbers as backtestNumbersRequest,
+  type LotteryBacktestAnalysis,
+} from '@/plugins/lottery/api';
 import { useLotteryStore } from '@/plugins/lottery/store';
+
+interface BacktestPoolItem {
+  id: string;
+  label: string;
+  source: string;
+  frontNumbers: number[];
+  backNumbers: number[];
+}
+
+interface BatchBacktestResult extends BacktestPoolItem {
+  analysis: LotteryBacktestAnalysis;
+}
 
 const lottery = useLotteryStore();
 const route = useRoute();
 const analyzing = ref(false);
+const batchAnalyzing = ref(false);
 const errorMessage = ref('');
 const fallbackDisclaimer = '本结果仅基于历史统计分析，仅供娱乐，不代表未来开奖结果。';
 
@@ -253,8 +345,13 @@ const form = reactive({
   hitLimit: 20,
 });
 
+const backtestPool = ref<BacktestPoolItem[]>([]);
+const batchResults = ref<BatchBacktestResult[]>([]);
 const frontOptions = Array.from({ length: 35 }, (_, index) => index + 1);
 const backOptions = Array.from({ length: 12 }, (_, index) => index + 1);
+const canAddCurrentSet = computed(
+  () => form.frontNumbers.length === 5 && form.backNumbers.length === 2,
+);
 const sampleSize = computed(() => String(lottery.backtest?.sample_size ?? 0));
 const sampleRange = computed(() => {
   const result = lottery.backtest;
@@ -278,6 +375,13 @@ const costSummary = computed(() => {
 const visibleDistribution = computed(
   () => lottery.backtest?.distribution.filter((item) => item.count > 0).slice(0, 12) ?? [],
 );
+const batchSummary = computed(() => {
+  if (!batchResults.value.length) return '--';
+  const best = [...batchResults.value].sort(
+    (left, right) => right.analysis.net_fixed_result - left.analysis.net_fixed_result,
+  )[0];
+  return `共 ${batchResults.value.length} 组，净值最高：${best.label} ${formatCurrency(best.analysis.net_fixed_result)}`;
+});
 
 async function handleBacktest(): Promise<void> {
   errorMessage.value = '';
@@ -299,6 +403,68 @@ async function handleBacktest(): Promise<void> {
   } finally {
     analyzing.value = false;
   }
+}
+
+async function handleBatchBacktest(): Promise<void> {
+  errorMessage.value = '';
+  if (!backtestPool.value.length) {
+    errorMessage.value = '请先加入至少一组号码到回测池。';
+    return;
+  }
+
+  batchAnalyzing.value = true;
+  try {
+    const results: BatchBacktestResult[] = [];
+    for (const item of backtestPool.value) {
+      const analysis = await backtestNumbersRequest({
+        front_numbers: [...item.frontNumbers],
+        back_numbers: [...item.backNumbers],
+        addon: form.addon,
+        hit_limit: form.hitLimit,
+      });
+      results.push({ ...item, analysis });
+    }
+    batchResults.value = results;
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : '批量回测失败';
+  } finally {
+    batchAnalyzing.value = false;
+  }
+}
+
+function addCurrentToPool(): void {
+  errorMessage.value = '';
+  if (!canAddCurrentSet.value) {
+    errorMessage.value = '请先选择 5 个前区号码和 2 个后区号码。';
+    return;
+  }
+  const signature = buildPoolSignature(form.frontNumbers, form.backNumbers);
+  if (
+    backtestPool.value.some((item) =>
+      buildPoolSignature(item.frontNumbers, item.backNumbers) === signature,
+    )
+  ) {
+    errorMessage.value = '这组号码已经在回测池里。';
+    return;
+  }
+  backtestPool.value.push({
+    id: `${Date.now()}-${backtestPool.value.length + 1}`,
+    label: `组合 ${backtestPool.value.length + 1}`,
+    source: route.query.front || route.query.back ? '来自链接或当前选择' : '手动选择',
+    frontNumbers: [...form.frontNumbers],
+    backNumbers: [...form.backNumbers],
+  });
+}
+
+function removePoolItem(id: string): void {
+  backtestPool.value = backtestPool.value.filter((item) => item.id !== id);
+  batchResults.value = batchResults.value.filter((item) => item.id !== id);
+}
+
+function clearBacktestPool(): void {
+  backtestPool.value = [];
+  batchResults.value = [];
+  errorMessage.value = '';
 }
 
 function toggleNumber(area: 'front' | 'back', number: number): void {
@@ -351,6 +517,9 @@ function hydrateNumbersFromQuery(): void {
   if (backNumbers.length) {
     setNumbers('back', backNumbers);
   }
+  if (frontNumbers.length === 5 && backNumbers.length === 2) {
+    addCurrentToPool();
+  }
 }
 
 function parseQueryNumbers(
@@ -374,6 +543,14 @@ function parseQueryNumbers(
 
 function formatCurrency(value: number): string {
   return `¥${value.toLocaleString('zh-CN')}`;
+}
+
+function formatPoolNumbers(item: BacktestPoolItem): string {
+  return `${formatNumberList(item.frontNumbers)} + ${formatNumberList(item.backNumbers)}`;
+}
+
+function buildPoolSignature(frontNumbers: number[], backNumbers: number[]): string {
+  return `${frontNumbers.join(',')}|${backNumbers.join(',')}`;
 }
 
 function formatNumberList(numbers: number[]): string {
@@ -405,6 +582,8 @@ onMounted(() => {
 
 .backtest-alert,
 .input-panel,
+.pool-panel,
+.batch-panel,
 .backtest-metrics,
 .selected-panel,
 .hit-panel,
@@ -412,6 +591,63 @@ onMounted(() => {
 .explain-panel,
 .backtest-empty {
   margin-top: 16px;
+}
+
+.pool-actions,
+.pool-balls {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pool-list {
+  display: grid;
+  gap: 10px;
+}
+
+.pool-row {
+  align-items: center;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 120px minmax(0, 1fr) auto;
+  padding: 12px;
+}
+
+.pool-row > div:first-child {
+  display: grid;
+  gap: 4px;
+}
+
+.pool-row span,
+.batch-row span {
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
+.batch-table {
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.batch-row {
+  align-items: center;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 110px minmax(220px, 1fr) 110px 90px 110px;
+  padding: 12px;
+}
+
+.batch-row + .batch-row {
+  border-top: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+.batch-head {
+  background: rgba(15, 23, 42, 0.52);
+  font-weight: 700;
 }
 
 .picker-grid {
@@ -539,6 +775,8 @@ onMounted(() => {
   }
 
   .picker-grid,
+  .pool-row,
+  .batch-row,
   .cost-grid,
   .distribution-grid {
     grid-template-columns: 1fr;
