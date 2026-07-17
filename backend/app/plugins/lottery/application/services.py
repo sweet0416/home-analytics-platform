@@ -812,6 +812,34 @@ class LotteryService:
                 status_code=422,
             )
 
+        if set(dan) & set(tuo) or set(dan) & set(kill) or set(tuo) & set(kill):
+            raise AppError(
+                code=ErrorCode.validation_error,
+                message=f"Lottery {area_label} dan, tuo and kill numbers cannot overlap.",
+                status_code=422,
+            )
+
+        if len(dan) >= required_count:
+            raise AppError(
+                code=ErrorCode.validation_error,
+                message=(
+                    f"Lottery {area_label} dan count must be less than "
+                    f"{required_count} for dantuo analysis."
+                ),
+                status_code=422,
+            )
+
+        needed = required_count - len(dan)
+        if len(tuo) < needed:
+            raise AppError(
+                code=ErrorCode.validation_error,
+                message=(
+                    f"Lottery {area_label} tuo count must be at least {needed} "
+                    "after dan numbers are selected."
+                ),
+                status_code=422,
+            )
+
     @staticmethod
     def _validate_exact_numbers(
         *,
@@ -839,34 +867,6 @@ class LotteryService:
                 message=(
                     f"Lottery {area_label} numbers must be between "
                     f"{min_number} and {max_number}."
-                ),
-                status_code=422,
-            )
-
-        if set(dan) & set(tuo) or set(dan) & set(kill) or set(tuo) & set(kill):
-            raise AppError(
-                code=ErrorCode.validation_error,
-                message=f"Lottery {area_label} dan, tuo and kill numbers cannot overlap.",
-                status_code=422,
-            )
-
-        if len(dan) >= required_count:
-            raise AppError(
-                code=ErrorCode.validation_error,
-                message=(
-                    f"Lottery {area_label} dan count must be less than "
-                    f"{required_count} for dantuo analysis."
-                ),
-                status_code=422,
-            )
-
-        needed = required_count - len(dan)
-        if len(tuo) < needed:
-            raise AppError(
-                code=ErrorCode.validation_error,
-                message=(
-                    f"Lottery {area_label} tuo count must be at least {needed} "
-                    "after dan numbers are selected."
                 ),
                 status_code=422,
             )
