@@ -38,18 +38,15 @@
             </div>
             <el-button plain size="small" @click="clearNumbers('front')">清空前区</el-button>
           </div>
-          <div class="number-grid front">
-            <button
-              v-for="number in frontOptions"
-              :key="`front-${number}`"
-              type="button"
-              class="number-button front"
-              :class="{ selected: form.frontNumbers.includes(number) }"
-              @click="toggleNumber('front', number)"
-            >
-              {{ formatBallNumber(number) }}
-            </button>
-          </div>
+          <LotteryNumberBoard
+            area="front"
+            :numbers="frontOptions"
+            :columns="7"
+            :tablet-columns="7"
+            :mobile-columns="6"
+            :classes-for-number="frontNumberClasses"
+            @toggle="toggleNumber('front', $event)"
+          />
           <div class="selected-line">
             <span>已选 {{ form.frontNumbers.length }}/5</span>
             <div class="ball-row">
@@ -71,18 +68,15 @@
             </div>
             <el-button plain size="small" @click="clearNumbers('back')">清空后区</el-button>
           </div>
-          <div class="number-grid back">
-            <button
-              v-for="number in backOptions"
-              :key="`back-${number}`"
-              type="button"
-              class="number-button back"
-              :class="{ selected: form.backNumbers.includes(number) }"
-              @click="toggleNumber('back', number)"
-            >
-              {{ formatBallNumber(number) }}
-            </button>
-          </div>
+          <LotteryNumberBoard
+            area="back"
+            :numbers="backOptions"
+            :columns="6"
+            :tablet-columns="6"
+            :mobile-columns="6"
+            :classes-for-number="backNumberClasses"
+            @toggle="toggleNumber('back', $event)"
+          />
           <div class="selected-line">
             <span>已选 {{ form.backNumbers.length }}/2</span>
             <div class="ball-row">
@@ -242,6 +236,7 @@ import EmptyState from '@/components/common/EmptyState.vue';
 import MetricCard from '@/components/metric/MetricCard.vue';
 import DisclaimerAlert from '@/plugins/lottery/components/DisclaimerAlert.vue';
 import LotteryBall from '@/plugins/lottery/components/LotteryBall.vue';
+import LotteryNumberBoard from '@/plugins/lottery/components/LotteryNumberBoard.vue';
 import { useLotteryStore } from '@/plugins/lottery/store';
 
 const lottery = useLotteryStore();
@@ -337,12 +332,16 @@ function setNumbers(area: 'front' | 'back', numbers: number[]): void {
   }
 }
 
-function formatCurrency(value: number): string {
-  return `¥${value.toLocaleString('zh-CN')}`;
+function frontNumberClasses(number: number): string[] {
+  return form.frontNumbers.includes(number) ? ['selected', 'front-selected'] : [];
 }
 
-function formatBallNumber(value: number): string {
-  return String(value).padStart(2, '0');
+function backNumberClasses(number: number): string[] {
+  return form.backNumbers.includes(number) ? ['selected', 'back-selected'] : [];
+}
+
+function formatCurrency(value: number): string {
+  return `¥${value.toLocaleString('zh-CN')}`;
 }
 
 function formatNumberList(numbers: number[]): string {
@@ -413,59 +412,6 @@ function formatNumberList(numbers: number[]): string {
   color: var(--color-muted);
   font-size: 13px;
   line-height: 1.6;
-}
-
-.number-grid {
-  display: grid;
-  gap: 7px;
-  justify-content: start;
-}
-
-.number-grid.front {
-  grid-template-columns: repeat(7, 34px);
-  max-width: 280px;
-}
-
-.number-grid.back {
-  grid-template-columns: repeat(6, 34px);
-  max-width: 239px;
-}
-
-.number-button {
-  background: rgba(15, 23, 42, 0.7);
-  border: 1px solid rgba(148, 163, 184, 0.16);
-  border-radius: 999px;
-  color: var(--color-text);
-  cursor: pointer;
-  font-size: 12px;
-  font-weight: 760;
-  height: 34px;
-  line-height: 1;
-  min-width: 0;
-  padding: 0;
-  transition:
-    border-color 0.18s ease,
-    background 0.18s ease,
-    transform 0.18s ease;
-  width: 34px;
-}
-
-.number-button:hover {
-  border-color: rgba(56, 189, 248, 0.48);
-}
-
-.number-button.front.selected {
-  background: rgba(56, 189, 248, 0.18);
-  border-color: rgba(56, 189, 248, 0.7);
-  color: #7dd3fc;
-  transform: translateY(-1px);
-}
-
-.number-button.back.selected {
-  background: rgba(34, 197, 94, 0.16);
-  border-color: rgba(34, 197, 94, 0.58);
-  color: #86efac;
-  transform: translateY(-1px);
 }
 
 .selected-line {
@@ -568,21 +514,4 @@ function formatNumberList(numbers: number[]): string {
   }
 }
 
-@media (max-width: 520px) {
-  .number-grid.front {
-    grid-template-columns: repeat(6, 30px);
-    max-width: 215px;
-  }
-
-  .number-grid.back {
-    grid-template-columns: repeat(6, 30px);
-    max-width: 215px;
-  }
-
-  .number-button {
-    font-size: 11px;
-    height: 30px;
-    width: 30px;
-  }
-}
 </style>

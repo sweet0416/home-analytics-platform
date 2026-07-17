@@ -52,18 +52,15 @@
           </div>
           <el-button plain size="small" @click="clearActiveBucket">清空当前分组</el-button>
         </div>
-        <div class="number-grid" :class="activeArea">
-          <button
-            v-for="number in activeNumbers"
-            :key="`${activeArea}-${number}`"
-            type="button"
-            class="number-button"
-            :class="numberButtonClass(number)"
-            @click="toggleNumber(number)"
-          >
-            {{ formatNumber(number) }}
-          </button>
-        </div>
+        <LotteryNumberBoard
+          :area="activeArea"
+          :numbers="activeNumbers"
+          :columns="12"
+          :tablet-columns="8"
+          :mobile-columns="6"
+          :classes-for-number="numberButtonClass"
+          @toggle="toggleNumber"
+        />
       </div>
 
       <div class="selected-grid">
@@ -171,6 +168,7 @@ import EmptyState from '@/components/common/EmptyState.vue';
 import MetricCard from '@/components/metric/MetricCard.vue';
 import DisclaimerAlert from '@/plugins/lottery/components/DisclaimerAlert.vue';
 import LotteryBall from '@/plugins/lottery/components/LotteryBall.vue';
+import LotteryNumberBoard from '@/plugins/lottery/components/LotteryNumberBoard.vue';
 import { useLotteryStore } from '@/plugins/lottery/store';
 
 type Area = 'front' | 'back';
@@ -289,15 +287,13 @@ function selectedCount(area: Area, bucket: Bucket): string {
   return String(getBucket(area, bucket).length);
 }
 
-function numberButtonClass(number: number): Record<string, boolean> {
+function numberButtonClass(number: number): string[] {
   const bucket = bucketForNumber(activeArea.value, number);
-  return {
-    selected: bucket !== null,
-    active: bucket === activeBucket.value,
-    dan: bucket === 'dan',
-    tuo: bucket === 'tuo',
-    kill: bucket === 'kill',
-  };
+  return [
+    bucket !== null ? 'selected' : '',
+    bucket === activeBucket.value ? 'active' : '',
+    bucket ?? '',
+  ].filter(Boolean);
 }
 
 function bucketForNumber(area: Area, number: number): Bucket | null {
@@ -333,10 +329,6 @@ function setBucket(area: Area, bucket: Bucket, value: number[]): void {
   else if (area === 'back' && bucket === 'dan') form.backDan = value;
   else if (area === 'back' && bucket === 'tuo') form.backTuo = value;
   else form.backKill = value;
-}
-
-function formatNumber(value: number): string {
-  return String(value).padStart(2, '0');
 }
 
 function formatCurrency(value: number): string {
@@ -417,8 +409,7 @@ const PoolBlock = defineComponent({
   grid-template-columns: repeat(6, minmax(0, 1fr));
 }
 
-.target-button,
-.number-button {
+.target-button {
   border: 1px solid rgba(148, 163, 184, 0.16);
   color: var(--color-text);
   cursor: pointer;
@@ -438,8 +429,7 @@ const PoolBlock = defineComponent({
   text-align: left;
 }
 
-.target-button:hover,
-.number-button:hover {
+.target-button:hover {
   border-color: rgba(56, 189, 248, 0.48);
 }
 
@@ -482,53 +472,6 @@ const PoolBlock = defineComponent({
 .board-header h3 {
   font-size: 16px;
   margin: 0 0 4px;
-}
-
-.number-grid {
-  display: grid;
-  gap: 7px;
-  grid-template-columns: repeat(12, 34px);
-  justify-content: start;
-  max-width: 520px;
-}
-
-.number-button {
-  background: rgba(15, 23, 42, 0.7);
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 760;
-  height: 34px;
-  line-height: 1;
-  min-width: 0;
-  padding: 0;
-  width: 34px;
-}
-
-.number-button.selected {
-  transform: translateY(-1px);
-}
-
-.number-button.dan {
-  background: rgba(56, 189, 248, 0.18);
-  border-color: rgba(56, 189, 248, 0.7);
-  color: #7dd3fc;
-}
-
-.number-button.tuo {
-  background: rgba(34, 197, 94, 0.16);
-  border-color: rgba(34, 197, 94, 0.58);
-  color: #86efac;
-}
-
-.number-button.kill {
-  background: rgba(248, 113, 113, 0.16);
-  border-color: rgba(248, 113, 113, 0.58);
-  color: #fca5a5;
-  text-decoration: line-through;
-}
-
-.number-button.active {
-  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.1);
 }
 
 .selected-grid,
@@ -599,11 +542,6 @@ const PoolBlock = defineComponent({
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
-  .number-grid {
-    gap: 6px;
-    grid-template-columns: repeat(8, 32px);
-    max-width: 304px;
-  }
 }
 
 @media (max-width: 720px) {
@@ -622,15 +560,5 @@ const PoolBlock = defineComponent({
     grid-template-columns: 1fr;
   }
 
-  .number-grid {
-    grid-template-columns: repeat(6, 30px);
-    max-width: 210px;
-  }
-
-  .number-button {
-    font-size: 11px;
-    height: 30px;
-    width: 30px;
-  }
 }
 </style>
