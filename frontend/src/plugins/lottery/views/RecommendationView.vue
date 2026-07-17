@@ -37,6 +37,16 @@
         <h2 class="panel-title">推荐参数</h2>
         <span class="panel-meta">参数越大，参考数据越多，计算也会稍慢</span>
       </div>
+      <div class="strategy-reset-row">
+        <el-button
+          class="reset-strategy-button"
+          size="small"
+          :icon="Refresh"
+          @click="resetStrategyWeights"
+        >
+          恢复默认值
+        </el-button>
+      </div>
       <div class="panel-body control-grid">
         <div class="control-item">
           <span>推荐组数</span>
@@ -263,14 +273,20 @@ import type {
 import { useLotteryStore } from '@/plugins/lottery/store';
 
 const lottery = useLotteryStore();
+const defaultStrategyWeights = {
+  same_period: 45,
+  frequency: 25,
+  missing: 20,
+  structure: 10,
+} as const;
 const targetIssueInput = ref('');
 const setCount = ref(5);
 const samePeriodCount = ref(10);
 const sampleLimit = ref(200);
-const samePeriodWeight = ref(45);
-const frequencyWeight = ref(25);
-const missingWeight = ref(20);
-const structureWeight = ref(10);
+const samePeriodWeight = ref(defaultStrategyWeights.same_period);
+const frequencyWeight = ref(defaultStrategyWeights.frequency);
+const missingWeight = ref(defaultStrategyWeights.missing);
+const structureWeight = ref(defaultStrategyWeights.structure);
 const fallbackDisclaimer = '本结果仅基于历史统计分析，仅供娱乐，不代表未来开奖结果。';
 
 const targetIssue = computed(() => lottery.recommendations?.target_issue_no ?? '--');
@@ -314,6 +330,13 @@ async function reloadRecommendations(): Promise<void> {
   } finally {
     lottery.loading = false;
   }
+}
+
+function resetStrategyWeights(): void {
+  samePeriodWeight.value = defaultStrategyWeights.same_period;
+  frequencyWeight.value = defaultStrategyWeights.frequency;
+  missingWeight.value = defaultStrategyWeights.missing;
+  structureWeight.value = defaultStrategyWeights.structure;
 }
 
 function formatNumber(value: number): string {
@@ -393,6 +416,16 @@ onMounted(() => {
   justify-content: space-between;
   gap: 10px;
   padding: 12px;
+}
+
+.strategy-reset-row {
+  display: flex;
+  justify-content: flex-end;
+  margin: 10px 0 0;
+}
+
+.reset-strategy-button {
+  border-color: rgba(148, 163, 184, 0.28);
 }
 
 .strategy-grid {
