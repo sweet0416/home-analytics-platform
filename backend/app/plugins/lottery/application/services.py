@@ -567,6 +567,155 @@ class LotteryService:
             ],
         }
 
+    def backtest_numbers(
+        self,
+        *,
+        front_numbers: list[int],
+        back_numbers: list[int],
+        addon: bool = False,
+        hit_limit: int = 20,
+    ) -> dict[str, object]:
+        front_numbers = self._normalize_number_list(front_numbers)
+        back_numbers = self._normalize_number_list(back_numbers)
+        self._validate_exact_numbers(
+            area_label="front",
+            numbers=front_numbers,
+            min_number=1,
+            max_number=35,
+            required_count=5,
+        )
+        self._validate_exact_numbers(
+            area_label="back",
+            numbers=back_numbers,
+            min_number=1,
+            max_number=12,
+            required_count=2,
+        )
+
+        rule = self.repository.get_current_rule()
+        if rule is None:
+            raise AppError(
+                code=ErrorCode.lottery_rule_not_found,
+                message="Current lottery rule was not found.",
+                status_code=404,
+            )
+        draws = [self._serialize_draw(draw) for draw in self.repository.list_all_draws()]
+        if not draws:
+            raise AppError(
+                code=ErrorCode.lottery_draw_not_found,
+                message="No lottery draw data is available for backtesting.",
+                status_code=404,
+            )
+
+        prize_map = {
+            (tier.front_match_count, tier.back_match_count): tier
+            for tier in rule.prize_tiers
+        }
+        distribution = {
+            f"{front}+{back}": {
+                "match_key": f"{front}+{back}",
+                "front_match_count": front,
+                "back_match_count": back,
+                "count": 0,
+                "prize_tier": prize_map.get((front, back)).tier
+                if (front, back) in prize_map
+                else None,
+                "tier_name": prize_map.get((front, back)).tier_name
+                if (front, back) in prize_map
+                else "未中奖",
+            }
+            for front in range(5, -1, -1)
+            for back in range(2, -1, -1)
+        }
+        hits: list[dict[str, object]] = []
+        fixed_prize_return = 0
+        floating_hit_count = 0
+
+        selected_front = set(front_numbers)
+        selected_back = set(back_numbers)
+        for draw in draws:
+            front_match_count = len(selected_front & set(draw["front_numbers"]))
+            back_match_count = len(selected_back & set(draw["back_numbers"]))
+            match_key = f"{front_match_count}+{back_match_count}"
+            distribution[match_key]["count"] += 1
+            prize_tier = prize_map.get((front_match_count, back_match_count))
+            if prize_tier is None:
+                continue
+
+            base_prize_amount = (
+                int(prize_tier.base_prize_amount)
+                if prize_tier.base_prize_amount is not None
+                else None
+            )
+            if base_prize_amount is None:
+                floating_hit_count += 1
+            else:
+                fixed_prize_return += base_prize_amount
+            hit = {
+                "issue_no": draw["issue_no"],
+                "draw_date": draw["draw_date"],
+                "draw_front_numbers": draw["front_numbers"],
+                "draw_back_numbers": draw["back_numbers"],
+                "front_matches": sorted(selected_front & set(draw["front_numbers"])),
+                "back_matches": sorted(selected_back & set(draw["back_numbers"])),
+                "front_match_count": front_match_count,
+                "back_match_count": back_match_count,
+                "match_key": match_key,
+                "prize_tier": prize_tier.tier,
+                "tier_name": prize_tier.tier_name,
+                "is_floating": prize_tier.is_floating,
+                "base_prize_amount": base_prize_amount,
+            }
+            hits.append(hit)
+
+        hits.sort(
+            key=lambda item: (
+                int(item["prize_tier"]),
+                -int(item["front_match_count"]),
+                -int(item["back_match_count"]),
+                str(item["issue_no"]),
+            )
+        )
+        latest_hit = max(hits, key=lambda item: str(item["issue_no"])) if hits else None
+        highest_hit = hits[0] if hits else None
+        total_cost = len(draws) * (3 if addon else 2)
+        base_cost = len(draws) * 2
+        addon_cost = len(draws) if addon else 0
+        return {
+            "disclaimer": DLT_DISCLAIMER,
+            "front_numbers": front_numbers,
+            "back_numbers": back_numbers,
+            "addon": addon,
+            "sample_size": len(draws),
+            "earliest_issue_no": draws[-1]["issue_no"],
+            "latest_issue_no": draws[0]["issue_no"],
+            "base_cost": base_cost,
+            "addon_cost": addon_cost,
+            "total_cost": total_cost,
+            "fixed_prize_return": fixed_prize_return,
+            "floating_hit_count": floating_hit_count,
+            "net_fixed_result": fixed_prize_return - total_cost,
+            "hit_count": len(hits),
+            "no_prize_count": len(draws) - len(hits),
+            "highest_hit": highest_hit,
+            "latest_hit": latest_hit,
+            "hit_preview_limit": hit_limit,
+            "hits": hits[:hit_limit],
+            "distribution": sorted(
+                distribution.values(),
+                key=lambda item: (
+                    -int(item["front_match_count"]),
+                    -int(item["back_match_count"]),
+                ),
+            ),
+            "methodology": [
+                "把你输入的 5 个前区和 2 个后区，逐期与历史开奖号码做交集。",
+                "每期得到一个命中结构，例如 3+1 表示前区命中 3 个、后区命中 1 个。",
+                "命中结构再按当前官方奖级表换算奖级；浮动奖只统计次数，不估算奖金。",
+                "成本按每期买 1 注计算：普通 2 元，勾选追加后按 3 元。",
+            ],
+        }
+
     def _resolve_same_period_target(
         self,
         issue_no: str | None,
@@ -652,6 +801,37 @@ class LotteryService:
         all_numbers = [*dan, *tuo, *kill]
         invalid_numbers = [
             number for number in all_numbers if number < min_number or number > max_number
+        ]
+        if invalid_numbers:
+            raise AppError(
+                code=ErrorCode.validation_error,
+                message=(
+                    f"Lottery {area_label} numbers must be between "
+                    f"{min_number} and {max_number}."
+                ),
+                status_code=422,
+            )
+
+    @staticmethod
+    def _validate_exact_numbers(
+        *,
+        area_label: str,
+        numbers: list[int],
+        min_number: int,
+        max_number: int,
+        required_count: int,
+    ) -> None:
+        if len(numbers) != required_count:
+            raise AppError(
+                code=ErrorCode.validation_error,
+                message=(
+                    f"Lottery {area_label} numbers must contain exactly "
+                    f"{required_count} unique numbers."
+                ),
+                status_code=422,
+            )
+        invalid_numbers = [
+            number for number in numbers if number < min_number or number > max_number
         ]
         if invalid_numbers:
             raise AppError(

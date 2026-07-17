@@ -338,6 +338,62 @@ export interface LotteryDantuoAnalysis {
   methodology: string[];
 }
 
+export interface LotteryBacktestRequest {
+  front_numbers: number[];
+  back_numbers: number[];
+  addon: boolean;
+  hit_limit: number;
+}
+
+export interface LotteryBacktestHit {
+  issue_no: string;
+  draw_date: string;
+  draw_front_numbers: number[];
+  draw_back_numbers: number[];
+  front_matches: number[];
+  back_matches: number[];
+  front_match_count: number;
+  back_match_count: number;
+  match_key: string;
+  prize_tier: number;
+  tier_name: string;
+  is_floating: boolean;
+  base_prize_amount: number | null;
+}
+
+export interface LotteryBacktestDistribution {
+  match_key: string;
+  front_match_count: number;
+  back_match_count: number;
+  count: number;
+  prize_tier: number | null;
+  tier_name: string;
+}
+
+export interface LotteryBacktestAnalysis {
+  disclaimer: string;
+  front_numbers: number[];
+  back_numbers: number[];
+  addon: boolean;
+  sample_size: number;
+  earliest_issue_no: string;
+  latest_issue_no: string;
+  base_cost: number;
+  addon_cost: number;
+  total_cost: number;
+  fixed_prize_return: number;
+  floating_hit_count: number;
+  net_fixed_result: number;
+  hit_count: number;
+  no_prize_count: number;
+  highest_hit: LotteryBacktestHit | null;
+  latest_hit: LotteryBacktestHit | null;
+  hit_preview_limit: number;
+  hits: LotteryBacktestHit[];
+  distribution: LotteryBacktestDistribution[];
+  methodology: string[];
+}
+
 export interface LotteryBasicStatistics {
   sample_size: number;
   requested_limit: number;
@@ -462,6 +518,15 @@ export function fetchSimulationAnalysis(
 export function analyzeDantuo(payload: LotteryDantuoRequest): Promise<LotteryDantuoAnalysis> {
   return postApiData<LotteryDantuoAnalysis, LotteryDantuoRequest>(
     '/lottery/dlt/analysis/dantuo',
+    payload,
+  );
+}
+
+export function backtestNumbers(
+  payload: LotteryBacktestRequest,
+): Promise<LotteryBacktestAnalysis> {
+  return postApiData<LotteryBacktestAnalysis, LotteryBacktestRequest>(
+    '/lottery/dlt/analysis/backtest',
     payload,
   );
 }

@@ -346,6 +346,62 @@ class LotteryDantuoAnalysisRead(BaseModel):
     methodology: list[str]
 
 
+class LotteryBacktestRequest(BaseModel):
+    front_numbers: list[int] = Field(min_length=5, max_length=5)
+    back_numbers: list[int] = Field(min_length=2, max_length=2)
+    addon: bool = False
+    hit_limit: int = Field(default=20, ge=1, le=100)
+
+
+class LotteryBacktestHitRead(BaseModel):
+    issue_no: str
+    draw_date: str
+    draw_front_numbers: list[int] = Field(min_length=5, max_length=5)
+    draw_back_numbers: list[int] = Field(min_length=2, max_length=2)
+    front_matches: list[int]
+    back_matches: list[int]
+    front_match_count: int
+    back_match_count: int
+    match_key: str
+    prize_tier: int
+    tier_name: str
+    is_floating: bool
+    base_prize_amount: int | None
+
+
+class LotteryBacktestDistributionRead(BaseModel):
+    match_key: str
+    front_match_count: int
+    back_match_count: int
+    count: int
+    prize_tier: int | None
+    tier_name: str
+
+
+class LotteryBacktestAnalysisRead(BaseModel):
+    disclaimer: str
+    front_numbers: list[int] = Field(min_length=5, max_length=5)
+    back_numbers: list[int] = Field(min_length=2, max_length=2)
+    addon: bool
+    sample_size: int
+    earliest_issue_no: str
+    latest_issue_no: str
+    base_cost: int
+    addon_cost: int
+    total_cost: int
+    fixed_prize_return: int
+    floating_hit_count: int
+    net_fixed_result: int
+    hit_count: int
+    no_prize_count: int
+    highest_hit: LotteryBacktestHitRead | None
+    latest_hit: LotteryBacktestHitRead | None
+    hit_preview_limit: int
+    hits: list[LotteryBacktestHitRead]
+    distribution: list[LotteryBacktestDistributionRead]
+    methodology: list[str]
+
+
 class LotteryHotColdRead(BaseModel):
     front: list[LotteryNumberFrequencyRead]
     back: list[LotteryNumberFrequencyRead]

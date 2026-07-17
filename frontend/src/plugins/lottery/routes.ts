@@ -1,5 +1,6 @@
 import type { RouteRecordRaw } from 'vue-router';
 
+import BacktestView from './views/BacktestView.vue';
 import DantuoView from './views/DantuoView.vue';
 import DrawHistory from './views/DrawHistory.vue';
 import HeatmapView from './views/HeatmapView.vue';
@@ -55,5 +56,10 @@ export const lotteryRoutes: RouteRecordRaw[] = [
     path: 'lottery/dlt/dantuo',
     name: 'lottery-dlt-dantuo',
     component: DantuoView,
+  },
+  {
+    path: 'lottery/dlt/backtest',
+    name: 'lottery-dlt-backtest',
+    component: BacktestView,
   },
 ];

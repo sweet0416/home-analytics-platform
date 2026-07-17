@@ -10,6 +10,8 @@ from app.plugins.lottery.interfaces.schemas import (
     LotteryBackfillJobRead,
     LotteryBackfillRequest,
     LotteryBackfillRunRead,
+    LotteryBacktestAnalysisRead,
+    LotteryBacktestRequest,
     LotteryBasicStatisticsRead,
     LotteryDantuoAnalysisRead,
     LotteryDantuoRequest,
@@ -170,6 +172,22 @@ def analyze_dantuo(
             back_kill=payload.back_kill,
             addon=payload.addon,
             preview_limit=payload.preview_limit,
+        )
+    )
+
+
+@router.post("/analysis/backtest", response_model=ApiResponse[LotteryBacktestAnalysisRead])
+def backtest_numbers(
+    payload: LotteryBacktestRequest,
+    db: Session = Depends(get_db),
+) -> ApiResponse[LotteryBacktestAnalysisRead]:
+    service = LotteryService(db)
+    return ok(
+        service.backtest_numbers(
+            front_numbers=payload.front_numbers,
+            back_numbers=payload.back_numbers,
+            addon=payload.addon,
+            hit_limit=payload.hit_limit,
         )
     )
 

@@ -102,6 +102,15 @@ class LotteryRepository:
             )
         )
 
+    def list_all_draws(self, game_code: str = DLT_GAME_CODE) -> list[LotteryDrawModel]:
+        return list(
+            self.db.scalars(
+                select(LotteryDrawModel)
+                .where(LotteryDrawModel.game_code == game_code)
+                .order_by(LotteryDrawModel.draw_date.desc())
+            )
+        )
+
     def get_draw_by_issue(
         self,
         issue_no: str,
