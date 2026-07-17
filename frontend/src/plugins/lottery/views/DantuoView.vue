@@ -23,6 +23,56 @@
       show-icon
     />
 
+    <section class="panel random-panel">
+      <div class="panel-header">
+        <h2 class="panel-title">历史随机生成</h2>
+        <span class="panel-meta">按历史同期、近期热度和遗漏分数随机填入胆/拖，已选杀号会自动避开</span>
+      </div>
+      <div class="random-grid">
+        <div class="random-item">
+          <span>前区胆码</span>
+          <el-input-number v-model="randomForm.frontDanCount" :min="0" :max="4" size="small" />
+        </div>
+        <div class="random-item">
+          <span>前区拖码</span>
+          <el-input-number v-model="randomForm.frontTuoCount" :min="1" :max="20" size="small" />
+        </div>
+        <div class="random-item">
+          <span>后区胆码</span>
+          <el-input-number v-model="randomForm.backDanCount" :min="0" :max="1" size="small" />
+        </div>
+        <div class="random-item">
+          <span>后区拖码</span>
+          <el-input-number v-model="randomForm.backTuoCount" :min="1" :max="10" size="small" />
+        </div>
+        <div class="random-item">
+          <span>历史同期</span>
+          <el-input-number v-model="randomForm.samePeriodCount" :min="1" :max="20" size="small" />
+        </div>
+        <div class="random-item">
+          <span>近期样本</span>
+          <el-input-number
+            v-model="randomForm.sampleLimit"
+            :min="50"
+            :max="500"
+            :step="50"
+            size="small"
+          />
+        </div>
+      </div>
+      <div class="random-options">
+        <el-checkbox v-model="randomForm.keepManualKill">保留杀号</el-checkbox>
+        <el-checkbox v-model="randomForm.autoAnalyze">生成后自动计算</el-checkbox>
+        <el-button type="primary" plain :loading="randomizing" @click="handleRandomDantuo">
+          按历史数据随机
+        </el-button>
+      </div>
+      <div class="random-hints">
+        <span>建议：前区 1-2 胆 + 7-12 拖，后区 0-1 胆 + 3-6 拖。</span>
+        <span>条件：前区胆+拖至少 5 个，后区胆+拖至少 2 个，胆和拖不会重复。</span>
+      </div>
+    </section>
+
     <section class="panel picker-panel">
       <div class="panel-header">
         <h2 class="panel-title">选号输入</h2>
@@ -169,6 +219,10 @@ import MetricCard from '@/components/metric/MetricCard.vue';
 import DisclaimerAlert from '@/plugins/lottery/components/DisclaimerAlert.vue';
 import LotteryBall from '@/plugins/lottery/components/LotteryBall.vue';
 import LotteryNumberBoard from '@/plugins/lottery/components/LotteryNumberBoard.vue';
+import {
+  fetchRecommendationAnalysis,
+  type LotteryRecommendationNumberDetail,
+} from '@/plugins/lottery/api';
 import { useLotteryStore } from '@/plugins/lottery/store';
 
 type Area = 'front' | 'back';
@@ -181,8 +235,14 @@ interface SelectionTarget {
   hint: string;
 }
 
+interface WeightedNumber {
+  number: number;
+  weight: number;
+}
+
 const lottery = useLotteryStore();
 const analyzing = ref(false);
+const randomizing = ref(false);
 const errorMessage = ref('');
 const activeArea = ref<Area>('front');
 const activeBucket = ref<Bucket>('dan');
@@ -197,6 +257,17 @@ const form = reactive({
   backKill: [] as number[],
   addon: false,
   previewLimit: 20,
+});
+
+const randomForm = reactive({
+  frontDanCount: 1,
+  frontTuoCount: 9,
+  backDanCount: 1,
+  backTuoCount: 4,
+  samePeriodCount: 10,
+  sampleLimit: 200,
+  keepManualKill: true,
+  autoAnalyze: true,
 });
 
 const selectionTargets: SelectionTarget[] = [
@@ -249,6 +320,84 @@ async function handleAnalyze(): Promise<void> {
   } finally {
     analyzing.value = false;
   }
+}
+
+async function handleRandomDantuo(): Promise<void> {
+  errorMessage.value = '';
+  const validationMessage = validateRandomForm();
+  if (validationMessage) {
+    errorMessage.value = validationMessage;
+    return;
+  }
+
+  randomizing.value = true;
+  try {
+    const analysis = await fetchRecommendationAnalysis(
+      undefined,
+      8,
+      randomForm.samePeriodCount,
+      randomForm.sampleLimit,
+    );
+    const frontWeightedNumbers = buildWeightedNumbers(
+      'front',
+      35,
+      randomForm.keepManualKill ? form.frontKill : [],
+      analysis.same_period_repeated_front,
+      analysis.recommendations.flatMap((item) => item.front_details),
+    );
+    const backWeightedNumbers = buildWeightedNumbers(
+      'back',
+      12,
+      randomForm.keepManualKill ? form.backKill : [],
+      analysis.same_period_repeated_back,
+      analysis.recommendations.flatMap((item) => item.back_details),
+    );
+
+    const frontNumbers = pickBalancedFrontNumbers(
+      frontWeightedNumbers,
+      randomForm.frontDanCount + randomForm.frontTuoCount,
+    );
+    const backNumbers = pickWeightedNumbers(
+      backWeightedNumbers,
+      randomForm.backDanCount + randomForm.backTuoCount,
+    );
+
+    form.frontDan = frontNumbers.slice(0, randomForm.frontDanCount).sort(sortNumbers);
+    form.frontTuo = frontNumbers.slice(randomForm.frontDanCount).sort(sortNumbers);
+    form.backDan = backNumbers.slice(0, randomForm.backDanCount).sort(sortNumbers);
+    form.backTuo = backNumbers.slice(randomForm.backDanCount).sort(sortNumbers);
+    if (!randomForm.keepManualKill) {
+      form.frontKill = [];
+      form.backKill = [];
+    }
+    activeArea.value = 'front';
+    activeBucket.value = 'dan';
+    if (randomForm.autoAnalyze) {
+      await handleAnalyze();
+    }
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : '历史随机生成失败';
+  } finally {
+    randomizing.value = false;
+  }
+}
+
+function validateRandomForm(): string {
+  const frontKillCount = randomForm.keepManualKill ? form.frontKill.length : 0;
+  const backKillCount = randomForm.keepManualKill ? form.backKill.length : 0;
+  if (randomForm.frontDanCount + randomForm.frontTuoCount < 5) {
+    return '前区胆码和拖码合计至少需要 5 个。';
+  }
+  if (randomForm.backDanCount + randomForm.backTuoCount < 2) {
+    return '后区胆码和拖码合计至少需要 2 个。';
+  }
+  if (randomForm.frontDanCount + randomForm.frontTuoCount > 35 - frontKillCount) {
+    return '前区可选号码不足，请减少胆码/拖码数量或清理部分杀号。';
+  }
+  if (randomForm.backDanCount + randomForm.backTuoCount > 12 - backKillCount) {
+    return '后区可选号码不足，请减少胆码/拖码数量或清理部分杀号。';
+  }
+  return '';
 }
 
 function setActiveTarget(area: Area, bucket: Bucket): void {
@@ -331,6 +480,89 @@ function setBucket(area: Area, bucket: Bucket, value: number[]): void {
   else form.backKill = value;
 }
 
+function buildWeightedNumbers(
+  area: Area,
+  maxNumber: number,
+  excludedNumbers: number[],
+  samePeriodDetails: LotteryRecommendationNumberDetail[],
+  recommendationDetails: LotteryRecommendationNumberDetail[],
+): WeightedNumber[] {
+  const excluded = new Set(excludedNumbers);
+  const scoreMap = new Map<number, number>();
+  for (const detail of [...samePeriodDetails, ...recommendationDetails]) {
+    const current = scoreMap.get(detail.number) ?? 0;
+    const samePeriodBoost = detail.same_period_hits * (area === 'front' ? 12 : 10);
+    const missingBoost = Math.min(detail.current_missing, area === 'front' ? 20 : 10) * 0.35;
+    scoreMap.set(
+      detail.number,
+      Math.max(current, detail.score + samePeriodBoost + missingBoost),
+    );
+  }
+
+  return Array.from({ length: maxNumber }, (_, index) => index + 1)
+    .filter((number) => !excluded.has(number))
+    .map((number) => ({
+      number,
+      weight: Math.max(1, scoreMap.get(number) ?? 8),
+    }));
+}
+
+function pickBalancedFrontNumbers(pool: WeightedNumber[], count: number): number[] {
+  let best = pickWeightedNumbers(pool, count);
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    const candidate = pickWeightedNumbers(pool, count);
+    if (isBalancedFront(candidate)) return candidate;
+    if (frontBalancePenalty(candidate) < frontBalancePenalty(best)) {
+      best = candidate;
+    }
+  }
+  return best;
+}
+
+function pickWeightedNumbers(pool: WeightedNumber[], count: number): number[] {
+  const remaining = [...pool];
+  const selected: number[] = [];
+  while (selected.length < count && remaining.length > 0) {
+    const totalWeight = remaining.reduce((sum, item) => sum + item.weight, 0);
+    let cursor = Math.random() * totalWeight;
+    const selectedIndex = remaining.findIndex((item) => {
+      cursor -= item.weight;
+      return cursor <= 0;
+    });
+    const index = selectedIndex >= 0 ? selectedIndex : remaining.length - 1;
+    const [picked] = remaining.splice(index, 1);
+    selected.push(picked.number);
+  }
+  return selected.sort(sortNumbers);
+}
+
+function isBalancedFront(numbers: number[]): boolean {
+  if (numbers.length < 5) return true;
+  const zones = frontZoneCounts(numbers);
+  const oddCount = numbers.filter((number) => number % 2 === 1).length;
+  return Math.max(...zones) <= Math.max(4, Math.ceil(numbers.length * 0.65))
+    && oddCount > 0
+    && oddCount < numbers.length;
+}
+
+function frontBalancePenalty(numbers: number[]): number {
+  const zones = frontZoneCounts(numbers);
+  const oddCount = numbers.filter((number) => number % 2 === 1).length;
+  return Math.max(...zones) * 2 + Math.abs(oddCount - numbers.length / 2);
+}
+
+function frontZoneCounts(numbers: number[]): [number, number, number] {
+  return [
+    numbers.filter((number) => number <= 12).length,
+    numbers.filter((number) => number >= 13 && number <= 24).length,
+    numbers.filter((number) => number >= 25).length,
+  ];
+}
+
+function sortNumbers(left: number, right: number): number {
+  return left - right;
+}
+
 function formatCurrency(value: number): string {
   return `¥${value.toLocaleString('zh-CN')}`;
 }
@@ -389,6 +621,7 @@ const PoolBlock = defineComponent({
 }
 
 .dantuo-alert,
+.random-panel,
 .picker-panel,
 .dantuo-metrics,
 .summary-panel,
@@ -401,6 +634,43 @@ const PoolBlock = defineComponent({
 .panel-meta {
   color: var(--color-primary);
   font-size: 13px;
+}
+
+.random-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.random-item {
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 8px;
+  color: var(--color-muted);
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+}
+
+.random-item span {
+  font-size: 12px;
+}
+
+.random-options {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+
+.random-hints {
+  color: var(--color-muted);
+  display: grid;
+  gap: 4px;
+  font-size: 12px;
+  line-height: 1.55;
+  margin-top: 10px;
 }
 
 .target-grid {
@@ -538,6 +808,7 @@ const PoolBlock = defineComponent({
 }
 
 @media (max-width: 1080px) {
+  .random-grid,
   .target-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
@@ -547,11 +818,13 @@ const PoolBlock = defineComponent({
 @media (max-width: 720px) {
   .dantuo-header,
   .dantuo-actions,
+  .random-options,
   .board-header {
     align-items: stretch;
     flex-direction: column;
   }
 
+  .random-grid,
   .target-grid,
   .selected-grid,
   .summary-grid,
