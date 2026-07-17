@@ -230,7 +230,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue';
+import { computed, onMounted, reactive, ref } from 'vue';
+import { useRoute } from 'vue-router';
 
 import EmptyState from '@/components/common/EmptyState.vue';
 import MetricCard from '@/components/metric/MetricCard.vue';
@@ -240,6 +241,7 @@ import LotteryNumberBoard from '@/plugins/lottery/components/LotteryNumberBoard.
 import { useLotteryStore } from '@/plugins/lottery/store';
 
 const lottery = useLotteryStore();
+const route = useRoute();
 const analyzing = ref(false);
 const errorMessage = ref('');
 const fallbackDisclaimer = '本结果仅基于历史统计分析，仅供娱乐，不代表未来开奖结果。';
@@ -340,6 +342,36 @@ function backNumberClasses(number: number): string[] {
   return form.backNumbers.includes(number) ? ['selected', 'back-selected'] : [];
 }
 
+function hydrateNumbersFromQuery(): void {
+  const frontNumbers = parseQueryNumbers(route.query.front, 1, 35, 5);
+  const backNumbers = parseQueryNumbers(route.query.back, 1, 12, 2);
+  if (frontNumbers.length) {
+    setNumbers('front', frontNumbers);
+  }
+  if (backNumbers.length) {
+    setNumbers('back', backNumbers);
+  }
+}
+
+function parseQueryNumbers(
+  value: unknown,
+  min: number,
+  max: number,
+  limit: number,
+): number[] {
+  const raw = Array.isArray(value) ? value.join(',') : String(value ?? '');
+  return Array.from(
+    new Set(
+      raw
+        .split(/[\s,，、]+/)
+        .map((item) => Number.parseInt(item, 10))
+        .filter((item) => Number.isFinite(item) && item >= min && item <= max),
+    ),
+  )
+    .sort((left, right) => left - right)
+    .slice(0, limit);
+}
+
 function formatCurrency(value: number): string {
   return `¥${value.toLocaleString('zh-CN')}`;
 }
@@ -347,6 +379,10 @@ function formatCurrency(value: number): string {
 function formatNumberList(numbers: number[]): string {
   return numbers.length ? numbers.map((number) => String(number).padStart(2, '0')).join(' ') : '无';
 }
+
+onMounted(() => {
+  hydrateNumbersFromQuery();
+});
 </script>
 
 <style scoped>

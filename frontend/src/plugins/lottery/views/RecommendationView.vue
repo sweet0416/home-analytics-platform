@@ -105,6 +105,7 @@
                   :value="number"
                 />
               </div>
+              <RouterLink :to="backtestRoute(item)" class="backtest-link">去回测</RouterLink>
             </div>
           </div>
         </div>
@@ -120,9 +121,12 @@
                 <div class="card-rank">第 {{ item.rank }} 组</div>
                 <div class="card-score">综合评分 {{ formatScore(item.score) }}</div>
               </div>
-              <el-tag effect="dark" type="info">
-                和值 {{ item.front_sum }} / 跨度 {{ item.front_span }}
-              </el-tag>
+              <div class="card-actions">
+                <el-tag effect="dark" type="info">
+                  和值 {{ item.front_sum }} / 跨度 {{ item.front_span }}
+                </el-tag>
+                <RouterLink :to="backtestRoute(item)" class="backtest-link">去回测</RouterLink>
+              </div>
             </div>
 
             <div class="number-row">
@@ -218,7 +222,10 @@ import EmptyState from '@/components/common/EmptyState.vue';
 import MetricCard from '@/components/metric/MetricCard.vue';
 import DisclaimerAlert from '@/plugins/lottery/components/DisclaimerAlert.vue';
 import LotteryBall from '@/plugins/lottery/components/LotteryBall.vue';
-import type { LotteryRecommendationNumberDetail } from '@/plugins/lottery/api';
+import type {
+  LotteryRecommendationNumberDetail,
+  LotteryRecommendationSet,
+} from '@/plugins/lottery/api';
 import { useLotteryStore } from '@/plugins/lottery/store';
 
 const lottery = useLotteryStore();
@@ -271,6 +278,19 @@ function formatNumber(value: number): string {
 
 function formatScore(value: number): string {
   return value.toFixed(2);
+}
+
+function backtestRoute(item: LotteryRecommendationSet): {
+  path: string;
+  query: Record<string, string>;
+} {
+  return {
+    path: '/lottery/dlt/backtest',
+    query: {
+      front: item.front_numbers.join(','),
+      back: item.back_numbers.join(','),
+    },
+  };
 }
 
 function topDetails(
@@ -347,6 +367,7 @@ onMounted(() => {
 }
 
 .card-topline,
+.card-actions,
 .number-row,
 .pattern-row {
   align-items: center;
@@ -357,6 +378,18 @@ onMounted(() => {
 
 .card-topline {
   justify-content: space-between;
+}
+
+.card-actions {
+  justify-content: flex-end;
+}
+
+.backtest-link {
+  border: 1px solid rgba(56, 189, 248, 0.34);
+  border-radius: 8px;
+  color: var(--color-primary);
+  font-size: 12px;
+  padding: 6px 10px;
 }
 
 .card-rank {
@@ -441,7 +474,7 @@ onMounted(() => {
   border-radius: 8px;
   display: grid;
   gap: 12px;
-  grid-template-columns: 86px minmax(0, 1fr);
+  grid-template-columns: 86px minmax(0, 1fr) auto;
   padding: 12px;
 }
 
