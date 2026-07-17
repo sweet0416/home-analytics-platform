@@ -27,21 +27,74 @@
     <section class="panel input-panel">
       <div class="panel-header">
         <h2 class="panel-title">回测输入</h2>
-        <span class="panel-meta">前区 5 个，后区 2 个，支持空格、逗号、顿号分隔</span>
+        <span class="panel-meta">点击号码球选择一组 5+2，选满后再点其他号码会先提示</span>
       </div>
-      <div class="input-grid">
-        <NumberInput
-          v-model="form.frontNumbers"
-          label="前区号码"
-          hint="必须填写 5 个不重复号码，范围 01-35"
-          placeholder="如 03 09 16 24 30"
-        />
-        <NumberInput
-          v-model="form.backNumbers"
-          label="后区号码"
-          hint="必须填写 2 个不重复号码，范围 01-12"
-          placeholder="如 03 10"
-        />
+      <div class="picker-grid">
+        <div class="number-picker">
+          <div class="picker-header">
+            <div>
+              <h3>前区号码</h3>
+              <span>必须选择 5 个，范围 01-35</span>
+            </div>
+            <el-button plain size="small" @click="clearNumbers('front')">清空前区</el-button>
+          </div>
+          <div class="number-grid front">
+            <button
+              v-for="number in frontOptions"
+              :key="`front-${number}`"
+              type="button"
+              class="number-button front"
+              :class="{ selected: form.frontNumbers.includes(number) }"
+              @click="toggleNumber('front', number)"
+            >
+              {{ formatBallNumber(number) }}
+            </button>
+          </div>
+          <div class="selected-line">
+            <span>已选 {{ form.frontNumbers.length }}/5</span>
+            <div class="ball-row">
+              <LotteryBall
+                v-for="number in form.frontNumbers"
+                :key="`selected-front-${number}`"
+                area="front"
+                :value="number"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div class="number-picker">
+          <div class="picker-header">
+            <div>
+              <h3>后区号码</h3>
+              <span>必须选择 2 个，范围 01-12</span>
+            </div>
+            <el-button plain size="small" @click="clearNumbers('back')">清空后区</el-button>
+          </div>
+          <div class="number-grid back">
+            <button
+              v-for="number in backOptions"
+              :key="`back-${number}`"
+              type="button"
+              class="number-button back"
+              :class="{ selected: form.backNumbers.includes(number) }"
+              @click="toggleNumber('back', number)"
+            >
+              {{ formatBallNumber(number) }}
+            </button>
+          </div>
+          <div class="selected-line">
+            <span>已选 {{ form.backNumbers.length }}/2</span>
+            <div class="ball-row">
+              <LotteryBall
+                v-for="number in form.backNumbers"
+                :key="`selected-back-${number}`"
+                area="back"
+                :value="number"
+              />
+            </div>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -183,7 +236,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, defineComponent, h, reactive, ref } from 'vue';
+import { computed, reactive, ref } from 'vue';
 
 import EmptyState from '@/components/common/EmptyState.vue';
 import MetricCard from '@/components/metric/MetricCard.vue';
@@ -197,12 +250,14 @@ const errorMessage = ref('');
 const fallbackDisclaimer = '本结果仅基于历史统计分析，仅供娱乐，不代表未来开奖结果。';
 
 const form = reactive({
-  frontNumbers: '',
-  backNumbers: '',
+  frontNumbers: [] as number[],
+  backNumbers: [] as number[],
   addon: false,
   hitLimit: 20,
 });
 
+const frontOptions = Array.from({ length: 35 }, (_, index) => index + 1);
+const backOptions = Array.from({ length: 12 }, (_, index) => index + 1);
 const sampleSize = computed(() => String(lottery.backtest?.sample_size ?? 0));
 const sampleRange = computed(() => {
   const result = lottery.backtest;
@@ -229,11 +284,16 @@ const visibleDistribution = computed(
 
 async function handleBacktest(): Promise<void> {
   errorMessage.value = '';
+  if (form.frontNumbers.length !== 5 || form.backNumbers.length !== 2) {
+    errorMessage.value = '请先选择 5 个前区号码和 2 个后区号码。';
+    return;
+  }
+
   analyzing.value = true;
   try {
     await lottery.backtestNumbers({
-      front_numbers: parseNumbers(form.frontNumbers),
-      back_numbers: parseNumbers(form.backNumbers),
+      front_numbers: [...form.frontNumbers],
+      back_numbers: [...form.backNumbers],
       addon: form.addon,
       hit_limit: form.hitLimit,
     });
@@ -244,60 +304,50 @@ async function handleBacktest(): Promise<void> {
   }
 }
 
-function parseNumbers(value: string): number[] {
-  return Array.from(
-    new Set(
-      value
-        .split(/[\s,，、]+/)
-        .map((item) => Number.parseInt(item, 10))
-        .filter((item) => Number.isFinite(item)),
-    ),
-  ).sort((left, right) => left - right);
+function toggleNumber(area: 'front' | 'back', number: number): void {
+  errorMessage.value = '';
+  const current = area === 'front' ? form.frontNumbers : form.backNumbers;
+  if (current.includes(number)) {
+    setNumbers(
+      area,
+      current.filter((item) => item !== number),
+    );
+    return;
+  }
+
+  const limit = area === 'front' ? 5 : 2;
+  if (current.length >= limit) {
+    errorMessage.value = area === 'front' ? '前区最多选择 5 个号码。' : '后区最多选择 2 个号码。';
+    return;
+  }
+
+  setNumbers(area, [...current, number].sort((left, right) => left - right));
+}
+
+function clearNumbers(area: 'front' | 'back'): void {
+  setNumbers(area, []);
+  errorMessage.value = '';
+}
+
+function setNumbers(area: 'front' | 'back', numbers: number[]): void {
+  if (area === 'front') {
+    form.frontNumbers = numbers;
+  } else {
+    form.backNumbers = numbers;
+  }
 }
 
 function formatCurrency(value: number): string {
   return `¥${value.toLocaleString('zh-CN')}`;
 }
 
+function formatBallNumber(value: number): string {
+  return String(value).padStart(2, '0');
+}
+
 function formatNumberList(numbers: number[]): string {
   return numbers.length ? numbers.map((number) => String(number).padStart(2, '0')).join(' ') : '无';
 }
-
-const NumberInput = defineComponent({
-  props: {
-    modelValue: {
-      type: String,
-      required: true,
-    },
-    label: {
-      type: String,
-      required: true,
-    },
-    hint: {
-      type: String,
-      required: true,
-    },
-    placeholder: {
-      type: String,
-      required: true,
-    },
-  },
-  emits: ['update:modelValue'],
-  setup(props, { emit }) {
-    return () =>
-      h('label', { class: 'number-input' }, [
-        h('span', { class: 'number-input-label' }, props.label),
-        h('span', { class: 'number-input-hint' }, props.hint),
-        h('input', {
-          value: props.modelValue,
-          placeholder: props.placeholder,
-          onInput: (event: Event) => {
-            emit('update:modelValue', (event.target as HTMLInputElement).value);
-          },
-        }),
-      ]);
-  },
-});
 </script>
 
 <style scoped>
@@ -329,25 +379,34 @@ const NumberInput = defineComponent({
   margin-top: 16px;
 }
 
-.input-grid {
+.picker-grid {
   display: grid;
   gap: 12px;
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-.number-input {
+.number-picker {
   border: 1px solid rgba(148, 163, 184, 0.16);
   border-radius: 8px;
   display: grid;
-  gap: 8px;
+  gap: 12px;
   padding: 12px;
 }
 
-.number-input-label {
-  font-weight: 700;
+.picker-header {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
 }
 
-.number-input-hint,
+.picker-header h3 {
+  font-size: 15px;
+  margin: 0 0 4px;
+}
+
+.picker-header span,
+.selected-line > span,
 .hit-meta,
 .methodology-item,
 .distribution-item small {
@@ -356,19 +415,62 @@ const NumberInput = defineComponent({
   line-height: 1.6;
 }
 
-.number-input input {
-  background: rgba(15, 23, 42, 0.74);
-  border: 1px solid rgba(148, 163, 184, 0.22);
-  border-radius: 8px;
-  color: var(--color-text);
-  font: inherit;
-  outline: none;
-  padding: 10px 11px;
+.number-grid {
+  display: grid;
+  gap: 7px;
+  justify-content: start;
 }
 
-.number-input input:focus {
-  border-color: rgba(56, 189, 248, 0.65);
-  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.12);
+.number-grid.front {
+  grid-template-columns: repeat(7, 34px);
+  max-width: 280px;
+}
+
+.number-grid.back {
+  grid-template-columns: repeat(6, 34px);
+  max-width: 239px;
+}
+
+.number-button {
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 999px;
+  color: var(--color-text);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 760;
+  height: 34px;
+  line-height: 1;
+  min-width: 0;
+  padding: 0;
+  transition:
+    border-color 0.18s ease,
+    background 0.18s ease,
+    transform 0.18s ease;
+  width: 34px;
+}
+
+.number-button:hover {
+  border-color: rgba(56, 189, 248, 0.48);
+}
+
+.number-button.front.selected {
+  background: rgba(56, 189, 248, 0.18);
+  border-color: rgba(56, 189, 248, 0.7);
+  color: #7dd3fc;
+  transform: translateY(-1px);
+}
+
+.number-button.back.selected {
+  background: rgba(34, 197, 94, 0.16);
+  border-color: rgba(34, 197, 94, 0.58);
+  color: #86efac;
+  transform: translateY(-1px);
+}
+
+.selected-line {
+  display: grid;
+  gap: 8px;
 }
 
 .selected-content,
@@ -380,6 +482,7 @@ const NumberInput = defineComponent({
 }
 
 .selected-balls,
+.ball-row,
 .hit-balls,
 .hit-topline,
 .hit-meta {
@@ -453,10 +556,33 @@ const NumberInput = defineComponent({
     flex-direction: column;
   }
 
-  .input-grid,
+  .picker-grid,
   .cost-grid,
   .distribution-grid {
     grid-template-columns: 1fr;
+  }
+
+  .picker-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 520px) {
+  .number-grid.front {
+    grid-template-columns: repeat(6, 30px);
+    max-width: 215px;
+  }
+
+  .number-grid.back {
+    grid-template-columns: repeat(6, 30px);
+    max-width: 215px;
+  }
+
+  .number-button {
+    font-size: 11px;
+    height: 30px;
+    width: 30px;
   }
 }
 </style>
