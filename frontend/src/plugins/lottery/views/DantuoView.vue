@@ -486,17 +486,22 @@ const PoolBlock = defineComponent({
 
 .number-grid {
   display: grid;
-  gap: 8px;
-  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 7px;
+  grid-template-columns: repeat(12, 34px);
+  justify-content: start;
+  max-width: 520px;
 }
 
 .number-button {
-  aspect-ratio: 1;
   background: rgba(15, 23, 42, 0.7);
   border-radius: 999px;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 760;
+  height: 34px;
+  line-height: 1;
   min-width: 0;
+  padding: 0;
+  width: 34px;
 }
 
 .number-button.selected {
@@ -595,7 +600,9 @@ const PoolBlock = defineComponent({
   }
 
   .number-grid {
-    grid-template-columns: repeat(8, minmax(0, 1fr));
+    gap: 6px;
+    grid-template-columns: repeat(8, 32px);
+    max-width: 304px;
   }
 }
 
@@ -616,7 +623,14 @@ const PoolBlock = defineComponent({
   }
 
   .number-grid {
-    grid-template-columns: repeat(6, minmax(0, 1fr));
+    grid-template-columns: repeat(6, 30px);
+    max-width: 210px;
+  }
+
+  .number-button {
+    font-size: 11px;
+    height: 30px;
+    width: 30px;
   }
 }
 </style>
