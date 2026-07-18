@@ -116,7 +116,12 @@
                     class="sync-detail-card"
                   >
                     <div class="sync-detail-card-title">
-                      <el-tag :type="syncActionTagType(group.action)" effect="dark" size="small">
+                      <el-tag
+                        :class="`sync-action-tag sync-action-${group.action}`"
+                        :type="syncActionTagType(group.action)"
+                        effect="dark"
+                        size="small"
+                      >
                         {{ syncActionLabel(group.action) }}
                       </el-tag>
                       <span>{{ group.items.length }} 期</span>
@@ -442,6 +447,17 @@ onBeforeUnmount(() => {
   font-size: 12px;
 }
 
+.sync-action-tag {
+  border-radius: 6px;
+  font-weight: 700;
+}
+
+.sync-action-skipped {
+  background: rgba(56, 189, 248, 0.16);
+  border-color: rgba(56, 189, 248, 0.48);
+  color: #bae6fd;
+}
+
 .sync-issue-list {
   display: flex;
   flex-wrap: wrap;
@@ -449,10 +465,10 @@ onBeforeUnmount(() => {
 }
 
 .sync-issue-chip {
-  background: rgba(2, 6, 23, 0.36);
-  border: 1px solid rgba(148, 163, 184, 0.14);
+  background: rgba(8, 47, 73, 0.32);
+  border: 1px solid rgba(56, 189, 248, 0.22);
   border-radius: 8px;
-  color: var(--color-text);
+  color: #e0f2fe;
   display: grid;
   font-size: 12px;
   gap: 2px;
@@ -461,7 +477,7 @@ onBeforeUnmount(() => {
 }
 
 .sync-issue-chip small {
-  color: var(--color-muted);
+  color: #93c5fd;
   font-size: 11px;
 }
 
