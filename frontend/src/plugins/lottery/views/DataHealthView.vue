@@ -95,6 +95,45 @@
         <span class="panel-meta">最近 {{ lottery.syncRuns?.items.length ?? 0 }} 次</span>
       </div>
       <el-table v-if="lottery.syncRuns?.items.length" :data="lottery.syncRuns.items">
+        <el-table-column type="expand">
+          <template #default="{ row }">
+            <div class="sync-detail">
+              <div class="sync-detail-header">
+                <strong>同步明细</strong>
+                <span>{{ syncDetailSummary(row) }}</span>
+              </div>
+              <div v-if="row.details?.length" class="sync-detail-grid">
+                <div
+                  v-for="group in syncDetailGroups(row)"
+                  :key="group.action"
+                  class="sync-detail-card"
+                >
+                  <div class="sync-detail-card-title">
+                    <el-tag :type="syncActionTagType(group.action)" effect="dark" size="small">
+                      {{ syncActionLabel(group.action) }}
+                    </el-tag>
+                    <span>{{ group.items.length }} 期</span>
+                  </div>
+                  <div class="sync-issue-list">
+                    <span
+                      v-for="item in group.items"
+                      :key="`${group.action}-${item.issue_no}`"
+                      class="sync-issue-chip"
+                    >
+                      {{ item.issue_no }}
+                      <small>{{ item.draw_date }}</small>
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <EmptyState
+                v-else
+                title="这条旧同步记录没有保存期号明细"
+                description="从同步明细功能上线之后执行的同步或回填，会记录具体新增、更新和跳过的期号。"
+              />
+            </div>
+          </template>
+        </el-table-column>
         <el-table-column prop="run_id" label="任务" width="90" />
         <el-table-column label="状态" width="120">
           <template #default="{ row }">
@@ -113,7 +152,17 @@
         <el-table-column prop="latest_issue_no" label="最新期号" width="120" />
         <el-table-column label="新增/更新/跳过" width="150">
           <template #default="{ row }">
-            {{ row.inserted_count }}/{{ row.updated_count }}/{{ row.skipped_count }}
+            <div class="sync-counts">
+              <el-tag size="small" type="success" effect="plain">
+                新 {{ row.inserted_count }}
+              </el-tag>
+              <el-tag size="small" type="warning" effect="plain">
+                更 {{ row.updated_count }}
+              </el-tag>
+              <el-tag size="small" type="info" effect="plain">
+                跳 {{ row.skipped_count }}
+              </el-tag>
+            </div>
           </template>
         </el-table-column>
         <el-table-column prop="error_message" label="错误" min-width="180" />
@@ -133,6 +182,7 @@ import { computed, defineComponent, h, onBeforeUnmount, onMounted, ref } from 'v
 
 import EmptyState from '@/components/common/EmptyState.vue';
 import MetricCard from '@/components/metric/MetricCard.vue';
+import type { LotterySyncRun, LotterySyncRunDetail } from '@/plugins/lottery/api';
 import { lotterySyncSourceLabel } from '@/plugins/lottery/sourceLabels';
 import { useLotteryStore } from '@/plugins/lottery/store';
 
@@ -286,6 +336,41 @@ function syncTagType(status: string): 'success' | 'warning' | 'danger' | 'info' 
   return status ? 'info' : '';
 }
 
+function syncActionLabel(action: string): string {
+  const labels: Record<string, string> = {
+    inserted: '新增',
+    updated: '更新',
+    skipped: '跳过',
+    failed: '失败',
+  };
+  return labels[action] ?? action;
+}
+
+function syncActionTagType(action: string): 'success' | 'warning' | 'danger' | 'info' {
+  if (action === 'inserted') return 'success';
+  if (action === 'updated') return 'warning';
+  if (action === 'failed') return 'danger';
+  return 'info';
+}
+
+function syncDetailSummary(row: LotterySyncRun): string {
+  if (!row.details?.length) return '无期号明细';
+  return `共 ${row.details.length} 期，新增 ${row.inserted_count}，更新 ${row.updated_count}，跳过 ${row.skipped_count}`;
+}
+
+function syncDetailGroups(row: LotterySyncRun): Array<{
+  action: string;
+  items: LotterySyncRunDetail[];
+}> {
+  const order = ['inserted', 'updated', 'skipped', 'failed'];
+  return order
+    .map((action) => ({
+      action,
+      items: row.details.filter((item) => item.action === action),
+    }))
+    .filter((group) => group.items.length > 0);
+}
+
 onMounted(() => {
   void lottery.loadOverview();
 });
@@ -411,6 +496,84 @@ const InfoBlock = defineComponent({
   gap: 8px;
 }
 
+.sync-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.sync-detail {
+  background: rgba(15, 23, 42, 0.36);
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  margin: 4px 0;
+  padding: 14px;
+}
+
+.sync-detail-header {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.sync-detail-header span {
+  color: var(--color-muted);
+  font-size: 13px;
+}
+
+.sync-detail-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.sync-detail-card {
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 8px;
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+}
+
+.sync-detail-card-title {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.sync-detail-card-title span {
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
+.sync-issue-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.sync-issue-chip {
+  background: rgba(2, 6, 23, 0.36);
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 8px;
+  color: var(--color-text);
+  display: grid;
+  font-size: 12px;
+  gap: 2px;
+  min-width: 74px;
+  padding: 7px 8px;
+}
+
+.sync-issue-chip small {
+  color: var(--color-muted);
+  font-size: 11px;
+}
+
 :deep(.el-table) {
   --el-table-bg-color: transparent;
   --el-table-tr-bg-color: transparent;
@@ -418,6 +581,32 @@ const InfoBlock = defineComponent({
   --el-table-text-color: var(--color-text);
   --el-table-header-text-color: var(--color-muted);
   --el-table-border-color: rgba(148, 163, 184, 0.14);
+  --el-table-current-row-bg-color: rgba(56, 189, 248, 0.1);
+  --el-table-expanded-cell-bg-color: rgba(2, 6, 23, 0.22);
+  --el-table-row-hover-bg-color: rgba(56, 189, 248, 0.08);
+}
+
+:deep(.el-table__body tr.current-row > td.el-table__cell),
+:deep(.el-table__body tr.hover-row > td.el-table__cell),
+:deep(.el-table__body tr:hover > td.el-table__cell) {
+  background-color: rgba(56, 189, 248, 0.08);
+}
+
+:deep(.el-table__body tr.expanded > td.el-table__cell) {
+  background-color: rgba(56, 189, 248, 0.1);
+}
+
+:deep(.el-table__expanded-cell) {
+  background-color: rgba(2, 6, 23, 0.22);
+  box-shadow: inset 0 1px 0 rgba(148, 163, 184, 0.1);
+}
+
+:deep(.el-table__expand-icon) {
+  color: var(--color-muted);
+}
+
+:deep(.el-table__expand-icon--expanded) {
+  color: var(--color-primary);
 }
 
 @media (max-width: 920px) {
@@ -430,7 +619,8 @@ const InfoBlock = defineComponent({
   }
 
   .health-grid,
-  .sync-grid {
+  .sync-grid,
+  .sync-detail-grid {
     grid-template-columns: 1fr;
   }
 }
