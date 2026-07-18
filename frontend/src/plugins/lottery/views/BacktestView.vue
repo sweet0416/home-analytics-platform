@@ -146,8 +146,11 @@
 
     <section v-if="batchResults.length" class="panel batch-panel">
       <div class="panel-header">
-        <h2 class="panel-title">批量回测结果</h2>
-        <span class="panel-meta">{{ batchSummary }}</span>
+        <div>
+          <h2 class="panel-title">批量回测结果</h2>
+          <span class="panel-meta">{{ batchSummary }}</span>
+        </div>
+        <el-button plain size="small" @click="exportBatchResultsCsv">导出 CSV</el-button>
       </div>
       <div class="batch-table">
         <div class="batch-row batch-head">
@@ -519,6 +522,64 @@ function isBatchDetailsExpanded(id: string): boolean {
   return expandedBatchResultIds.value.has(id);
 }
 
+function exportBatchResultsCsv(): void {
+  if (!batchResults.value.length) {
+    errorMessage.value = '请先完成批量回测后再导出。';
+    return;
+  }
+
+  const rows: Array<Array<number | string | null | undefined>> = [
+    ['Home Analytics Platform', '大乐透组合回测'],
+    ['导出时间', new Date().toLocaleString('zh-CN')],
+    ['追加计算', form.addon ? '是' : '否'],
+    ['命中明细上限', form.hitLimit],
+    [],
+    ['汇总'],
+    ['组合', '号码', '中奖期数', '历史样本', '最高命中', '固定奖净值'],
+  ];
+
+  for (const item of batchResults.value) {
+    rows.push([
+      item.label,
+      formatPoolNumbers(item),
+      item.analysis.hit_count,
+      item.analysis.sample_size,
+      item.analysis.highest_hit?.match_key ?? '--',
+      item.analysis.net_fixed_result,
+    ]);
+  }
+
+  rows.push(
+    [],
+    ['命中明细'],
+    ['组合', '期号', '开奖日期', '奖级', '命中结构', '前区命中', '后区命中', '固定奖金额'],
+  );
+
+  for (const item of batchResults.value) {
+    if (!item.analysis.hits.length) {
+      rows.push([item.label, '--', '--', '未命中奖级', '--', '--', '--', 0]);
+      continue;
+    }
+    for (const hit of item.analysis.hits) {
+      rows.push([
+        item.label,
+        hit.issue_no,
+        hit.draw_date,
+        hit.tier_name,
+        hit.match_key,
+        formatNumberList(hit.front_matches),
+        formatNumberList(hit.back_matches),
+        hit.is_floating ? '浮动奖未估算' : (hit.base_prize_amount ?? 0),
+      ]);
+    }
+  }
+
+  downloadTextFile(
+    `hap-dlt-backtest-${new Date().toISOString().slice(0, 10)}.csv`,
+    `\uFEFF${rows.map(formatCsvRow).join('\n')}`,
+  );
+}
+
 function toggleNumber(area: 'front' | 'back', number: number): void {
   errorMessage.value = '';
   const current = area === 'front' ? form.frontNumbers : form.backNumbers;
@@ -595,6 +656,28 @@ function parseQueryNumbers(
 
 function formatCurrency(value: number): string {
   return `¥${value.toLocaleString('zh-CN')}`;
+}
+
+function formatCsvRow(row: Array<number | string | null | undefined>): string {
+  return row.map(escapeCsvCell).join(',');
+}
+
+function escapeCsvCell(value: number | string | null | undefined): string {
+  const raw = value == null ? '' : String(value);
+  const safeValue = /^[=+\-@]/.test(raw) ? `'${raw}` : raw;
+  return `"${safeValue.replaceAll('"', '""')}"`;
+}
+
+function downloadTextFile(filename: string, content: string): void {
+  const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
 }
 
 function formatPoolNumbers(item: BacktestPoolItem): string {
