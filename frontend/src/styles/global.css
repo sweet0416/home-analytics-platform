@@ -153,4 +153,9 @@ a {
     animation: none;
     background-position: 50% 0;
   }
+
+  .nav-active-line,
+  .nav-item {
+    transition: none;
+  }
 }

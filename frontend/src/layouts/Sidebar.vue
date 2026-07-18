@@ -8,8 +8,17 @@
       </div>
     </div>
 
-    <nav class="nav-list">
-      <RouterLink v-for="item in navItems" :key="item.path" :to="item.path" class="nav-item">
+    <nav
+      class="nav-list"
+      :style="{ '--active-index': String(activeIndex) }"
+    >
+      <span class="nav-active-line" aria-hidden="true" />
+      <RouterLink
+        v-for="item in navItems"
+        :key="item.path"
+        :to="item.path"
+        class="nav-item"
+      >
         <component :is="item.icon" class="nav-icon" />
         <span>{{ item.label }}</span>
       </RouterLink>
@@ -30,6 +39,8 @@ import {
   Setting,
   TrendCharts,
 } from '@element-plus/icons-vue';
+import { computed } from 'vue';
+import { useRoute } from 'vue-router';
 
 const navItems = [
   { path: '/', label: 'Dashboard', icon: DataBoard },
@@ -43,4 +54,12 @@ const navItems = [
   { path: '/reports', label: 'Reports', icon: Document },
   { path: '/settings', label: 'Settings', icon: Setting },
 ];
+
+const route = useRoute();
+const activeIndex = computed(() => {
+  const index = navItems.findIndex((item) =>
+    item.path === '/' ? route.path === '/' : route.path.startsWith(item.path),
+  );
+  return Math.max(index, 0);
+});
 </script>
