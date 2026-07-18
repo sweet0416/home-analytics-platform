@@ -18,6 +18,7 @@
         :key="item.path"
         :to="item.path"
         class="nav-item"
+        :class="{ 'is-active': isActiveNavItem(item.path) }"
       >
         <component :is="item.icon" class="nav-icon" />
         <span>{{ item.label }}</span>
@@ -62,4 +63,7 @@ const activeIndex = computed(() => {
   );
   return Math.max(index, 0);
 });
+
+const isActiveNavItem = (path: string): boolean =>
+  path === '/' ? route.path === '/' : route.path.startsWith(path);
 </script>

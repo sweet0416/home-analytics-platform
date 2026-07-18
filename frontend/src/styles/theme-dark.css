@@ -76,12 +76,12 @@
 }
 
 .nav-item:hover,
-.nav-item.router-link-active {
+.nav-item.is-active {
   background: rgba(56, 189, 248, 0.12);
   color: var(--color-text);
 }
 
-.nav-item.router-link-active {
+.nav-item.is-active {
   transform: translateX(2px);
 }
 
