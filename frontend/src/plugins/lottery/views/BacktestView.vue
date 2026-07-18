@@ -108,11 +108,11 @@
             size="small"
             :loading="librarySyncing"
             :disabled="!backtestPool.length"
-            @click="savePoolToLibrary"
+            @click="savePoolToLibraryManaged"
           >
             保存到组合库
           </el-button>
-          <el-button plain size="small" :loading="librarySyncing" @click="loadLibraryToPool">
+          <el-button plain size="small" :loading="librarySyncing" @click="loadLibraryToPoolManaged">
             从组合库载入
           </el-button>
           <el-select v-model="poolSortMode" class="pool-sort-select" size="small" :disabled="!backtestPool.length">
@@ -176,6 +176,53 @@
         v-else
         title="回测池为空"
         description="选好一组号码后点击加入回测池，或从推荐页跳转后先加入池子。"
+      />
+    </section>
+
+    <section class="panel library-panel">
+      <div class="panel-header">
+        <div>
+          <h2 class="panel-title">我的组合库</h2>
+          <span class="panel-meta">已保存 {{ savedCombinationCount }} 组，可从 Docker 数据库载入到回测池</span>
+        </div>
+        <div class="pool-actions">
+          <el-button plain size="small" :loading="librarySyncing" @click="refreshSavedCombinations">
+            刷新
+          </el-button>
+        </div>
+      </div>
+      <div v-if="savedCombinations.length" class="library-list">
+        <article v-for="item in savedCombinations" :key="item.id" class="library-row">
+          <div>
+            <strong>{{ item.label }}</strong>
+            <span>{{ item.source || '组合库' }} · {{ formatDateTime(item.updated_at) }}</span>
+          </div>
+          <div class="pool-balls">
+            <LotteryBall
+              v-for="number in item.front_numbers"
+              :key="`library-${item.id}-front-${number}`"
+              area="front"
+              :value="number"
+            />
+            <LotteryBall
+              v-for="number in item.back_numbers"
+              :key="`library-${item.id}-back-${number}`"
+              area="back"
+              :value="number"
+            />
+          </div>
+          <div class="pool-row-actions">
+            <el-button plain size="small" @click="loadSavedCombinationToPool(item)">载入</el-button>
+            <el-button plain size="small" type="danger" @click="deleteCombinationFromLibrary(item)">
+              删除
+            </el-button>
+          </div>
+        </article>
+      </div>
+      <EmptyState
+        v-else
+        title="组合库为空"
+        description="先把回测池保存到组合库，之后就可以跨浏览器、跨设备载入。"
       />
     </section>
 
@@ -380,7 +427,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElMessageBox } from 'element-plus';
 
 import EmptyState from '@/components/common/EmptyState.vue';
 import MetricCard from '@/components/metric/MetricCard.vue';
@@ -389,6 +436,7 @@ import LotteryBall from '@/plugins/lottery/components/LotteryBall.vue';
 import LotteryNumberBoard from '@/plugins/lottery/components/LotteryNumberBoard.vue';
 import {
   backtestNumbers as backtestNumbersRequest,
+  deleteSavedCombination,
   fetchSavedCombinations,
   saveCombination,
   type LotteryBacktestAnalysis,
@@ -436,6 +484,7 @@ const form = reactive({
 
 const backtestPool = ref<BacktestPoolItem[]>([]);
 const batchResults = ref<BatchBacktestResult[]>([]);
+const savedCombinations = ref<LotterySavedCombination[]>([]);
 const expandedBatchResultIds = ref<Set<string>>(new Set());
 const poolSortMode = ref<PoolSortMode>('manual');
 const frontOptions = Array.from({ length: 35 }, (_, index) => index + 1);
@@ -475,6 +524,7 @@ const batchSummary = computed(() => {
 });
 const sortedBacktestPool = computed(() => sortPoolItems(backtestPool.value));
 const sortedBatchResults = computed(() => sortBatchResults(batchResults.value));
+const savedCombinationCount = computed(() => savedCombinations.value.length);
 
 async function handleBacktest(): Promise<void> {
   errorMessage.value = '';
@@ -569,6 +619,109 @@ async function loadLibraryToPool(): Promise<void> {
     );
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : '载入组合库失败';
+  } finally {
+    librarySyncing.value = false;
+  }
+}
+
+async function savePoolToLibraryManaged(): Promise<void> {
+  errorMessage.value = '';
+  if (!backtestPool.value.length) {
+    errorMessage.value = '请先加入至少一组号码到回测池。';
+    return;
+  }
+
+  librarySyncing.value = true;
+  try {
+    const savedItems: LotterySavedCombination[] = [];
+    for (const item of backtestPool.value) {
+      const saved = await saveCombination({
+        label: item.label.trim() || '未命名组合',
+        source: item.source || 'backtest-pool',
+        front_numbers: [...item.frontNumbers],
+        back_numbers: [...item.backNumbers],
+        favorite: item.favorite,
+        note: '来自组合回测池',
+      });
+      savedItems.push(saved);
+    }
+    savedCombinations.value = savedItems;
+    await refreshSavedCombinations(false);
+    ElMessage.success(`已保存 ${savedItems.length} 组到组合库`);
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : '保存组合库失败';
+  } finally {
+    librarySyncing.value = false;
+  }
+}
+
+async function loadLibraryToPoolManaged(): Promise<void> {
+  errorMessage.value = '';
+  librarySyncing.value = true;
+  try {
+    savedCombinations.value = await fetchSavedCombinations();
+    const loadedItems = savedCombinations.value.map(mapSavedCombinationToPoolItem);
+    const beforeCount = backtestPool.value.length;
+    backtestPool.value = dedupeBacktestPool([...backtestPool.value, ...loadedItems]);
+    const loadedCount = backtestPool.value.length - beforeCount;
+    ElMessage.success(
+      loadedCount > 0 ? `已载入 ${loadedCount} 组组合` : '组合库内容已经在回测池里',
+    );
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : '载入组合库失败';
+  } finally {
+    librarySyncing.value = false;
+  }
+}
+
+async function refreshSavedCombinations(showMessage = true): Promise<void> {
+  errorMessage.value = '';
+  librarySyncing.value = true;
+  try {
+    savedCombinations.value = await fetchSavedCombinations();
+    if (showMessage) {
+      ElMessage.success(`已刷新 ${savedCombinations.value.length} 组组合`);
+    }
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : '刷新组合库失败';
+  } finally {
+    librarySyncing.value = false;
+  }
+}
+
+function loadSavedCombinationToPool(item: LotterySavedCombination): void {
+  const poolItem = mapSavedCombinationToPoolItem(item);
+  const beforeCount = backtestPool.value.length;
+  backtestPool.value = dedupeBacktestPool([...backtestPool.value, poolItem]);
+  if (backtestPool.value.length === beforeCount) {
+    ElMessage.info('这组号码已经在回测池里');
+    return;
+  }
+  ElMessage.success(`已载入 ${item.label}`);
+}
+
+async function deleteCombinationFromLibrary(item: LotterySavedCombination): Promise<void> {
+  try {
+    await ElMessageBox.confirm(
+      `确认删除「${item.label}」吗？删除后不会影响当前回测池。`,
+      '删除组合',
+      {
+        confirmButtonText: '删除',
+        cancelButtonText: '取消',
+        type: 'warning',
+      },
+    );
+  } catch {
+    return;
+  }
+
+  librarySyncing.value = true;
+  try {
+    await deleteSavedCombination(item.id);
+    savedCombinations.value = savedCombinations.value.filter((current) => current.id !== item.id);
+    ElMessage.success('已从组合库删除');
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : '删除组合失败';
   } finally {
     librarySyncing.value = false;
   }
@@ -932,6 +1085,17 @@ function formatPoolNumbers(item: BacktestPoolItem): string {
   return `${formatNumberList(item.frontNumbers)} + ${formatNumberList(item.backNumbers)}`;
 }
 
+function formatDateTime(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString('zh-CN', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
 function buildPoolSignature(frontNumbers: number[], backNumbers: number[]): string {
   return `${frontNumbers.join(',')}|${backNumbers.join(',')}`;
 }
@@ -949,6 +1113,7 @@ watch(
 onMounted(() => {
   hydrateBacktestPreferences();
   hydrateNumbersFromQuery();
+  void refreshSavedCombinations(false);
 });
 </script>
 
@@ -973,6 +1138,7 @@ onMounted(() => {
 .backtest-alert,
 .input-panel,
 .pool-panel,
+.library-panel,
 .batch-panel,
 .backtest-metrics,
 .selected-panel,
@@ -1001,7 +1167,13 @@ onMounted(() => {
   gap: 10px;
 }
 
-.pool-row {
+.library-list {
+  display: grid;
+  gap: 10px;
+}
+
+.pool-row,
+.library-row {
   align-items: center;
   border: 1px solid rgba(148, 163, 184, 0.14);
   border-radius: 8px;
@@ -1011,9 +1183,19 @@ onMounted(() => {
   padding: 12px;
 }
 
-.pool-row > div:first-child {
+.library-row {
+  grid-template-columns: 180px minmax(0, 1fr) auto;
+}
+
+.pool-row > div:first-child,
+.library-row > div:first-child {
   display: grid;
   gap: 4px;
+}
+
+.library-row strong {
+  color: var(--color-text);
+  font-size: 14px;
 }
 
 .pool-label-input {
@@ -1035,6 +1217,7 @@ onMounted(() => {
 }
 
 .pool-row span,
+.library-row span,
 .batch-row span {
   color: var(--color-muted);
   font-size: 12px;
@@ -1235,6 +1418,7 @@ onMounted(() => {
 
   .picker-grid,
   .pool-row,
+  .library-row,
   .batch-row,
   .cost-grid,
   .distribution-grid {
