@@ -561,10 +561,10 @@ const InfoBlock = defineComponent({
   font-weight: 700;
 }
 
-.sync-action-skipped {
+:deep(.sync-action-skipped) {
   background: rgba(56, 189, 248, 0.16);
   border-color: rgba(56, 189, 248, 0.48);
-  color: #bae6fd;
+  color: #bae6fd !important;
 }
 
 .sync-issue-list {
