@@ -157,13 +157,48 @@
           <span>最高命中</span>
           <span>固定奖净值</span>
         </div>
-        <div v-for="item in batchResults" :key="item.id" class="batch-row">
-          <span>{{ item.label }}</span>
-          <span>{{ formatPoolNumbers(item) }}</span>
-          <span>{{ item.analysis.hit_count }} / {{ item.analysis.sample_size }}</span>
-          <span>{{ item.analysis.highest_hit?.match_key ?? '--' }}</span>
-          <strong>{{ formatCurrency(item.analysis.net_fixed_result) }}</strong>
-        </div>
+        <template v-for="item in batchResults" :key="item.id">
+          <div class="batch-row">
+            <span>{{ item.label }}</span>
+            <span>{{ formatPoolNumbers(item) }}</span>
+            <span>{{ item.analysis.hit_count }} / {{ item.analysis.sample_size }}</span>
+            <span>{{ item.analysis.highest_hit?.match_key ?? '--' }}</span>
+            <div class="batch-result-actions">
+              <strong>{{ formatCurrency(item.analysis.net_fixed_result) }}</strong>
+              <el-button link size="small" @click="toggleBatchDetails(item.id)">
+                {{ isBatchDetailsExpanded(item.id) ? '收起明细' : '查看明细' }}
+              </el-button>
+            </div>
+          </div>
+          <div v-if="isBatchDetailsExpanded(item.id)" class="batch-details">
+            <div class="batch-details-summary">
+              <span>展示 {{ item.analysis.hits.length }} 条命中记录</span>
+              <span>最高命中 {{ item.analysis.highest_hit?.match_key ?? '--' }}</span>
+              <span>最近命中 {{ item.analysis.latest_hit?.issue_no ?? '--' }}</span>
+            </div>
+            <div v-if="item.analysis.hits.length" class="batch-hit-list">
+              <article v-for="hit in item.analysis.hits" :key="`${item.id}-${hit.issue_no}`" class="batch-hit-card">
+                <div class="batch-hit-main">
+                  <strong>{{ hit.issue_no }}</strong>
+                  <span>{{ hit.draw_date }}</span>
+                  <el-tag effect="dark" size="small" :type="hit.prize_tier <= 3 ? 'success' : 'info'">
+                    {{ hit.tier_name }} / {{ hit.match_key }}
+                  </el-tag>
+                </div>
+                <div class="batch-hit-balls">
+                  <span>前区命中 {{ formatNumberList(hit.front_matches) }}</span>
+                  <span>后区命中 {{ formatNumberList(hit.back_matches) }}</span>
+                  <span>{{ hit.is_floating ? '浮动奖' : `固定奖 ${formatCurrency(hit.base_prize_amount ?? 0)}` }}</span>
+                </div>
+              </article>
+            </div>
+            <EmptyState
+              v-else
+              title="暂无命中明细"
+              description="这组号码在当前历史样本里没有命中过官方奖级。"
+            />
+          </div>
+        </template>
       </div>
     </section>
 
@@ -347,6 +382,7 @@ const form = reactive({
 
 const backtestPool = ref<BacktestPoolItem[]>([]);
 const batchResults = ref<BatchBacktestResult[]>([]);
+const expandedBatchResultIds = ref<Set<string>>(new Set());
 const frontOptions = Array.from({ length: 35 }, (_, index) => index + 1);
 const backOptions = Array.from({ length: 12 }, (_, index) => index + 1);
 const canAddCurrentSet = computed(
@@ -425,6 +461,7 @@ async function handleBatchBacktest(): Promise<void> {
       results.push({ ...item, analysis });
     }
     batchResults.value = results;
+    expandedBatchResultIds.value = new Set(results.slice(0, 1).map((item) => item.id));
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : '批量回测失败';
   } finally {
@@ -464,7 +501,22 @@ function removePoolItem(id: string): void {
 function clearBacktestPool(): void {
   backtestPool.value = [];
   batchResults.value = [];
+  expandedBatchResultIds.value = new Set();
   errorMessage.value = '';
+}
+
+function toggleBatchDetails(id: string): void {
+  const next = new Set(expandedBatchResultIds.value);
+  if (next.has(id)) {
+    next.delete(id);
+  } else {
+    next.add(id);
+  }
+  expandedBatchResultIds.value = next;
+}
+
+function isBatchDetailsExpanded(id: string): boolean {
+  return expandedBatchResultIds.value.has(id);
 }
 
 function toggleNumber(area: 'front' | 'back', number: number): void {
@@ -648,6 +700,52 @@ onMounted(() => {
 .batch-head {
   background: rgba(15, 23, 42, 0.52);
   font-weight: 700;
+}
+
+.batch-result-actions,
+.batch-details-summary,
+.batch-hit-main,
+.batch-hit-balls {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.batch-result-actions {
+  justify-content: space-between;
+}
+
+.batch-details {
+  background: rgba(15, 23, 42, 0.28);
+  border-top: 1px solid rgba(148, 163, 184, 0.12);
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+}
+
+.batch-details-summary,
+.batch-hit-balls {
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
+.batch-hit-list {
+  display: grid;
+  gap: 8px;
+}
+
+.batch-hit-card {
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  border-radius: 8px;
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+}
+
+.batch-hit-main span {
+  color: var(--color-muted);
+  font-size: 12px;
 }
 
 .picker-grid {
