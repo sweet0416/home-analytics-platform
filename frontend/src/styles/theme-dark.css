@@ -48,6 +48,11 @@
   object-fit: cover;
 }
 
+.brand-copy {
+  display: grid;
+  min-width: 112px;
+}
+
 @keyframes logo-shine {
   0%,
   48% {
@@ -61,6 +66,7 @@
 }
 
 .brand-title {
+  min-height: 19px;
   font-size: 16px;
   font-weight: 750;
 }
@@ -69,6 +75,36 @@
   margin-top: 2px;
   color: var(--color-muted);
   font-size: 12px;
+  min-height: 15px;
+}
+
+.text-type {
+  align-items: center;
+  display: inline-flex;
+  width: fit-content;
+}
+
+.text-type-cursor {
+  animation: text-type-caret 880ms steps(2, end) infinite;
+  background: rgba(125, 211, 252, 0.92);
+  box-shadow: 0 0 10px rgba(56, 189, 248, 0.45);
+  display: inline-block;
+  height: 1em;
+  margin-left: 2px;
+  transform: translateY(1px);
+  width: 1px;
+}
+
+@keyframes text-type-caret {
+  0%,
+  45% {
+    opacity: 1;
+  }
+
+  46%,
+  100% {
+    opacity: 0;
+  }
 }
 
 .nav-list {

@@ -158,6 +158,10 @@ a {
     animation: none;
   }
 
+  .text-type-cursor {
+    animation: none;
+  }
+
   .nav-active-line,
   .nav-item {
     transition: none;
