@@ -343,7 +343,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 
 import EmptyState from '@/components/common/EmptyState.vue';
@@ -369,6 +369,13 @@ interface BatchBacktestResult extends BacktestPoolItem {
   analysis: LotteryBacktestAnalysis;
 }
 
+interface StoredBacktestPool {
+  addon?: boolean;
+  hitLimit?: number;
+  pool?: unknown[];
+}
+
+const BACKTEST_STORAGE_KEY = 'hap:lottery:dlt:backtest-pool:v1';
 const lottery = useLotteryStore();
 const route = useRoute();
 const analyzing = ref(false);
@@ -506,6 +513,7 @@ function clearBacktestPool(): void {
   batchResults.value = [];
   expandedBatchResultIds.value = new Set();
   errorMessage.value = '';
+  localStorage.removeItem(BACKTEST_STORAGE_KEY);
 }
 
 function toggleBatchDetails(id: string): void {
@@ -631,8 +639,75 @@ function hydrateNumbersFromQuery(): void {
     setNumbers('back', backNumbers);
   }
   if (frontNumbers.length === 5 && backNumbers.length === 2) {
-    addCurrentToPool();
+    const signature = buildPoolSignature(frontNumbers, backNumbers);
+    if (!backtestPool.value.some((item) => buildPoolSignature(item.frontNumbers, item.backNumbers) === signature)) {
+      addCurrentToPool();
+    }
   }
+}
+
+function hydrateBacktestPreferences(): void {
+  try {
+    const raw = localStorage.getItem(BACKTEST_STORAGE_KEY);
+    if (!raw) return;
+
+    const parsed = JSON.parse(raw) as StoredBacktestPool;
+    if (typeof parsed.addon === 'boolean') {
+      form.addon = parsed.addon;
+    }
+    if (typeof parsed.hitLimit === 'number' && parsed.hitLimit >= 1 && parsed.hitLimit <= 100) {
+      form.hitLimit = parsed.hitLimit;
+    }
+    if (Array.isArray(parsed.pool)) {
+      const nextPool = parsed.pool
+        .map(normalizeStoredPoolItem)
+        .filter((item): item is BacktestPoolItem => item !== null);
+      backtestPool.value = dedupeBacktestPool(nextPool);
+    }
+  } catch {
+    localStorage.removeItem(BACKTEST_STORAGE_KEY);
+  }
+}
+
+function persistBacktestPreferences(): void {
+  if (!backtestPool.value.length) {
+    localStorage.removeItem(BACKTEST_STORAGE_KEY);
+    return;
+  }
+
+  const payload: StoredBacktestPool = {
+    addon: form.addon,
+    hitLimit: form.hitLimit,
+    pool: backtestPool.value,
+  };
+  localStorage.setItem(BACKTEST_STORAGE_KEY, JSON.stringify(payload));
+}
+
+function normalizeStoredPoolItem(value: unknown, index: number): BacktestPoolItem | null {
+  if (!value || typeof value !== 'object') return null;
+  const item = value as Record<string, unknown>;
+  const frontNumbers = parseQueryNumbers(item.frontNumbers, 1, 35, 5);
+  const backNumbers = parseQueryNumbers(item.backNumbers, 1, 12, 2);
+  if (frontNumbers.length !== 5 || backNumbers.length !== 2) return null;
+  return {
+    id: typeof item.id === 'string' && item.id ? item.id : `stored-${index + 1}`,
+    label: typeof item.label === 'string' && item.label ? item.label : `组合 ${index + 1}`,
+    source: typeof item.source === 'string' && item.source ? item.source : '本地保存',
+    frontNumbers,
+    backNumbers,
+  };
+}
+
+function dedupeBacktestPool(items: BacktestPoolItem[]): BacktestPoolItem[] {
+  const seen = new Set<string>();
+  const uniqueItems: BacktestPoolItem[] = [];
+  for (const item of items) {
+    const signature = buildPoolSignature(item.frontNumbers, item.backNumbers);
+    if (seen.has(signature)) continue;
+    seen.add(signature);
+    uniqueItems.push(item);
+  }
+  return uniqueItems;
 }
 
 function parseQueryNumbers(
@@ -692,7 +767,14 @@ function formatNumberList(numbers: number[]): string {
   return numbers.length ? numbers.map((number) => String(number).padStart(2, '0')).join(' ') : '无';
 }
 
+watch(
+  [backtestPool, () => form.addon, () => form.hitLimit],
+  persistBacktestPreferences,
+  { deep: true },
+);
+
 onMounted(() => {
+  hydrateBacktestPreferences();
   hydrateNumbersFromQuery();
 });
 </script>
