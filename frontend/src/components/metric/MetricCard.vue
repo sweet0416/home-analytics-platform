@@ -1,17 +1,22 @@
 <template>
-  <section class="metric-card panel">
+  <RevealContent as="section" class="metric-card panel" :delay="delay">
     <div class="metric-label">{{ label }}</div>
     <div class="metric-value">{{ value }}</div>
     <div class="metric-meta">{{ meta }}</div>
-  </section>
+  </RevealContent>
 </template>
 
 <script setup lang="ts">
-defineProps<{
+import RevealContent from '@/components/common/RevealContent.vue';
+
+withDefaults(defineProps<{
   label: string;
   value: string;
   meta: string;
-}>();
+  delay?: number;
+}>(), {
+  delay: 0,
+});
 </script>
 
 <style scoped>
@@ -37,4 +42,3 @@ defineProps<{
   font-size: 12px;
 }
 </style>
-

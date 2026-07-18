@@ -1,21 +1,21 @@
 <template>
   <div>
-    <section class="page-header">
+    <RevealContent as="section" class="page-header" :delay="20">
       <div>
         <h1 class="page-title">Dashboard</h1>
         <div class="page-subtitle">服务器、数据插件和任务状态的统一入口</div>
       </div>
-    </section>
+    </RevealContent>
 
     <div class="grid metrics">
-      <MetricCard label="API" :value="system.health?.status ?? '--'" meta="Backend health" />
-      <MetricCard label="Database" :value="system.health?.database ?? '--'" meta="SQLite first" />
-      <MetricCard label="Version" :value="system.health?.version ?? '--'" meta="Backend release" />
-      <MetricCard label="Deploy" value="PVE Docker" meta="192.168.100.249" />
+      <MetricCard label="API" :value="system.health?.status ?? '--'" meta="Backend health" :delay="80" />
+      <MetricCard label="Database" :value="system.health?.database ?? '--'" meta="SQLite first" :delay="140" />
+      <MetricCard label="Version" :value="system.health?.version ?? '--'" meta="Backend release" :delay="200" />
+      <MetricCard label="Deploy" value="PVE Docker" meta="192.168.100.249" :delay="260" />
     </div>
 
     <div class="dashboard-grid">
-      <section class="panel">
+      <RevealContent as="section" class="panel" :delay="320">
         <div class="panel-header">
           <h2 class="panel-title">大乐透摘要</h2>
           <RouterLink to="/lottery/dlt" class="panel-link">打开</RouterLink>
@@ -38,9 +38,9 @@
             <strong>{{ syncStatus }}</strong>
           </div>
         </div>
-      </section>
+      </RevealContent>
 
-      <section class="panel">
+      <RevealContent as="section" class="panel" :delay="380">
         <div class="panel-header">
           <h2 class="panel-title">基础设施</h2>
         </div>
@@ -49,7 +49,7 @@
           <div><span>PVE</span><strong>预留</strong></div>
           <div><span>Scheduler</span><strong>{{ schedulerStatus }}</strong></div>
         </div>
-      </section>
+      </RevealContent>
     </div>
   </div>
 </template>
@@ -57,6 +57,7 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue';
 
+import RevealContent from '@/components/common/RevealContent.vue';
 import MetricCard from '@/components/metric/MetricCard.vue';
 import { useLotteryStore } from '@/plugins/lottery/store';
 import { useSystemStore } from '@/stores/system';
