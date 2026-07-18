@@ -80,7 +80,7 @@ a {
   color: transparent;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
-  animation: hap-shine 5.8s linear infinite;
+  animation: hap-shine 7.2s linear infinite;
 }
 
 @keyframes hap-shine {
@@ -88,7 +88,6 @@ a {
     background-position: 120% 0;
   }
 
-  48%,
   100% {
     background-position: -120% 0;
   }
