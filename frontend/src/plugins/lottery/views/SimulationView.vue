@@ -159,17 +159,11 @@
       </div>
     </section>
 
-    <section class="panel methodology-panel">
-      <div class="panel-header">
-        <h2 class="panel-title">模拟说明</h2>
-        <span class="panel-meta">通俗版</span>
-      </div>
-      <div class="panel-body methodology-list">
-        <div v-for="item in methodology" :key="item" class="methodology-item">
-          {{ item }}
-        </div>
-      </div>
-    </section>
+    <LotteryExplanationPanel
+      title="模拟说明"
+      subtitle="通俗版"
+      :sections="explanationSections"
+    />
   </div>
 </template>
 
@@ -181,6 +175,9 @@ import EmptyState from '@/components/common/EmptyState.vue';
 import MetricCard from '@/components/metric/MetricCard.vue';
 import DisclaimerAlert from '@/plugins/lottery/components/DisclaimerAlert.vue';
 import LotteryBall from '@/plugins/lottery/components/LotteryBall.vue';
+import LotteryExplanationPanel, {
+  type LotteryExplanationSection,
+} from '@/plugins/lottery/components/LotteryExplanationPanel.vue';
 import type { LotterySimulationFrequency } from '@/plugins/lottery/api';
 import { useLotteryStore } from '@/plugins/lottery/store';
 
@@ -210,6 +207,28 @@ const methodology = computed(() =>
         '模拟选号只是帮助理解随机性，不会提高未来中奖概率。',
       ],
 );
+const explanationSections = computed<LotteryExplanationSection[]>(() => [
+  {
+    title: '它在模拟什么',
+    items: methodology.value,
+  },
+  {
+    title: '结果怎么看',
+    items: [
+      '快速汇总只是把随机生成的组合集中放在一起，方便查看和截图。',
+      '频率观察用于看随机抽样是否稳定，不是用来判断热号一定会继续热。',
+      '随机种子相同会生成同一批结果，方便你复盘或对照不同参数。',
+    ],
+  },
+  {
+    title: '不要误读',
+    items: [
+      'Monte Carlo 模拟能帮助理解随机性，但不能改变官方组合概率。',
+      '某个号码在模拟里出现多，只说明这批随机样本里出现多。',
+      '模拟组合不等于推荐组合，也不代表未来开奖结果。',
+    ],
+  },
+]);
 
 const FrequencyList = defineComponent({
   props: {
@@ -302,8 +321,7 @@ onMounted(() => {
 .control-panel,
 .simulation-metrics,
 .generated-panel,
-.frequency-panel,
-.methodology-panel {
+.frequency-panel {
   margin-top: 16px;
 }
 

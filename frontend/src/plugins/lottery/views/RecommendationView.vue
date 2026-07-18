@@ -238,23 +238,11 @@
       </div>
     </section>
 
-    <section class="panel methodology-panel">
-      <div class="panel-header">
-        <h2 class="panel-title">算法说明</h2>
-        <span class="panel-meta">通俗版</span>
-      </div>
-      <div class="panel-body">
-        <div class="methodology-list">
-          <div
-            v-for="item in methodology"
-            :key="item"
-            class="methodology-item"
-          >
-            {{ item }}
-          </div>
-        </div>
-      </div>
-    </section>
+    <LotteryExplanationPanel
+      title="算法说明"
+      subtitle="通俗版"
+      :sections="explanationSections"
+    />
   </div>
 </template>
 
@@ -266,6 +254,9 @@ import EmptyState from '@/components/common/EmptyState.vue';
 import MetricCard from '@/components/metric/MetricCard.vue';
 import DisclaimerAlert from '@/plugins/lottery/components/DisclaimerAlert.vue';
 import LotteryBall from '@/plugins/lottery/components/LotteryBall.vue';
+import LotteryExplanationPanel, {
+  type LotteryExplanationSection,
+} from '@/plugins/lottery/components/LotteryExplanationPanel.vue';
 import type {
   LotteryRecommendationNumberDetail,
   LotteryRecommendationSet,
@@ -311,6 +302,28 @@ const methodology = computed(() =>
         '最后筛掉过于极端的和值、跨度、奇偶和区间结构，保留更均衡的组合。',
       ],
 );
+const explanationSections = computed<LotteryExplanationSection[]>(() => [
+  {
+    title: '它主要看什么',
+    items: methodology.value,
+  },
+  {
+    title: '参数怎么理解',
+    items: [
+      '历史同期越高，越偏向目标期号同序号附近往年反复出现的号码。',
+      '近期热度越高，越偏向最近样本中出现次数靠前的号码。',
+      '遗漏权重越高，越偏向较久没有出现的号码；结构权重越高，越避免过于极端的组合。',
+    ],
+  },
+  {
+    title: '不要误读',
+    items: [
+      '综合评分只是历史统计口径下的排序，不是中奖概率排序。',
+      '同一组号码即使评分较高，也不代表下一期更容易开出。',
+      '推荐结果适合拿去回测、对照和娱乐，不适合作为确定性预测。',
+    ],
+  },
+]);
 
 async function reloadRecommendations(): Promise<void> {
   lottery.loading = true;
@@ -396,8 +409,7 @@ onMounted(() => {
 .recommendation-disclaimer,
 .control-panel,
 .recommendation-metrics,
-.recommendation-panel,
-.methodology-panel {
+.recommendation-panel {
   margin-top: 16px;
 }
 

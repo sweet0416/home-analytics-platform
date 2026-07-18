@@ -403,17 +403,12 @@
       </div>
     </section>
 
-    <section v-if="lottery.backtest" class="panel explain-panel">
-      <div class="panel-header">
-        <h2 class="panel-title">回测说明</h2>
-        <span class="panel-meta">通俗解释</span>
-      </div>
-      <div class="methodology-list">
-        <div v-for="item in lottery.backtest.methodology" :key="item" class="methodology-item">
-          {{ item }}
-        </div>
-      </div>
-    </section>
+    <LotteryExplanationPanel
+      v-if="lottery.backtest"
+      title="回测说明"
+      subtitle="通俗解释"
+      :sections="explanationSections"
+    />
 
     <EmptyState
       v-if="!lottery.backtest"
@@ -433,6 +428,9 @@ import EmptyState from '@/components/common/EmptyState.vue';
 import MetricCard from '@/components/metric/MetricCard.vue';
 import DisclaimerAlert from '@/plugins/lottery/components/DisclaimerAlert.vue';
 import LotteryBall from '@/plugins/lottery/components/LotteryBall.vue';
+import LotteryExplanationPanel, {
+  type LotteryExplanationSection,
+} from '@/plugins/lottery/components/LotteryExplanationPanel.vue';
 import LotteryNumberBoard from '@/plugins/lottery/components/LotteryNumberBoard.vue';
 import {
   backtestNumbers as backtestNumbersRequest,
@@ -525,6 +523,34 @@ const batchSummary = computed(() => {
 const sortedBacktestPool = computed(() => sortPoolItems(backtestPool.value));
 const sortedBatchResults = computed(() => sortBatchResults(batchResults.value));
 const savedCombinationCount = computed(() => savedCombinations.value.length);
+const explanationSections = computed<LotteryExplanationSection[]>(() => [
+  {
+    title: '它在验证什么',
+    items: lottery.backtest?.methodology.length
+      ? lottery.backtest.methodology
+      : [
+          '把你选择的一组 5+2 放回历史开奖库里逐期比对。',
+          '统计这组号码过去命中过哪些奖级，以及固定奖回报和投注成本。',
+          '批量回测会把回测池里的多组号码按同一口径逐组计算。',
+        ],
+  },
+  {
+    title: '结果怎么看',
+    items: [
+      '中奖期数表示历史样本里命中过官方奖级的期数，不是未来命中率。',
+      '最高命中用于查看历史上最接近的一次命中结构。',
+      '固定奖净值只估算固定奖，浮动奖金额不会被简单套用到历史回测里。',
+    ],
+  },
+  {
+    title: '不要误读',
+    items: [
+      '回测表现好，只说明它过去某些期数碰巧表现好。',
+      '历史样本越长，越适合用来排除明显不合理的组合，但不能预测下一期。',
+      '组合库和收藏只是管理工具，不代表系统对某组号码做确定性判断。',
+    ],
+  },
+]);
 
 async function handleBacktest(): Promise<void> {
   errorMessage.value = '';
@@ -1144,7 +1170,6 @@ onMounted(() => {
 .selected-panel,
 .hit-panel,
 .distribution-panel,
-.explain-panel,
 .backtest-empty {
   margin-top: 16px;
 }

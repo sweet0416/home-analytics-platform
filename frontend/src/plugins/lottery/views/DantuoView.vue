@@ -179,27 +179,12 @@
       />
     </section>
 
-    <section v-if="lottery.dantuo" class="panel explain-panel">
-      <div class="panel-header">
-        <h2 class="panel-title">计算说明</h2>
-        <span class="panel-meta">通俗解释</span>
-      </div>
-      <div class="explain-grid">
-        <div>
-          <h3>怎么算出来的</h3>
-          <ul>
-            <li v-for="item in lottery.dantuo.methodology" :key="item">{{ item }}</li>
-          </ul>
-        </div>
-        <div>
-          <h3>风险提醒</h3>
-          <ul v-if="lottery.dantuo.warnings.length">
-            <li v-for="item in lottery.dantuo.warnings" :key="item">{{ item }}</li>
-          </ul>
-          <p v-else>当前方案结构正常，但任何历史统计都不能代表未来开奖结果。</p>
-        </div>
-      </div>
-    </section>
+    <LotteryExplanationPanel
+      v-if="lottery.dantuo"
+      title="计算说明"
+      subtitle="通俗解释"
+      :sections="explanationSections"
+    />
 
     <EmptyState
       v-if="!lottery.dantuo"
@@ -218,6 +203,9 @@ import EmptyState from '@/components/common/EmptyState.vue';
 import MetricCard from '@/components/metric/MetricCard.vue';
 import DisclaimerAlert from '@/plugins/lottery/components/DisclaimerAlert.vue';
 import LotteryBall from '@/plugins/lottery/components/LotteryBall.vue';
+import LotteryExplanationPanel, {
+  type LotteryExplanationSection,
+} from '@/plugins/lottery/components/LotteryExplanationPanel.vue';
 import LotteryNumberBoard from '@/plugins/lottery/components/LotteryNumberBoard.vue';
 import {
   fetchRecommendationAnalysis,
@@ -299,6 +287,35 @@ const combinationSummary = computed(() => {
   const result = lottery.dantuo;
   if (!result) return '--';
   return `前区 ${result.front_combination_count} 种 x 后区 ${result.back_combination_count} 种`;
+});
+const explanationSections = computed<LotteryExplanationSection[]>(() => {
+  const result = lottery.dantuo;
+  return [
+    {
+      title: '怎么算出来的',
+      items: result?.methodology.length
+        ? result.methodology
+        : [
+            '胆码会固定出现在每一注里，拖码会参与组合展开。',
+            '系统按前区组合数乘以后区组合数计算总注数。',
+            '追加投注会在普通投注成本基础上按每注增加 1 元计算。',
+          ],
+    },
+    {
+      title: '历史随机怎么理解',
+      items: [
+        '历史随机会参考历史同期、近期热度和遗漏分数，再随机挑出胆、拖号码。',
+        '已选择的杀号会自动避开，避免生成后又被你手动排除。',
+        '前区会尽量避免号码过度集中在同一个区间，后区会避免胆拖重复。',
+      ],
+    },
+    {
+      title: '风险提醒',
+      items: result?.warnings.length
+        ? result.warnings
+        : ['当前方案结构正常，但任何历史统计都不能代表未来开奖结果。'],
+    },
+  ];
 });
 
 async function handleAnalyze(): Promise<void> {
@@ -626,7 +643,6 @@ const PoolBlock = defineComponent({
 .dantuo-metrics,
 .summary-panel,
 .preview-panel,
-.explain-panel,
 .dantuo-empty {
   margin-top: 16px;
 }
@@ -716,8 +732,6 @@ const PoolBlock = defineComponent({
 .target-button small,
 .pool-empty,
 .preview-meta,
-.explain-panel li,
-.explain-panel p,
 .board-header span {
   color: var(--color-muted);
   font-size: 13px;
@@ -745,8 +759,7 @@ const PoolBlock = defineComponent({
 }
 
 .selected-grid,
-.summary-grid,
-.explain-grid {
+.summary-grid {
   display: grid;
   gap: 12px;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -797,16 +810,6 @@ const PoolBlock = defineComponent({
   font-weight: 700;
 }
 
-.explain-panel h3 {
-  font-size: 15px;
-  margin: 0 0 10px;
-}
-
-.explain-panel ul {
-  margin: 0;
-  padding-left: 18px;
-}
-
 @media (max-width: 1080px) {
   .random-grid,
   .target-grid {
@@ -828,7 +831,6 @@ const PoolBlock = defineComponent({
   .target-grid,
   .selected-grid,
   .summary-grid,
-  .explain-grid,
   .preview-row {
     grid-template-columns: 1fr;
   }
