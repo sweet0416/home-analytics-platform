@@ -98,6 +98,7 @@ class LotterySyncRunRead(BaseModel):
     error_code: str | None
     error_message: str | None
     source_url: str | None
+    details: list[dict[str, str]]
 
 
 class LotterySyncRunPageRead(BaseModel):

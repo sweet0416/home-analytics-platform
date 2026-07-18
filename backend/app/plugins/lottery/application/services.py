@@ -1033,6 +1033,7 @@ class LotteryService:
         self.repository.db.commit()
 
         fetched_count = inserted_count = updated_count = skipped_count = failed_count = 0
+        sync_details: list[dict[str, str]] = []
         latest_issue_no: str | None = None
         try:
             source_page = self._fetch_source_page(
@@ -1043,6 +1044,13 @@ class LotteryService:
             for record in source_page.records:
                 fetched_count += 1
                 action = self.repository.upsert_draw(record, force=command.force)
+                sync_details.append(
+                    {
+                        "issue_no": record.issue_no,
+                        "draw_date": record.draw_date.isoformat(),
+                        "action": action,
+                    }
+                )
                 if action == "inserted":
                     inserted_count += 1
                 elif action == "updated":
@@ -1061,7 +1069,10 @@ class LotteryService:
                 skipped_count=skipped_count,
                 failed_count=failed_count,
                 latest_issue_no=latest_issue_no,
-                raw_metadata=source_page.raw_metadata,
+                raw_metadata={
+                    **source_page.raw_metadata,
+                    "details": sync_details,
+                },
                 source=source_page.source,
                 source_url=source_page.source_url,
             )
@@ -1081,6 +1092,7 @@ class LotteryService:
                 latest_issue_no=latest_issue_no,
                 error_code=exc.code.value,
                 error_message=exc.message,
+                raw_metadata={"details": sync_details},
             )
             self.repository.db.commit()
             return self._serialize_sync_run(run)
@@ -1098,6 +1110,7 @@ class LotteryService:
                 latest_issue_no=latest_issue_no,
                 error_code=ErrorCode.internal_error.value,
                 error_message=str(exc),
+                raw_metadata={"details": sync_details},
             )
             self.repository.db.commit()
             raise
@@ -1745,6 +1758,7 @@ class LotteryService:
 
     @staticmethod
     def _serialize_sync_run(run: LotterySyncRunModel) -> dict[str, object]:
+        raw_metadata = LotteryService._parse_sync_run_metadata(run.raw_metadata_json)
         return {
             "run_id": run.id,
             "game_code": run.game_code,
@@ -1765,7 +1779,18 @@ class LotteryService:
             "error_code": run.error_code,
             "error_message": run.error_message,
             "source_url": run.source_url,
+            "details": raw_metadata.get("details", []),
         }
+
+    @staticmethod
+    def _parse_sync_run_metadata(raw_metadata_json: str | None) -> dict[str, object]:
+        if not raw_metadata_json:
+            return {}
+        try:
+            metadata = json.loads(raw_metadata_json)
+        except json.JSONDecodeError:
+            return {}
+        return metadata if isinstance(metadata, dict) else {}
 
     @staticmethod
     def _serialize_saved_combination(

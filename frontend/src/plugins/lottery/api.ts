@@ -100,6 +100,13 @@ export interface LotterySyncRun {
   error_code: string | null;
   error_message: string | null;
   source_url: string | null;
+  details: LotterySyncRunDetail[];
+}
+
+export interface LotterySyncRunDetail {
+  issue_no: string;
+  draw_date: string;
+  action: 'inserted' | 'updated' | 'skipped' | 'failed' | string;
 }
 
 export interface SyncRunPage {
