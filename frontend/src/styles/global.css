@@ -154,6 +154,10 @@ a {
     background-position: 50% 0;
   }
 
+  .brand-mark::after {
+    animation: none;
+  }
+
   .nav-active-line,
   .nav-item {
     transition: none;

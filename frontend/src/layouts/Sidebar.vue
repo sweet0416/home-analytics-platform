@@ -1,7 +1,9 @@
 <template>
   <aside class="sidebar">
     <div class="brand">
-      <div class="brand-mark">H</div>
+      <div class="brand-mark">
+        <img :src="hapLogo" alt="HAP" class="brand-logo" />
+      </div>
       <div>
         <div class="brand-title shiny-text">HAP</div>
         <div class="brand-subtitle">Home Analytics</div>
@@ -42,6 +44,8 @@ import {
 } from '@element-plus/icons-vue';
 import { computed } from 'vue';
 import { useRoute } from 'vue-router';
+
+import hapLogo from '@/assets/brand/hap-horus-eye.png';
 
 const navItems = [
   { path: '/', label: 'Dashboard', icon: DataBoard },
