@@ -103,6 +103,13 @@
           <el-button plain size="small" :disabled="!backtestPool.length" @click="clearBacktestPool">
             清空
           </el-button>
+          <el-select v-model="poolSortMode" class="pool-sort-select" size="small" :disabled="!backtestPool.length">
+            <el-option label="手动顺序" value="manual" />
+            <el-option label="收藏优先" value="favorite" />
+            <el-option label="净值最高" value="net" />
+            <el-option label="中奖最多" value="hits" />
+            <el-option label="最高命中" value="highest" />
+          </el-select>
           <el-button
             type="primary"
             size="small"
@@ -115,7 +122,7 @@
         </div>
       </div>
       <div v-if="backtestPool.length" class="pool-list">
-        <article v-for="item in backtestPool" :key="item.id" class="pool-row">
+        <article v-for="item in sortedBacktestPool" :key="item.id" class="pool-row">
           <div>
             <el-input
               v-model="item.label"
@@ -140,7 +147,17 @@
               :value="number"
             />
           </div>
-          <el-button plain size="small" @click="removePoolItem(item.id)">移除</el-button>
+          <div class="pool-row-actions">
+            <el-button
+              :type="item.favorite ? 'warning' : 'info'"
+              plain
+              size="small"
+              @click="togglePoolFavorite(item)"
+            >
+              {{ item.favorite ? '已收藏' : '收藏' }}
+            </el-button>
+            <el-button plain size="small" @click="removePoolItem(item.id)">移除</el-button>
+          </div>
         </article>
       </div>
       <EmptyState
@@ -166,7 +183,7 @@
           <span>最高命中</span>
           <span>固定奖净值</span>
         </div>
-        <template v-for="item in batchResults" :key="item.id">
+        <template v-for="item in sortedBatchResults" :key="item.id">
           <div class="batch-row">
             <span>{{ item.label }}</span>
             <span>{{ formatPoolNumbers(item) }}</span>
@@ -369,6 +386,7 @@ interface BacktestPoolItem {
   source: string;
   frontNumbers: number[];
   backNumbers: number[];
+  favorite: boolean;
 }
 
 interface BatchBacktestResult extends BacktestPoolItem {
@@ -378,8 +396,11 @@ interface BatchBacktestResult extends BacktestPoolItem {
 interface StoredBacktestPool {
   addon?: boolean;
   hitLimit?: number;
+  sortMode?: PoolSortMode;
   pool?: unknown[];
 }
+
+type PoolSortMode = 'manual' | 'favorite' | 'net' | 'hits' | 'highest';
 
 const BACKTEST_STORAGE_KEY = 'hap:lottery:dlt:backtest-pool:v1';
 const lottery = useLotteryStore();
@@ -399,6 +420,7 @@ const form = reactive({
 const backtestPool = ref<BacktestPoolItem[]>([]);
 const batchResults = ref<BatchBacktestResult[]>([]);
 const expandedBatchResultIds = ref<Set<string>>(new Set());
+const poolSortMode = ref<PoolSortMode>('manual');
 const frontOptions = Array.from({ length: 35 }, (_, index) => index + 1);
 const backOptions = Array.from({ length: 12 }, (_, index) => index + 1);
 const canAddCurrentSet = computed(
@@ -434,6 +456,8 @@ const batchSummary = computed(() => {
   )[0];
   return `共 ${batchResults.value.length} 组，净值最高：${best.label} ${formatCurrency(best.analysis.net_fixed_result)}`;
 });
+const sortedBacktestPool = computed(() => sortPoolItems(backtestPool.value));
+const sortedBatchResults = computed(() => sortBatchResults(batchResults.value));
 
 async function handleBacktest(): Promise<void> {
   errorMessage.value = '';
@@ -506,6 +530,7 @@ function addCurrentToPool(): void {
     source: route.query.front || route.query.back ? '来自链接或当前选择' : '手动选择',
     frontNumbers: [...form.frontNumbers],
     backNumbers: [...form.backNumbers],
+    favorite: false,
   });
 }
 
@@ -518,6 +543,10 @@ function normalizePoolLabel(item: BacktestPoolItem): void {
   const fallbackIndex = backtestPool.value.findIndex((poolItem) => poolItem.id === item.id) + 1;
   const fallbackLabel = `组合 ${fallbackIndex || backtestPool.value.length || 1}`;
   item.label = item.label.trim() || fallbackLabel;
+}
+
+function togglePoolFavorite(item: BacktestPoolItem): void {
+  item.favorite = !item.favorite;
 }
 
 function clearBacktestPool(): void {
@@ -542,6 +571,53 @@ function isBatchDetailsExpanded(id: string): boolean {
   return expandedBatchResultIds.value.has(id);
 }
 
+function sortPoolItems(items: BacktestPoolItem[]): BacktestPoolItem[] {
+  const resultById = new Map(batchResults.value.map((item) => [item.id, item]));
+  return [...items].sort((left, right) => comparePoolItems(left, right, resultById));
+}
+
+function sortBatchResults(items: BatchBacktestResult[]): BatchBacktestResult[] {
+  const resultById = new Map(items.map((item) => [item.id, item]));
+  return [...items].sort((left, right) => comparePoolItems(left, right, resultById));
+}
+
+function comparePoolItems(
+  left: BacktestPoolItem,
+  right: BacktestPoolItem,
+  resultById: Map<string, BatchBacktestResult>,
+): number {
+  if (poolSortMode.value === 'favorite') {
+    return Number(right.favorite) - Number(left.favorite);
+  }
+
+  const leftResult = resultById.get(left.id);
+  const rightResult = resultById.get(right.id);
+
+  if (poolSortMode.value === 'net') {
+    return (rightResult?.analysis.net_fixed_result ?? Number.NEGATIVE_INFINITY)
+      - (leftResult?.analysis.net_fixed_result ?? Number.NEGATIVE_INFINITY);
+  }
+
+  if (poolSortMode.value === 'hits') {
+    return (rightResult?.analysis.hit_count ?? -1) - (leftResult?.analysis.hit_count ?? -1);
+  }
+
+  if (poolSortMode.value === 'highest') {
+    return getHitRank(leftResult?.analysis.highest_hit?.match_key)
+      - getHitRank(rightResult?.analysis.highest_hit?.match_key);
+  }
+
+  return 0;
+}
+
+function getHitRank(matchKey: string | undefined): number {
+  if (!matchKey) return 99;
+  const [frontRaw = '0', backRaw = '0'] = matchKey.split('+');
+  const front = Number.parseInt(frontRaw, 10);
+  const back = Number.parseInt(backRaw, 10);
+  return (5 - front) * 10 + (2 - back);
+}
+
 function exportBatchResultsCsv(): void {
   if (!batchResults.value.length) {
     errorMessage.value = '请先完成批量回测后再导出。';
@@ -558,7 +634,7 @@ function exportBatchResultsCsv(): void {
     ['组合', '号码', '中奖期数', '历史样本', '最高命中', '固定奖净值'],
   ];
 
-  for (const item of batchResults.value) {
+  for (const item of sortedBatchResults.value) {
     rows.push([
       item.label,
       formatPoolNumbers(item),
@@ -575,7 +651,7 @@ function exportBatchResultsCsv(): void {
     ['组合', '期号', '开奖日期', '奖级', '命中结构', '前区命中', '后区命中', '固定奖金额'],
   );
 
-  for (const item of batchResults.value) {
+  for (const item of sortedBatchResults.value) {
     if (!item.analysis.hits.length) {
       rows.push([item.label, '--', '--', '未命中奖级', '--', '--', '--', 0]);
       continue;
@@ -670,6 +746,9 @@ function hydrateBacktestPreferences(): void {
     if (typeof parsed.hitLimit === 'number' && parsed.hitLimit >= 1 && parsed.hitLimit <= 100) {
       form.hitLimit = parsed.hitLimit;
     }
+    if (isPoolSortMode(parsed.sortMode)) {
+      poolSortMode.value = parsed.sortMode;
+    }
     if (Array.isArray(parsed.pool)) {
       const nextPool = parsed.pool
         .map(normalizeStoredPoolItem)
@@ -690,9 +769,14 @@ function persistBacktestPreferences(): void {
   const payload: StoredBacktestPool = {
     addon: form.addon,
     hitLimit: form.hitLimit,
+    sortMode: poolSortMode.value,
     pool: backtestPool.value,
   };
   localStorage.setItem(BACKTEST_STORAGE_KEY, JSON.stringify(payload));
+}
+
+function isPoolSortMode(value: unknown): value is PoolSortMode {
+  return value === 'manual' || value === 'favorite' || value === 'net' || value === 'hits' || value === 'highest';
 }
 
 function normalizeStoredPoolItem(value: unknown, index: number): BacktestPoolItem | null {
@@ -707,6 +791,7 @@ function normalizeStoredPoolItem(value: unknown, index: number): BacktestPoolIte
     source: typeof item.source === 'string' && item.source ? item.source : '本地保存',
     frontNumbers,
     backNumbers,
+    favorite: item.favorite === true,
   };
 }
 
@@ -780,7 +865,7 @@ function formatNumberList(numbers: number[]): string {
 }
 
 watch(
-  [backtestPool, () => form.addon, () => form.hitLimit],
+  [backtestPool, () => form.addon, () => form.hitLimit, poolSortMode],
   persistBacktestPreferences,
   { deep: true },
 );
@@ -823,11 +908,16 @@ onMounted(() => {
 }
 
 .pool-actions,
-.pool-balls {
+.pool-balls,
+.pool-row-actions {
   align-items: center;
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.pool-sort-select {
+  width: 120px;
 }
 
 .pool-list {
@@ -862,6 +952,10 @@ onMounted(() => {
 .pool-label-input :deep(.el-input__inner) {
   color: var(--color-text);
   font-weight: 700;
+}
+
+.pool-row-actions {
+  justify-content: flex-end;
 }
 
 .pool-row span,
