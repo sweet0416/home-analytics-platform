@@ -1,7 +1,7 @@
 <template>
   <header class="topbar">
     <div>
-      <div class="topbar-title">Home Analytics Platform</div>
+      <div class="topbar-title shiny-text">Home Analytics Platform</div>
       <div class="topbar-subtitle">PVE Docker target: 192.168.100.249</div>
     </div>
     <div class="topbar-status">

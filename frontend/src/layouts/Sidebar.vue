@@ -3,7 +3,7 @@
     <div class="brand">
       <div class="brand-mark">H</div>
       <div>
-        <div class="brand-title">HAP</div>
+        <div class="brand-title shiny-text">HAP</div>
         <div class="brand-subtitle">Home Analytics</div>
       </div>
     </div>

@@ -61,6 +61,39 @@ a {
   font-size: 13px;
 }
 
+.shiny-text {
+  display: inline-block;
+  width: fit-content;
+  background:
+    linear-gradient(
+      112deg,
+      rgba(203, 213, 225, 0.78) 0%,
+      rgba(203, 213, 225, 0.78) 36%,
+      #d8f7ff 48%,
+      #ffffff 52%,
+      rgba(125, 211, 252, 0.9) 58%,
+      rgba(203, 213, 225, 0.78) 70%,
+      rgba(203, 213, 225, 0.78) 100%
+    );
+  background-clip: text;
+  background-size: 220% 100%;
+  color: transparent;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: hap-shine 5.8s linear infinite;
+}
+
+@keyframes hap-shine {
+  0% {
+    background-position: 120% 0;
+  }
+
+  48%,
+  100% {
+    background-position: -120% 0;
+  }
+}
+
 .grid {
   display: grid;
   gap: 16px;
@@ -116,3 +149,9 @@ a {
   }
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .shiny-text {
+    animation: none;
+    background-position: 50% 0;
+  }
+}
