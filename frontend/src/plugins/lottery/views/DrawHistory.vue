@@ -472,6 +472,32 @@ onBeforeUnmount(() => {
   --el-table-text-color: var(--color-text);
   --el-table-header-text-color: var(--color-muted);
   --el-table-border-color: rgba(148, 163, 184, 0.14);
+  --el-table-current-row-bg-color: rgba(56, 189, 248, 0.1);
+  --el-table-expanded-cell-bg-color: rgba(2, 6, 23, 0.22);
+  --el-table-row-hover-bg-color: rgba(56, 189, 248, 0.08);
+}
+
+:deep(.el-table__body tr.current-row > td.el-table__cell),
+:deep(.el-table__body tr.hover-row > td.el-table__cell),
+:deep(.el-table__body tr:hover > td.el-table__cell) {
+  background-color: rgba(56, 189, 248, 0.08);
+}
+
+:deep(.el-table__body tr.expanded > td.el-table__cell) {
+  background-color: rgba(56, 189, 248, 0.1);
+}
+
+:deep(.el-table__expanded-cell) {
+  background-color: rgba(2, 6, 23, 0.22);
+  box-shadow: inset 0 1px 0 rgba(148, 163, 184, 0.1);
+}
+
+:deep(.el-table__expand-icon) {
+  color: var(--color-muted);
+}
+
+:deep(.el-table__expand-icon--expanded) {
+  color: var(--color-primary);
 }
 
 @media (max-width: 720px) {
