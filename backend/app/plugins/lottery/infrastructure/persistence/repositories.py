@@ -12,6 +12,7 @@ from app.plugins.lottery.infrastructure.persistence.models import (
     LotteryGameModel,
     LotteryPrizeTierModel,
     LotteryRuleVersionModel,
+    LotterySavedCombinationModel,
     LotterySyncRunModel,
 )
 
@@ -110,6 +111,112 @@ class LotteryRepository:
                 .order_by(LotteryDrawModel.draw_date.desc())
             )
         )
+
+    def list_saved_combinations(
+        self,
+        game_code: str = DLT_GAME_CODE,
+    ) -> list[LotterySavedCombinationModel]:
+        return list(
+            self.db.scalars(
+                select(LotterySavedCombinationModel)
+                .where(LotterySavedCombinationModel.game_code == game_code)
+                .order_by(
+                    LotterySavedCombinationModel.favorite.desc(),
+                    LotterySavedCombinationModel.updated_at.desc(),
+                )
+            )
+        )
+
+    def get_saved_combination(
+        self,
+        combination_id: int,
+        game_code: str = DLT_GAME_CODE,
+    ) -> LotterySavedCombinationModel | None:
+        return self.db.scalar(
+            select(LotterySavedCombinationModel).where(
+                LotterySavedCombinationModel.id == combination_id,
+                LotterySavedCombinationModel.game_code == game_code,
+            )
+        )
+
+    def get_saved_combination_by_numbers(
+        self,
+        *,
+        front_numbers_json: str,
+        back_numbers_json: str,
+        game_code: str = DLT_GAME_CODE,
+    ) -> LotterySavedCombinationModel | None:
+        return self.db.scalar(
+            select(LotterySavedCombinationModel).where(
+                LotterySavedCombinationModel.game_code == game_code,
+                LotterySavedCombinationModel.front_numbers_json == front_numbers_json,
+                LotterySavedCombinationModel.back_numbers_json == back_numbers_json,
+            )
+        )
+
+    def save_combination(
+        self,
+        *,
+        label: str,
+        source: str,
+        front_numbers_json: str,
+        back_numbers_json: str,
+        favorite: bool,
+        note: str,
+        game_code: str = DLT_GAME_CODE,
+    ) -> LotterySavedCombinationModel:
+        existing = self.get_saved_combination_by_numbers(
+            front_numbers_json=front_numbers_json,
+            back_numbers_json=back_numbers_json,
+            game_code=game_code,
+        )
+        now = datetime.utcnow()
+        if existing is not None:
+            existing.label = label
+            existing.source = source
+            existing.favorite = favorite
+            existing.note = note
+            existing.updated_at = now
+            self.db.flush()
+            return existing
+
+        combination = LotterySavedCombinationModel(
+            game_code=game_code,
+            label=label,
+            source=source,
+            front_numbers_json=front_numbers_json,
+            back_numbers_json=back_numbers_json,
+            favorite=favorite,
+            note=note,
+        )
+        self.db.add(combination)
+        self.db.flush()
+        return combination
+
+    def update_saved_combination(
+        self,
+        combination: LotterySavedCombinationModel,
+        *,
+        label: str | None = None,
+        source: str | None = None,
+        favorite: bool | None = None,
+        note: str | None = None,
+    ) -> LotterySavedCombinationModel:
+        if label is not None:
+            combination.label = label
+        if source is not None:
+            combination.source = source
+        if favorite is not None:
+            combination.favorite = favorite
+        if note is not None:
+            combination.note = note
+        combination.updated_at = datetime.utcnow()
+        self.db.flush()
+        return combination
+
+    def delete_saved_combination(self, combination: LotterySavedCombinationModel) -> None:
+        self.db.delete(combination)
+        self.db.flush()
 
     def get_draw_by_issue(
         self,

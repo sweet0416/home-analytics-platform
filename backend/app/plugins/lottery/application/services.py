@@ -18,6 +18,7 @@ from app.plugins.lottery.domain.sync import (
 )
 from app.plugins.lottery.infrastructure.persistence.models import (
     LotteryDrawModel,
+    LotterySavedCombinationModel,
     LotterySyncRunModel,
 )
 from app.plugins.lottery.infrastructure.persistence.repositories import LotteryRepository
@@ -136,6 +137,73 @@ class LotteryService:
             "status_label": status_label,
             "description": description,
         }
+
+    def list_saved_combinations(self) -> list[dict[str, object]]:
+        return [
+            self._serialize_saved_combination(item)
+            for item in self.repository.list_saved_combinations()
+        ]
+
+    def save_combination(
+        self,
+        *,
+        label: str,
+        source: str,
+        front_numbers: list[int],
+        back_numbers: list[int],
+        favorite: bool,
+        note: str,
+    ) -> dict[str, object]:
+        combination = self.repository.save_combination(
+            label=label.strip(),
+            source=source.strip(),
+            front_numbers_json=json.dumps(sorted(front_numbers), ensure_ascii=False),
+            back_numbers_json=json.dumps(sorted(back_numbers), ensure_ascii=False),
+            favorite=favorite,
+            note=note.strip(),
+        )
+        self.repository.db.commit()
+        self.repository.db.refresh(combination)
+        return self._serialize_saved_combination(combination)
+
+    def update_saved_combination(
+        self,
+        combination_id: int,
+        *,
+        label: str | None = None,
+        source: str | None = None,
+        favorite: bool | None = None,
+        note: str | None = None,
+    ) -> dict[str, object]:
+        combination = self.repository.get_saved_combination(combination_id)
+        if combination is None:
+            raise AppError(
+                code=ErrorCode.not_found,
+                message="Saved lottery combination was not found.",
+                status_code=404,
+            )
+        updated = self.repository.update_saved_combination(
+            combination,
+            label=label.strip() if label is not None else None,
+            source=source.strip() if source is not None else None,
+            favorite=favorite,
+            note=note.strip() if note is not None else None,
+        )
+        self.repository.db.commit()
+        self.repository.db.refresh(updated)
+        return self._serialize_saved_combination(updated)
+
+    def delete_saved_combination(self, combination_id: int) -> dict[str, object]:
+        combination = self.repository.get_saved_combination(combination_id)
+        if combination is None:
+            raise AppError(
+                code=ErrorCode.not_found,
+                message="Saved lottery combination was not found.",
+                status_code=404,
+            )
+        self.repository.delete_saved_combination(combination)
+        self.repository.db.commit()
+        return {"deleted": True, "id": combination_id}
 
     def get_basic_statistics(self, limit: int = 100) -> dict[str, object]:
         draws = self.repository.list_recent_draws(limit=limit)
@@ -1697,4 +1765,21 @@ class LotteryService:
             "error_code": run.error_code,
             "error_message": run.error_message,
             "source_url": run.source_url,
+        }
+
+    @staticmethod
+    def _serialize_saved_combination(
+        combination: LotterySavedCombinationModel,
+    ) -> dict[str, object]:
+        return {
+            "id": combination.id,
+            "game_code": combination.game_code,
+            "label": combination.label,
+            "source": combination.source,
+            "front_numbers": json.loads(combination.front_numbers_json),
+            "back_numbers": json.loads(combination.back_numbers_json),
+            "favorite": combination.favorite,
+            "note": combination.note,
+            "created_at": combination.created_at.isoformat(),
+            "updated_at": combination.updated_at.isoformat(),
         }

@@ -22,3 +22,13 @@ export async function postApiData<T, P extends object>(url: string, payload: P):
   const response = await apiClient.post<ApiResponse<T>>(url, payload);
   return response.data.data;
 }
+
+export async function patchApiData<T, P extends object>(url: string, payload: P): Promise<T> {
+  const response = await apiClient.patch<ApiResponse<T>>(url, payload);
+  return response.data.data;
+}
+
+export async function deleteApiData<T>(url: string): Promise<T> {
+  const response = await apiClient.delete<ApiResponse<T>>(url);
+  return response.data.data;
+}

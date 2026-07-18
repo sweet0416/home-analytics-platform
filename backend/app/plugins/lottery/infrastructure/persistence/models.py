@@ -145,3 +145,27 @@ class LotterySyncRunModel(Base):
     raw_metadata_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class LotterySavedCombinationModel(Base):
+    __tablename__ = "lottery_saved_combinations"
+    __table_args__ = (
+        UniqueConstraint(
+            "game_code",
+            "front_numbers_json",
+            "back_numbers_json",
+            name="uq_lottery_saved_combination_numbers",
+        ),
+        Index("ix_lottery_saved_combinations_game_created", "game_code", "created_at"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    game_code: Mapped[str] = mapped_column(String(32), index=True)
+    label: Mapped[str] = mapped_column(String(64))
+    source: Mapped[str] = mapped_column(String(64), default="manual")
+    front_numbers_json: Mapped[str] = mapped_column(Text)
+    back_numbers_json: Mapped[str] = mapped_column(Text)
+    favorite: Mapped[bool] = mapped_column(Boolean, default=False)
+    note: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

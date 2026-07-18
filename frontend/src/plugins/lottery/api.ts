@@ -1,4 +1,4 @@
-import { getApiData, postApiData } from '@/api/client';
+import { deleteApiData, getApiData, patchApiData, postApiData } from '@/api/client';
 
 export interface PrizeTier {
   tier: number;
@@ -402,6 +402,35 @@ export interface LotteryBacktestAnalysis {
   methodology: string[];
 }
 
+export interface LotterySavedCombination {
+  id: number;
+  game_code: string;
+  label: string;
+  source: string;
+  front_numbers: number[];
+  back_numbers: number[];
+  favorite: boolean;
+  note: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LotterySavedCombinationCreate {
+  label: string;
+  source: string;
+  front_numbers: number[];
+  back_numbers: number[];
+  favorite: boolean;
+  note: string;
+}
+
+export interface LotterySavedCombinationUpdate {
+  label?: string;
+  source?: string;
+  favorite?: boolean;
+  note?: string;
+}
+
 export interface LotteryBasicStatistics {
   sample_size: number;
   requested_limit: number;
@@ -544,6 +573,33 @@ export function backtestNumbers(
     '/lottery/dlt/analysis/backtest',
     payload,
   );
+}
+
+export function fetchSavedCombinations(): Promise<LotterySavedCombination[]> {
+  return getApiData<LotterySavedCombination[]>('/lottery/dlt/combinations');
+}
+
+export function saveCombination(
+  payload: LotterySavedCombinationCreate,
+): Promise<LotterySavedCombination> {
+  return postApiData<LotterySavedCombination, LotterySavedCombinationCreate>(
+    '/lottery/dlt/combinations',
+    payload,
+  );
+}
+
+export function updateSavedCombination(
+  id: number,
+  payload: LotterySavedCombinationUpdate,
+): Promise<LotterySavedCombination> {
+  return patchApiData<LotterySavedCombination, LotterySavedCombinationUpdate>(
+    `/lottery/dlt/combinations/${id}`,
+    payload,
+  );
+}
+
+export function deleteSavedCombination(id: number): Promise<{ deleted: boolean; id: number }> {
+  return deleteApiData<{ deleted: boolean; id: number }>(`/lottery/dlt/combinations/${id}`);
 }
 
 export function triggerDrawSync(payload: LotterySyncRequest): Promise<LotterySyncRun> {

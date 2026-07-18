@@ -22,6 +22,9 @@ from app.plugins.lottery.interfaces.schemas import (
     LotteryOmissionStatisticsRead,
     LotteryRecommendationRead,
     LotteryRuleRead,
+    LotterySavedCombinationCreate,
+    LotterySavedCombinationRead,
+    LotterySavedCombinationUpdate,
     LotterySamePeriodAnalysisRead,
     LotterySimulationRead,
     LotterySyncRequest,
@@ -82,6 +85,62 @@ def get_draw_coverage(db: Session = Depends(get_db)) -> ApiResponse[LotteryDrawC
 def get_draw_by_issue(issue_no: str, db: Session = Depends(get_db)) -> ApiResponse[LotteryDrawRead]:
     service = LotteryService(db)
     return ok(service.get_draw_by_issue(issue_no))
+
+
+@router.get("/combinations", response_model=ApiResponse[list[LotterySavedCombinationRead]])
+def list_saved_combinations(
+    db: Session = Depends(get_db),
+) -> ApiResponse[list[LotterySavedCombinationRead]]:
+    service = LotteryService(db)
+    return ok(service.list_saved_combinations())
+
+
+@router.post("/combinations", response_model=ApiResponse[LotterySavedCombinationRead])
+def save_combination(
+    payload: LotterySavedCombinationCreate,
+    db: Session = Depends(get_db),
+) -> ApiResponse[LotterySavedCombinationRead]:
+    service = LotteryService(db)
+    return ok(
+        service.save_combination(
+            label=payload.label,
+            source=payload.source,
+            front_numbers=payload.front_numbers,
+            back_numbers=payload.back_numbers,
+            favorite=payload.favorite,
+            note=payload.note,
+        )
+    )
+
+
+@router.patch(
+    "/combinations/{combination_id}",
+    response_model=ApiResponse[LotterySavedCombinationRead],
+)
+def update_saved_combination(
+    combination_id: int,
+    payload: LotterySavedCombinationUpdate,
+    db: Session = Depends(get_db),
+) -> ApiResponse[LotterySavedCombinationRead]:
+    service = LotteryService(db)
+    return ok(
+        service.update_saved_combination(
+            combination_id,
+            label=payload.label,
+            source=payload.source,
+            favorite=payload.favorite,
+            note=payload.note,
+        )
+    )
+
+
+@router.delete("/combinations/{combination_id}", response_model=ApiResponse[dict[str, object]])
+def delete_saved_combination(
+    combination_id: int,
+    db: Session = Depends(get_db),
+) -> ApiResponse[dict[str, object]]:
+    service = LotteryService(db)
+    return ok(service.delete_saved_combination(combination_id))
 
 
 @router.get("/statistics/basic", response_model=ApiResponse[LotteryBasicStatisticsRead])

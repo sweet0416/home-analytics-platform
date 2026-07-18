@@ -103,6 +103,18 @@
           <el-button plain size="small" :disabled="!backtestPool.length" @click="clearBacktestPool">
             清空
           </el-button>
+          <el-button
+            plain
+            size="small"
+            :loading="librarySyncing"
+            :disabled="!backtestPool.length"
+            @click="savePoolToLibrary"
+          >
+            保存到组合库
+          </el-button>
+          <el-button plain size="small" :loading="librarySyncing" @click="loadLibraryToPool">
+            从组合库载入
+          </el-button>
           <el-select v-model="poolSortMode" class="pool-sort-select" size="small" :disabled="!backtestPool.length">
             <el-option label="手动顺序" value="manual" />
             <el-option label="收藏优先" value="favorite" />
@@ -368,6 +380,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
+import { ElMessage } from 'element-plus';
 
 import EmptyState from '@/components/common/EmptyState.vue';
 import MetricCard from '@/components/metric/MetricCard.vue';
@@ -376,7 +389,10 @@ import LotteryBall from '@/plugins/lottery/components/LotteryBall.vue';
 import LotteryNumberBoard from '@/plugins/lottery/components/LotteryNumberBoard.vue';
 import {
   backtestNumbers as backtestNumbersRequest,
+  fetchSavedCombinations,
+  saveCombination,
   type LotteryBacktestAnalysis,
+  type LotterySavedCombination,
 } from '@/plugins/lottery/api';
 import { useLotteryStore } from '@/plugins/lottery/store';
 
@@ -407,6 +423,7 @@ const lottery = useLotteryStore();
 const route = useRoute();
 const analyzing = ref(false);
 const batchAnalyzing = ref(false);
+const librarySyncing = ref(false);
 const errorMessage = ref('');
 const fallbackDisclaimer = '本结果仅基于历史统计分析，仅供娱乐，不代表未来开奖结果。';
 
@@ -506,6 +523,54 @@ async function handleBatchBacktest(): Promise<void> {
     errorMessage.value = error instanceof Error ? error.message : '批量回测失败';
   } finally {
     batchAnalyzing.value = false;
+  }
+}
+
+async function savePoolToLibrary(): Promise<void> {
+  errorMessage.value = '';
+  if (!backtestPool.value.length) {
+    errorMessage.value = '请先加入至少一组号码到回测池。';
+    return;
+  }
+
+  librarySyncing.value = true;
+  try {
+    const savedItems: LotterySavedCombination[] = [];
+    for (const item of backtestPool.value) {
+      const saved = await saveCombination({
+        label: item.label.trim() || '未命名组合',
+        source: item.source || 'backtest-pool',
+        front_numbers: [...item.frontNumbers],
+        back_numbers: [...item.backNumbers],
+        favorite: item.favorite,
+        note: '来自组合回测池',
+      });
+      savedItems.push(saved);
+    }
+    ElMessage.success(`已保存 ${savedItems.length} 组到组合库`);
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : '保存组合库失败';
+  } finally {
+    librarySyncing.value = false;
+  }
+}
+
+async function loadLibraryToPool(): Promise<void> {
+  errorMessage.value = '';
+  librarySyncing.value = true;
+  try {
+    const library = await fetchSavedCombinations();
+    const loadedItems = library.map(mapSavedCombinationToPoolItem);
+    const beforeCount = backtestPool.value.length;
+    backtestPool.value = dedupeBacktestPool([...backtestPool.value, ...loadedItems]);
+    const loadedCount = backtestPool.value.length - beforeCount;
+    ElMessage.success(
+      loadedCount > 0 ? `已载入 ${loadedCount} 组组合` : '组合库内容已经在回测池里',
+    );
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : '载入组合库失败';
+  } finally {
+    librarySyncing.value = false;
   }
 }
 
@@ -792,6 +857,17 @@ function normalizeStoredPoolItem(value: unknown, index: number): BacktestPoolIte
     frontNumbers,
     backNumbers,
     favorite: item.favorite === true,
+  };
+}
+
+function mapSavedCombinationToPoolItem(item: LotterySavedCombination): BacktestPoolItem {
+  return {
+    id: `library-${item.id}`,
+    label: item.label,
+    source: item.source || '组合库',
+    frontNumbers: [...item.front_numbers],
+    backNumbers: [...item.back_numbers],
+    favorite: item.favorite,
   };
 }
 

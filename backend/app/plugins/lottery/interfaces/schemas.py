@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class LotteryNumbersRead(BaseModel):
@@ -403,6 +403,45 @@ class LotteryBacktestAnalysisRead(BaseModel):
     methodology: list[str]
 
 
+class LotterySavedCombinationCreate(BaseModel):
+    label: str = Field(min_length=1, max_length=64)
+    source: str = Field(default="manual", min_length=1, max_length=64)
+    front_numbers: list[int] = Field(min_length=5, max_length=5)
+    back_numbers: list[int] = Field(min_length=2, max_length=2)
+    favorite: bool = False
+    note: str = Field(default="", max_length=500)
+
+    @field_validator("front_numbers")
+    @classmethod
+    def validate_front_numbers(cls, value: list[int]) -> list[int]:
+        return _normalize_numbers(value=value, min_number=1, max_number=35, required_count=5)
+
+    @field_validator("back_numbers")
+    @classmethod
+    def validate_back_numbers(cls, value: list[int]) -> list[int]:
+        return _normalize_numbers(value=value, min_number=1, max_number=12, required_count=2)
+
+
+class LotterySavedCombinationUpdate(BaseModel):
+    label: str | None = Field(default=None, min_length=1, max_length=64)
+    source: str | None = Field(default=None, min_length=1, max_length=64)
+    favorite: bool | None = None
+    note: str | None = Field(default=None, max_length=500)
+
+
+class LotterySavedCombinationRead(BaseModel):
+    id: int
+    game_code: str
+    label: str
+    source: str
+    front_numbers: list[int] = Field(min_length=5, max_length=5)
+    back_numbers: list[int] = Field(min_length=2, max_length=2)
+    favorite: bool
+    note: str
+    created_at: str
+    updated_at: str
+
+
 class LotteryHotColdRead(BaseModel):
     front: list[LotteryNumberFrequencyRead]
     back: list[LotteryNumberFrequencyRead]
@@ -424,3 +463,18 @@ class LotteryBasicStatisticsRead(BaseModel):
     route012: list[LotteryDistributionItemRead]
     recent_metrics: list[LotteryDrawMetricRead]
     trend: list[LotteryDrawMetricRead]
+
+
+def _normalize_numbers(
+    *,
+    value: list[int],
+    min_number: int,
+    max_number: int,
+    required_count: int,
+) -> list[int]:
+    normalized = sorted(set(value))
+    if len(normalized) != required_count:
+        raise ValueError(f"Must provide {required_count} unique numbers.")
+    if any(number < min_number or number > max_number for number in normalized):
+        raise ValueError(f"Numbers must be between {min_number} and {max_number}.")
+    return normalized
