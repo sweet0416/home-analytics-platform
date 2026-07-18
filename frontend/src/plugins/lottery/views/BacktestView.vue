@@ -117,7 +117,13 @@
       <div v-if="backtestPool.length" class="pool-list">
         <article v-for="item in backtestPool" :key="item.id" class="pool-row">
           <div>
-            <strong>{{ item.label }}</strong>
+            <el-input
+              v-model="item.label"
+              class="pool-label-input"
+              maxlength="24"
+              size="small"
+              @change="normalizePoolLabel(item)"
+            />
             <span>{{ item.source }}</span>
           </div>
           <div class="pool-balls">
@@ -508,6 +514,12 @@ function removePoolItem(id: string): void {
   batchResults.value = batchResults.value.filter((item) => item.id !== id);
 }
 
+function normalizePoolLabel(item: BacktestPoolItem): void {
+  const fallbackIndex = backtestPool.value.findIndex((poolItem) => poolItem.id === item.id) + 1;
+  const fallbackLabel = `组合 ${fallbackIndex || backtestPool.value.length || 1}`;
+  item.label = item.label.trim() || fallbackLabel;
+}
+
 function clearBacktestPool(): void {
   backtestPool.value = [];
   batchResults.value = [];
@@ -836,6 +848,20 @@ onMounted(() => {
 .pool-row > div:first-child {
   display: grid;
   gap: 4px;
+}
+
+.pool-label-input {
+  max-width: 160px;
+}
+
+.pool-label-input :deep(.el-input__wrapper) {
+  background: rgba(15, 23, 42, 0.36);
+  box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.12) inset;
+}
+
+.pool-label-input :deep(.el-input__inner) {
+  color: var(--color-text);
+  font-weight: 700;
 }
 
 .pool-row span,
