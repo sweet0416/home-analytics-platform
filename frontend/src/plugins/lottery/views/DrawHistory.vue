@@ -29,6 +29,8 @@
       </div>
     </section>
 
+    <DltModuleNav />
+
     <section class="panel">
       <div class="panel-header">
         <h2 class="panel-title">开奖记录</h2>
@@ -195,6 +197,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 
 import EmptyState from '@/components/common/EmptyState.vue';
 import type { LotterySyncRun, LotterySyncRunDetail } from '@/plugins/lottery/api';
+import DltModuleNav from '@/plugins/lottery/components/DltModuleNav.vue';
 import LotteryBall from '@/plugins/lottery/components/LotteryBall.vue';
 import { lotterySyncSourceLabel } from '@/plugins/lottery/sourceLabels';
 import { useLotteryStore } from '@/plugins/lottery/store';

@@ -19,16 +19,7 @@
       </div>
     </section>
 
-    <nav class="module-nav" aria-label="大乐透功能导航">
-      <RouterLink
-        v-for="item in moduleNavItems"
-        :key="item.path"
-        :to="item.path"
-        class="module-nav-link"
-      >
-        {{ item.label }}
-      </RouterLink>
-    </nav>
+    <DltModuleNav />
 
     <DisclaimerAlert v-if="lottery.disclaimer" :text="lottery.disclaimer" />
 
@@ -226,6 +217,7 @@ import EmptyState from '@/components/common/EmptyState.vue';
 import MetricCard from '@/components/metric/MetricCard.vue';
 import type { LotteryDraw, LotteryNumberFrequency } from '@/plugins/lottery/api';
 import DisclaimerAlert from '@/plugins/lottery/components/DisclaimerAlert.vue';
+import DltModuleNav from '@/plugins/lottery/components/DltModuleNav.vue';
 import LotteryBall from '@/plugins/lottery/components/LotteryBall.vue';
 import { lotterySyncSourceLabel } from '@/plugins/lottery/sourceLabels';
 import { useLotteryStore } from '@/plugins/lottery/store';
@@ -326,20 +318,6 @@ const toolCards = [
     action: '打开热图',
     path: '/lottery/dlt/heatmap',
   },
-];
-
-const moduleNavItems = [
-  { label: '概览', path: '/lottery/dlt' },
-  { label: '历史开奖', path: '/lottery/dlt/draws' },
-  { label: '统计分析', path: '/lottery/dlt/statistics' },
-  { label: '遗漏统计', path: '/lottery/dlt/omissions' },
-  { label: '热力图', path: '/lottery/dlt/heatmap' },
-  { label: '历史同期', path: '/lottery/dlt/same-period' },
-  { label: '选号推荐', path: '/lottery/dlt/recommendations' },
-  { label: '模拟选号', path: '/lottery/dlt/simulation' },
-  { label: '定胆胆拖', path: '/lottery/dlt/dantuo' },
-  { label: '组合回测', path: '/lottery/dlt/backtest' },
-  { label: '数据健康', path: '/lottery/dlt/data-health' },
 ];
 
 const latestDraw = computed<LotteryDraw | null>(() => lottery.draws?.items[0] ?? null);
@@ -622,39 +600,6 @@ async function refreshBackfillProgress(): Promise<void> {
   color: var(--color-text);
 }
 
-.module-nav {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  max-width: 100%;
-  border: 1px solid rgba(148, 163, 184, 0.16);
-  border-radius: 8px;
-  background: rgba(15, 23, 42, 0.38);
-  padding: 10px;
-}
-
-.module-nav-link {
-  border: 1px solid rgba(148, 163, 184, 0.18);
-  border-radius: 8px;
-  color: var(--color-muted);
-  font-size: 13px;
-  line-height: 1;
-  padding: 9px 11px;
-  transition: border-color 0.18s ease, background 0.18s ease, color 0.18s ease;
-  white-space: nowrap;
-}
-
-.module-nav-link:hover,
-.module-nav-link.router-link-active {
-  border-color: rgba(56, 189, 248, 0.42);
-  background: rgba(56, 189, 248, 0.1);
-  color: var(--color-text);
-}
-
-.module-nav-link.router-link-exact-active {
-  color: var(--color-primary);
-}
-
 .sync-alert {
   margin-top: -4px;
 }
@@ -902,17 +847,6 @@ async function refreshBackfillProgress(): Promise<void> {
   .lottery-actions {
     align-items: stretch;
     flex-direction: column;
-  }
-
-  .module-nav {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    padding-bottom: 12px;
-    scrollbar-width: thin;
-  }
-
-  .module-nav-link {
-    flex: 0 0 auto;
   }
 
   .hero-grid,

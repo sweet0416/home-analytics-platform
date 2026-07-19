@@ -19,6 +19,8 @@
       </div>
     </section>
 
+    <DltModuleNav />
+
     <div class="grid metrics omission-metrics">
       <MetricCard label="样本期数" :value="sampleSize" :meta="sampleMeta" />
       <MetricCard label="最新期号" :value="latestIssue" meta="遗漏样本最新一期" />
@@ -117,6 +119,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { chartTheme } from '@/charts/useChartTheme';
 import EmptyState from '@/components/common/EmptyState.vue';
 import MetricCard from '@/components/metric/MetricCard.vue';
+import DltModuleNav from '@/plugins/lottery/components/DltModuleNav.vue';
 import LotteryBall from '@/plugins/lottery/components/LotteryBall.vue';
 import type { LotteryNumberOmission } from '@/plugins/lottery/api';
 import { useLotteryStore } from '@/plugins/lottery/store';

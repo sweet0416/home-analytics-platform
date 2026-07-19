@@ -69,6 +69,8 @@
       </div>
     </section>
 
+    <DltModuleNav />
+
     <section class="panel same-period-panel">
       <div class="panel-header">
         <h2 class="panel-title">历史同期列表</h2>
@@ -138,6 +140,7 @@ import { computed, onMounted, ref } from 'vue';
 
 import EmptyState from '@/components/common/EmptyState.vue';
 import MetricCard from '@/components/metric/MetricCard.vue';
+import DltModuleNav from '@/plugins/lottery/components/DltModuleNav.vue';
 import LotteryBall from '@/plugins/lottery/components/LotteryBall.vue';
 import { useLotteryStore } from '@/plugins/lottery/store';
 

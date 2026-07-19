@@ -27,6 +27,8 @@
       </div>
     </section>
 
+    <DltModuleNav />
+
     <DisclaimerAlert
       :text="lottery.recommendations?.disclaimer ?? fallbackDisclaimer"
       class="recommendation-disclaimer"
@@ -253,6 +255,7 @@ import { computed, onMounted, ref } from 'vue';
 import EmptyState from '@/components/common/EmptyState.vue';
 import MetricCard from '@/components/metric/MetricCard.vue';
 import DisclaimerAlert from '@/plugins/lottery/components/DisclaimerAlert.vue';
+import DltModuleNav from '@/plugins/lottery/components/DltModuleNav.vue';
 import LotteryBall from '@/plugins/lottery/components/LotteryBall.vue';
 import LotteryExplanationPanel, {
   type LotteryExplanationSection,

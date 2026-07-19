@@ -19,6 +19,8 @@
       </div>
     </section>
 
+    <DltModuleNav />
+
     <div class="grid metrics heatmap-metrics">
       <MetricCard label="样本期数" :value="sampleSize" :meta="sampleMeta" />
       <MetricCard label="最高频次" :value="topFrequencyValue" :meta="topFrequencyMeta" />
@@ -108,6 +110,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 import { chartTheme } from '@/charts/useChartTheme';
 import MetricCard from '@/components/metric/MetricCard.vue';
+import DltModuleNav from '@/plugins/lottery/components/DltModuleNav.vue';
 import LotteryBall from '@/plugins/lottery/components/LotteryBall.vue';
 import { useLotteryStore } from '@/plugins/lottery/store';
 

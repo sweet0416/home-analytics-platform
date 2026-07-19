@@ -13,6 +13,8 @@
       </div>
     </section>
 
+    <DltModuleNav />
+
     <el-alert
       v-if="lottery.syncError"
       class="health-alert"
@@ -188,6 +190,7 @@ import { computed, defineComponent, h, onBeforeUnmount, onMounted, ref } from 'v
 import EmptyState from '@/components/common/EmptyState.vue';
 import MetricCard from '@/components/metric/MetricCard.vue';
 import type { LotterySyncRun, LotterySyncRunDetail } from '@/plugins/lottery/api';
+import DltModuleNav from '@/plugins/lottery/components/DltModuleNav.vue';
 import { lotterySyncSourceLabel } from '@/plugins/lottery/sourceLabels';
 import { useLotteryStore } from '@/plugins/lottery/store';
 

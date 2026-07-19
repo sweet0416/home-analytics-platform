@@ -16,6 +16,8 @@
       </div>
     </section>
 
+    <DltModuleNav />
+
     <div class="grid metrics statistics-metrics">
       <MetricCard label="样本期数" :value="sampleSize" :meta="sampleMeta" />
       <MetricCard label="最新期号" :value="latestIssue" meta="统计样本最新一期" />
@@ -142,6 +144,7 @@ import {
 import { chartTheme } from '@/charts/useChartTheme';
 import EmptyState from '@/components/common/EmptyState.vue';
 import MetricCard from '@/components/metric/MetricCard.vue';
+import DltModuleNav from '@/plugins/lottery/components/DltModuleNav.vue';
 import LotteryBall from '@/plugins/lottery/components/LotteryBall.vue';
 import type { LotteryNumberFrequency } from '@/plugins/lottery/api';
 import { useLotteryStore } from '@/plugins/lottery/store';
