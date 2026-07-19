@@ -86,7 +86,7 @@ watch(
 }
 
 .dlt-module-nav-link:hover,
-.dlt-module-nav-link.router-link-active {
+.dlt-module-nav-link.router-link-exact-active {
   border-color: rgba(56, 189, 248, 0.42);
   background: rgba(56, 189, 248, 0.1);
   color: var(--color-text);
