@@ -101,7 +101,15 @@ watch(
     flex-wrap: nowrap;
     overflow-x: auto;
     padding-bottom: 12px;
+    scroll-padding-inline: 40px;
     scrollbar-width: thin;
+    mask-image: linear-gradient(
+      90deg,
+      transparent 0,
+      #000 22px,
+      #000 calc(100% - 22px),
+      transparent 100%
+    );
   }
 
   .dlt-module-nav-link {
