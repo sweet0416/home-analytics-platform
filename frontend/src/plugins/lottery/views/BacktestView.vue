@@ -6,7 +6,6 @@
         <div class="page-subtitle">把一组 5+2 放回历史开奖里验证命中表现</div>
       </div>
       <div class="backtest-actions">
-        <RouterLink to="/lottery/dlt" class="back-link">返回概览</RouterLink>
         <el-checkbox v-model="form.addon">按追加成本计算</el-checkbox>
         <el-input-number v-model="form.hitLimit" :min="1" :max="100" size="small" />
         <el-button plain :disabled="!canAddCurrentSet" @click="addCurrentToPool">加入回测池</el-button>
@@ -1158,7 +1157,6 @@ onMounted(() => {
   gap: 10px;
 }
 
-.back-link,
 .panel-meta {
   color: var(--color-muted);
   font-size: 13px;

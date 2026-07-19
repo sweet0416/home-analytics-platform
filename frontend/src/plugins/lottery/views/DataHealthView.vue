@@ -6,7 +6,6 @@
         <div class="page-subtitle">集中查看大乐透数据范围、同步任务、回填进度和异常状态</div>
       </div>
       <div class="health-actions">
-        <RouterLink to="/lottery/dlt" class="back-link">返回概览</RouterLink>
         <el-button type="primary" :icon="Refresh" :loading="lottery.syncing" @click="handleSync">
           立即同步
         </el-button>
@@ -429,7 +428,6 @@ const InfoBlock = defineComponent({
   gap: 12px;
 }
 
-.back-link,
 .panel-meta {
   color: var(--color-muted);
   font-size: 13px;

@@ -8,7 +8,6 @@
         </div>
       </div>
       <div class="simulation-actions">
-        <RouterLink to="/lottery/dlt" class="back-link">返回概览</RouterLink>
         <el-button
           type="primary"
           :icon="Refresh"
@@ -312,7 +311,6 @@ onMounted(() => {
   gap: 12px;
 }
 
-.back-link,
 .panel-meta,
 .number-label,
 .pattern-row {

@@ -8,7 +8,6 @@
         </div>
       </div>
       <div class="recommendation-actions">
-        <RouterLink to="/lottery/dlt" class="back-link">返回概览</RouterLink>
         <el-input
           v-model="targetIssueInput"
           class="issue-input"
@@ -399,7 +398,6 @@ onMounted(() => {
   gap: 12px;
 }
 
-.back-link,
 .panel-meta {
   color: var(--color-muted);
   font-size: 13px;

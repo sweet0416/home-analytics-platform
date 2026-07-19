@@ -17,7 +17,6 @@
         <small>周一 / 周三 / 周六 21:10</small>
       </div>
       <div class="history-actions">
-        <RouterLink to="/lottery/dlt" class="back-link">返回概览</RouterLink>
         <el-button
           type="primary"
           :icon="Refresh"
@@ -373,7 +372,6 @@ onBeforeUnmount(() => {
   grid-column: 1 / -1;
 }
 
-.back-link,
 .table-meta {
   color: var(--color-muted);
   font-size: 13px;
