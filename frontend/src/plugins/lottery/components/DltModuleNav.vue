@@ -1,5 +1,5 @@
 <template>
-  <nav class="dlt-module-nav" aria-label="大乐透功能导航">
+  <nav ref="navRef" class="dlt-module-nav" aria-label="大乐透功能导航">
     <RouterLink
       v-for="item in moduleNavItems"
       :key="item.path"
@@ -12,6 +12,9 @@
 </template>
 
 <script setup lang="ts">
+import { nextTick, onMounted, ref, watch } from 'vue';
+import { useRoute } from 'vue-router';
+
 const moduleNavItems = [
   { label: '概览', path: '/lottery/dlt' },
   { label: '历史开奖', path: '/lottery/dlt/draws' },
@@ -25,6 +28,32 @@ const moduleNavItems = [
   { label: '组合回测', path: '/lottery/dlt/backtest' },
   { label: '数据健康', path: '/lottery/dlt/data-health' },
 ];
+
+const route = useRoute();
+const navRef = ref<HTMLElement | null>(null);
+
+function scrollActiveLinkIntoView(): void {
+  const nav = navRef.value;
+  if (!nav || nav.scrollWidth <= nav.clientWidth) return;
+
+  const activeLink = nav.querySelector<HTMLElement>('.router-link-exact-active');
+  activeLink?.scrollIntoView({
+    behavior: 'smooth',
+    block: 'nearest',
+    inline: 'center',
+  });
+}
+
+onMounted(() => {
+  void nextTick(scrollActiveLinkIntoView);
+});
+
+watch(
+  () => route.fullPath,
+  () => {
+    void nextTick(scrollActiveLinkIntoView);
+  },
+);
 </script>
 
 <style scoped>
