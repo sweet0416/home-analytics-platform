@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 from fastapi.responses import FileResponse
 
 from app.core.backup.schemas import (
@@ -11,6 +11,7 @@ from app.core.backup.scheduler import get_backup_scheduler_status, upload_remote
 from app.core.backup.service import DatabaseBackupService
 from app.core.config.settings import get_settings
 from app.core.notification.schemas import (
+    NotificationDeliveryRunPageRead,
     NotificationStatusRead,
     NotificationTestRequest,
     NotificationTestResult,
@@ -40,6 +41,15 @@ def get_notification_status() -> ApiResponse[NotificationStatusRead]:
     settings = get_settings()
     service = NotificationService(settings=settings)
     return ok(service.get_status())
+
+
+@router.get("/notifications/runs", response_model=ApiResponse[NotificationDeliveryRunPageRead])
+def list_notification_runs(
+    limit: int = Query(default=20, ge=1, le=100),
+) -> ApiResponse[NotificationDeliveryRunPageRead]:
+    settings = get_settings()
+    service = NotificationService(settings=settings)
+    return ok(service.list_delivery_runs(limit=limit))
 
 
 @router.post("/notifications/test", response_model=ApiResponse[NotificationTestResult])

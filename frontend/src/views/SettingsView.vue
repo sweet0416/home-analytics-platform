@@ -261,6 +261,63 @@
               <em>{{ result.message }}</em>
             </div>
           </div>
+
+          <div class="notification-history">
+            <div class="notification-history-header">
+              <div>
+                <strong>最近推送记录</strong>
+                <span>记录最近 {{ notificationRunCount }} 条发送、跳过和失败结果</span>
+              </div>
+              <el-button text :icon="Refresh" :loading="system.notificationLoading" @click="reloadNotificationRuns">
+                刷新记录
+              </el-button>
+            </div>
+            <el-table
+              v-if="notificationRuns.length"
+              :data="notificationRuns"
+              class="notification-history-table"
+              size="small"
+            >
+              <el-table-column label="状态" width="90">
+                <template #default="{ row }">
+                  <el-tag size="small" :type="notificationResultTagType(row.status)">
+                    {{ notificationResultStatusText(row.status) }}
+                  </el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column label="通道" width="130">
+                <template #default="{ row }">
+                  {{ notificationChannelLabel(row.channel) }}
+                </template>
+              </el-table-column>
+              <el-table-column label="来源" width="130">
+                <template #default="{ row }">
+                  {{ notificationSourceLabel(row.source) }}
+                </template>
+              </el-table-column>
+              <el-table-column label="标题 / 摘要" min-width="260">
+                <template #default="{ row }">
+                  <div class="notification-history-title">{{ row.title }}</div>
+                  <div class="notification-history-message">{{ row.message_preview }}</div>
+                </template>
+              </el-table-column>
+              <el-table-column label="结果" min-width="180">
+                <template #default="{ row }">
+                  {{ row.result_message }}
+                </template>
+              </el-table-column>
+              <el-table-column label="时间" width="170">
+                <template #default="{ row }">
+                  {{ formatDateTime(row.created_at) }}
+                </template>
+              </el-table-column>
+            </el-table>
+            <EmptyState
+              v-else
+              title="暂无推送记录"
+              description="发送测试通知或等待同步任务推送后，这里会显示最近记录。"
+            />
+          </div>
         </div>
       </div>
 
@@ -285,7 +342,12 @@ import { ElMessage, ElMessageBox } from 'element-plus';
 import { computed, onMounted, ref } from 'vue';
 
 import EmptyState from '@/components/common/EmptyState.vue';
-import { type NotificationChannel, type NotificationSendResult, useSystemStore } from '@/stores/system';
+import {
+  type NotificationChannel,
+  type NotificationDeliveryRun,
+  type NotificationSendResult,
+  useSystemStore,
+} from '@/stores/system';
 
 const system = useSystemStore();
 const RESTORE_CONFIRMATION = 'RESTORE HAP DATABASE';
@@ -363,6 +425,8 @@ const latestBackupTime = computed(() => {
   return latest ? formatDateTime(latest.created_at) : '暂无';
 });
 const notificationChannels = computed(() => system.notifications?.channels ?? []);
+const notificationRuns = computed<NotificationDeliveryRun[]>(() => system.notificationRuns?.items ?? []);
+const notificationRunCount = computed(() => String(notificationRuns.value.length));
 const notificationReadyCount = computed(() => {
   return notificationChannels.value.filter((channel) => channel.enabled && channel.configured).length;
 });
@@ -403,6 +467,10 @@ async function reloadBackups(): Promise<void> {
 
 async function reloadNotifications(): Promise<void> {
   await system.fetchNotifications();
+}
+
+async function reloadNotificationRuns(): Promise<void> {
+  await system.fetchNotificationRuns();
 }
 
 async function createBackup(): Promise<void> {
@@ -466,6 +534,14 @@ function notificationChannelLabel(channel: NotificationChannel): string {
     return '全部通道';
   }
   return notificationChannels.value.find((item) => item.channel === channel)?.label ?? channel;
+}
+
+function notificationSourceLabel(source: string): string {
+  const sourceMap: Record<string, string> = {
+    manual_test: '手动测试',
+    lottery_dlt_sync: '大乐透同步',
+  };
+  return sourceMap[source] ?? source;
 }
 
 function notificationResultStatusText(status: NotificationSendResult['status']): string {
@@ -711,6 +787,52 @@ onMounted(() => {
 .notification-result-item em {
   color: var(--color-muted);
   font-style: normal;
+}
+
+.notification-history {
+  display: grid;
+  gap: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 8px;
+  background: rgba(2, 6, 23, 0.18);
+  margin-top: 14px;
+  padding: 14px;
+}
+
+.notification-history-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.notification-history-header strong {
+  display: block;
+  color: var(--color-text);
+  font-size: 15px;
+}
+
+.notification-history-header span {
+  display: block;
+  margin-top: 4px;
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
+.notification-history-table {
+  width: 100%;
+}
+
+.notification-history-title {
+  color: var(--color-text);
+  font-weight: 650;
+}
+
+.notification-history-message {
+  color: var(--color-muted);
+  font-size: 12px;
+  margin-top: 3px;
+  overflow-wrap: anywhere;
 }
 
 .scheduler-status {

@@ -1,17 +1,24 @@
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Literal
 
 from loguru import logger
 import requests
+from sqlalchemy import desc, func, select
 
 from app.core.config.settings import Settings
+from app.core.database.session import SessionLocal
+from app.core.notification.models import NotificationDeliveryRunModel
 from app.core.notification.schemas import (
     NotificationChannel,
     NotificationChannelStatus,
+    NotificationDeliveryRunPageRead,
+    NotificationDeliveryRunRead,
     NotificationSendResult,
     NotificationStatusRead,
     NotificationTestResult,
 )
+
+NotificationResultStatus = Literal["sent", "skipped", "failed"]
 
 
 class NotificationService:
@@ -28,8 +35,9 @@ class NotificationService:
             ],
             default_channel=NotificationChannel.all,
             note=(
-                "iMessage 没有官方 Linux/Docker 服务端发送 API；如需 iMessage，"
-                "请通过 custom_webhook 接入 Mac 或 iPhone 快捷指令桥接。"
+                "iMessage \u6ca1\u6709\u5b98\u65b9 Linux/Docker \u670d\u52a1\u7aef\u53d1\u9001 API\uff1b"
+                "\u5982\u9700 iMessage\uff0c\u8bf7\u901a\u8fc7 custom_webhook \u63a5\u5165 Mac "
+                "\u6216 iPhone \u5feb\u6377\u6307\u4ee4\u6865\u63a5\u3002"
             ),
         )
 
@@ -38,10 +46,33 @@ class NotificationService:
         channel: NotificationChannel,
         title: str,
         message: str,
+        source: str = "manual_test",
     ) -> NotificationTestResult:
         channels = self._expand_channels(channel)
         results = [self._send_to_channel(item, title=title, message=message) for item in channels]
+        self._record_results(source=source, title=title, message=message, results=results)
         return NotificationTestResult(requested_channel=channel, results=results)
+
+    def list_delivery_runs(self, *, limit: int = 20) -> NotificationDeliveryRunPageRead:
+        bounded_limit = max(1, min(limit, 100))
+        db = SessionLocal()
+        try:
+            total = db.scalar(select(func.count()).select_from(NotificationDeliveryRunModel)) or 0
+            rows = (
+                db.scalars(
+                    select(NotificationDeliveryRunModel)
+                    .order_by(desc(NotificationDeliveryRunModel.created_at))
+                    .limit(bounded_limit)
+                )
+                .all()
+            )
+            return NotificationDeliveryRunPageRead(
+                items=[self._read_delivery_run(row) for row in rows],
+                total=total,
+                limit=bounded_limit,
+            )
+        finally:
+            db.close()
 
     def _expand_channels(self, channel: NotificationChannel) -> list[NotificationChannel]:
         if channel == NotificationChannel.all:
@@ -71,18 +102,10 @@ class NotificationService:
             return self._skipped(channel, "Unsupported notification channel.")
         except requests.RequestException as exc:
             logger.exception("Notification send failed for {}: {}", channel, exc)
-            return NotificationSendResult(
-                channel=channel,
-                status="failed",
-                message=str(exc),
-            )
+            return NotificationSendResult(channel=channel, status="failed", message=str(exc))
         except Exception as exc:  # noqa: BLE001
             logger.exception("Unexpected notification failure for {}: {}", channel, exc)
-            return NotificationSendResult(
-                channel=channel,
-                status="failed",
-                message=str(exc),
-            )
+            return NotificationSendResult(channel=channel, status="failed", message=str(exc))
 
     def _send_bark(self, title: str, message: str) -> NotificationSendResult:
         if not self._settings.notification_bark_enabled:
@@ -129,10 +152,9 @@ class NotificationService:
         if not webhook_url:
             return self._skipped(NotificationChannel.wecom, "WeCom webhook URL is not configured.")
 
-        content = f"## {title}\n\n{message}"
         response = requests.post(
             webhook_url,
-            json={"msgtype": "markdown", "markdown": {"content": content}},
+            json={"msgtype": "markdown", "markdown": {"content": f"## {title}\n\n{message}"}},
             timeout=self._settings.notification_timeout_seconds,
         )
         response.raise_for_status()
@@ -186,11 +208,10 @@ class NotificationService:
         )
         response.raise_for_status()
         payload = self._safe_json(response)
-        message_id = self._extract_whatsapp_message_id(payload)
         return self._sent(
             NotificationChannel.whatsapp,
             "WhatsApp message sent.",
-            provider_message_id=message_id,
+            provider_message_id=self._extract_whatsapp_message_id(payload),
         )
 
     def _send_custom_webhook(self, title: str, message: str) -> NotificationSendResult:
@@ -222,19 +243,74 @@ class NotificationService:
         response.raise_for_status()
         return self._sent(NotificationChannel.custom_webhook, "Custom webhook message sent.")
 
+    def _record_results(
+        self,
+        *,
+        source: str,
+        title: str,
+        message: str,
+        results: list[NotificationSendResult],
+    ) -> None:
+        db = SessionLocal()
+        try:
+            for result in results:
+                db.add(
+                    NotificationDeliveryRunModel(
+                        source=self._truncate(source, 64),
+                        channel=result.channel.value,
+                        status=result.status,
+                        title=self._truncate(title, 160),
+                        message_preview=self._truncate(message, 500),
+                        result_message=self._truncate(result.message, 1000),
+                        provider_message_id=result.provider_message_id,
+                        sent_at=result.sent_at.replace(tzinfo=None) if result.sent_at else None,
+                    )
+                )
+            db.commit()
+        except Exception as exc:  # noqa: BLE001
+            db.rollback()
+            logger.exception("Failed to record notification delivery runs: {}", exc)
+        finally:
+            db.close()
+
+    @staticmethod
+    def _read_delivery_run(row: NotificationDeliveryRunModel) -> NotificationDeliveryRunRead:
+        try:
+            channel = NotificationChannel(row.channel)
+        except ValueError:
+            channel = NotificationChannel.custom_webhook
+        status: NotificationResultStatus = (
+            row.status if row.status in {"sent", "skipped", "failed"} else "failed"
+        )
+        return NotificationDeliveryRunRead(
+            id=row.id,
+            source=row.source,
+            channel=channel,
+            status=status,
+            title=row.title,
+            message_preview=row.message_preview,
+            result_message=row.result_message,
+            provider_message_id=row.provider_message_id,
+            sent_at=row.sent_at,
+            created_at=row.created_at,
+        )
+
     def _build_bark_status(self) -> NotificationChannelStatus:
         server_url = self._settings.notification_bark_server_url.strip().rstrip("/")
         device_key = self._settings.notification_bark_device_key.strip()
         return NotificationChannelStatus(
             channel=NotificationChannel.bark,
-            label="Bark iPhone 推送",
+            label="Bark iPhone \u63a8\u9001",
             enabled=self._settings.notification_bark_enabled,
             configured=bool(server_url and device_key),
-            description="通过 Bark App 的设备 Key 给 iPhone 推送通知，适合个人家庭服务器。",
+            description=(
+                "\u901a\u8fc7 Bark App \u7684\u8bbe\u5907 Key \u7ed9 iPhone "
+                "\u63a8\u9001\u901a\u77e5\uff0c\u9002\u5408\u4e2a\u4eba\u5bb6\u5ead\u670d\u52a1\u5668\u3002"
+            ),
             target=(
                 f"{self._mask_url(server_url)}/{self._mask_key(device_key)}"
                 if server_url
-                else "未配置"
+                else "\u672a\u914d\u7f6e"
             ),
         )
 
@@ -242,10 +318,10 @@ class NotificationService:
         webhook_url = self._settings.notification_wecom_webhook_url.strip()
         return NotificationChannelStatus(
             channel=NotificationChannel.wecom,
-            label="企业微信机器人",
+            label="\u4f01\u4e1a\u5fae\u4fe1\u673a\u5668\u4eba",
             enabled=self._settings.notification_wecom_enabled,
             configured=bool(webhook_url),
-            description="通过企业微信群机器人 Webhook 推送 Markdown 消息。",
+            description="\u901a\u8fc7\u4f01\u4e1a\u5fae\u4fe1\u7fa4\u673a\u5668\u4eba Webhook \u63a8\u9001 Markdown \u6d88\u606f\u3002",
             target=self._mask_url(webhook_url),
         )
 
@@ -263,7 +339,7 @@ class NotificationService:
             label="WhatsApp Cloud API",
             enabled=self._settings.notification_whatsapp_enabled,
             configured=configured,
-            description="通过 Meta WhatsApp Cloud API 发送文本消息。",
+            description="\u901a\u8fc7 Meta WhatsApp Cloud API \u53d1\u9001\u6587\u672c\u6d88\u606f\u3002",
             target=self._mask_phone(recipient),
         )
 
@@ -271,10 +347,13 @@ class NotificationService:
         webhook_url = self._settings.notification_custom_webhook_url.strip()
         return NotificationChannelStatus(
             channel=NotificationChannel.custom_webhook,
-            label="自定义 Webhook / iMessage Bridge",
+            label="\u81ea\u5b9a\u4e49 Webhook / iMessage Bridge",
             enabled=self._settings.notification_custom_webhook_enabled,
             configured=bool(webhook_url),
-            description="调用自定义 HTTP Webhook，可桥接 iMessage、Bark、Gotify、ntfy 等。",
+            description=(
+                "\u8c03\u7528\u81ea\u5b9a\u4e49 HTTP Webhook\uff0c\u53ef\u6865\u63a5 "
+                "iMessage\u3001Bark\u3001Gotify\u3001ntfy \u7b49\u3002"
+            ),
             target=self._mask_url(webhook_url),
         )
 
@@ -318,7 +397,7 @@ class NotificationService:
     @staticmethod
     def _mask_url(value: str) -> str:
         if not value:
-            return "未配置"
+            return "\u672a\u914d\u7f6e"
         if len(value) <= 28:
             return "***"
         return f"{value[:18]}...{value[-8:]}"
@@ -326,7 +405,7 @@ class NotificationService:
     @staticmethod
     def _mask_phone(value: str) -> str:
         if not value:
-            return "未配置"
+            return "\u672a\u914d\u7f6e"
         if len(value) <= 6:
             return "***"
         return f"{value[:3]}***{value[-3:]}"
@@ -334,7 +413,13 @@ class NotificationService:
     @staticmethod
     def _mask_key(value: str) -> str:
         if not value:
-            return "未配置"
+            return "\u672a\u914d\u7f6e"
         if len(value) <= 8:
             return "***"
         return f"{value[:4]}***{value[-4:]}"
+
+    @staticmethod
+    def _truncate(value: str, limit: int) -> str:
+        if len(value) <= limit:
+            return value
+        return f"{value[: max(0, limit - 3)]}..."

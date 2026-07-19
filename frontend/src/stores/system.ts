@@ -63,6 +63,25 @@ export interface NotificationTestResult {
   results: NotificationSendResult[];
 }
 
+export interface NotificationDeliveryRun {
+  id: number;
+  source: string;
+  channel: NotificationChannel;
+  status: 'sent' | 'skipped' | 'failed';
+  title: string;
+  message_preview: string;
+  result_message: string;
+  provider_message_id: string | null;
+  sent_at: string | null;
+  created_at: string;
+}
+
+export interface NotificationDeliveryRunPage {
+  items: NotificationDeliveryRun[];
+  total: number;
+  limit: number;
+}
+
 interface DatabaseRestorePayload {
   file_name: string;
   confirmation: string;
@@ -110,6 +129,7 @@ export const useSystemStore = defineStore('system', {
     health: null as HealthStatus | null,
     backups: null as DatabaseBackupList | null,
     notifications: null as NotificationStatus | null,
+    notificationRuns: null as NotificationDeliveryRunPage | null,
     loading: false,
     backupLoading: false,
     notificationLoading: false,
@@ -137,7 +157,7 @@ export const useSystemStore = defineStore('system', {
         this.backups = await getApiData<DatabaseBackupList>('/system/backups');
       } catch (error) {
         this.backups = null;
-        this.backupError = error instanceof Error ? error.message : '无法读取备份列表';
+        this.backupError = error instanceof Error ? error.message : '\u65e0\u6cd5\u8bfb\u53d6\u5907\u4efd\u5217\u8868';
       } finally {
         this.backupLoading = false;
       }
@@ -146,12 +166,26 @@ export const useSystemStore = defineStore('system', {
       this.notificationLoading = true;
       this.notificationError = '';
       try {
-        this.notifications = await getApiData<NotificationStatus>('/system/notifications');
+        const [notifications, notificationRuns] = await Promise.all([
+          getApiData<NotificationStatus>('/system/notifications'),
+          getApiData<NotificationDeliveryRunPage>('/system/notifications/runs?limit=20'),
+        ]);
+        this.notifications = notifications;
+        this.notificationRuns = notificationRuns;
       } catch (error) {
         this.notifications = null;
-        this.notificationError = error instanceof Error ? error.message : '无法读取推送配置';
+        this.notificationRuns = null;
+        this.notificationError = error instanceof Error ? error.message : '\u65e0\u6cd5\u8bfb\u53d6\u63a8\u9001\u914d\u7f6e';
       } finally {
         this.notificationLoading = false;
+      }
+    },
+    async fetchNotificationRuns(): Promise<void> {
+      try {
+        this.notificationRuns = await getApiData<NotificationDeliveryRunPage>('/system/notifications/runs?limit=20');
+      } catch (error) {
+        this.notificationRuns = null;
+        this.notificationError = error instanceof Error ? error.message : '\u65e0\u6cd5\u8bfb\u53d6\u63a8\u9001\u8bb0\u5f55';
       }
     },
     async sendNotificationTest(payload: NotificationTestPayload): Promise<NotificationTestResult> {
@@ -165,7 +199,7 @@ export const useSystemStore = defineStore('system', {
         await this.fetchNotifications();
         return result;
       } catch (error) {
-        this.notificationError = error instanceof Error ? error.message : '推送测试失败';
+        this.notificationError = error instanceof Error ? error.message : '\u63a8\u9001\u6d4b\u8bd5\u5931\u8d25';
         throw error;
       } finally {
         this.notificationLoading = false;
@@ -179,7 +213,7 @@ export const useSystemStore = defineStore('system', {
         await this.fetchBackups();
         return backup;
       } catch (error) {
-        this.backupError = error instanceof Error ? error.message : '数据库备份失败';
+        this.backupError = error instanceof Error ? error.message : '\u6570\u636e\u5e93\u5907\u4efd\u5931\u8d25';
         throw error;
       } finally {
         this.backupLoading = false;
@@ -196,7 +230,7 @@ export const useSystemStore = defineStore('system', {
         await this.fetchBackups();
         return result;
       } catch (error) {
-        this.backupError = error instanceof Error ? error.message : '数据库恢复失败';
+        this.backupError = error instanceof Error ? error.message : '\u6570\u636e\u5e93\u6062\u590d\u5931\u8d25';
         throw error;
       } finally {
         this.backupLoading = false;

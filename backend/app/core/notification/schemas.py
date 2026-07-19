@@ -31,9 +31,12 @@ class NotificationStatusRead(BaseModel):
 
 class NotificationTestRequest(BaseModel):
     channel: NotificationChannel = NotificationChannel.all
-    title: str = Field(default="HAP 通知测试", min_length=1, max_length=120)
+    title: str = Field(default="HAP \u901a\u77e5\u6d4b\u8bd5", min_length=1, max_length=120)
     message: str = Field(
-        default="如果你收到这条消息，说明 Home Analytics Platform 推送通道已经连通。",
+        default=(
+            "\u5982\u679c\u4f60\u6536\u5230\u8fd9\u6761\u6d88\u606f\uff0c"
+            "\u8bf4\u660e Home Analytics Platform \u63a8\u9001\u901a\u9053\u5df2\u7ecf\u8fde\u901a\u3002"
+        ),
         min_length=1,
         max_length=2048,
     )
@@ -50,3 +53,22 @@ class NotificationSendResult(BaseModel):
 class NotificationTestResult(BaseModel):
     requested_channel: NotificationChannel
     results: list[NotificationSendResult]
+
+
+class NotificationDeliveryRunRead(BaseModel):
+    id: int
+    source: str
+    channel: NotificationChannel
+    status: Literal["sent", "skipped", "failed"]
+    title: str
+    message_preview: str
+    result_message: str
+    provider_message_id: str | None = None
+    sent_at: datetime | None = None
+    created_at: datetime
+
+
+class NotificationDeliveryRunPageRead(BaseModel):
+    items: list[NotificationDeliveryRunRead]
+    total: int
+    limit: int

@@ -113,6 +113,7 @@ class DltNotificationService:
             channel=channel,
             title=title,
             message=message,
+            source="lottery_dlt_sync",
         )
         logger.info("DLT notification finished: {}", result.model_dump())
 

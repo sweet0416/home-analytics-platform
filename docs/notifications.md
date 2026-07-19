@@ -98,7 +98,7 @@ LOTTERY_DLT_NOTIFY_ON_NO_CHANGES=false
 Default behavior:
 
 - Send a notification when scheduled sync inserts a new DLT draw.
-- Send a notification when manual sync inserts a new DLT draw.
+- Send a notification when manual sync finishes, including no-change runs.
 - Send a notification when scheduled or manual sync fails.
 - Do not send a notification when there is no new draw, unless
   `LOTTERY_DLT_NOTIFY_ON_NO_CHANGES=true`.
@@ -110,3 +110,20 @@ For Bark-only notifications, set:
 ```text
 LOTTERY_DLT_NOTIFY_CHANNEL="bark"
 ```
+
+## Delivery History
+
+Every channel-level delivery result is recorded in SQLite table
+`notification_delivery_runs`.
+
+Recorded fields include source, channel, status, title, message preview, provider result message,
+provider message id, sent time, and created time. Secrets such as Bark device keys, Webhook URLs,
+tokens, and phone numbers are never stored in this table.
+
+API:
+
+```bash
+curl http://127.0.0.1:8088/api/v1/system/notifications/runs?limit=20
+```
+
+The Settings page shows the latest delivery records below the notification test form.
