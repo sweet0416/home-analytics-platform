@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 
 class NotificationChannel(StrEnum):
     all = "all"
+    bark = "bark"
     wecom = "wecom"
     whatsapp = "whatsapp"
     custom_webhook = "custom_webhook"

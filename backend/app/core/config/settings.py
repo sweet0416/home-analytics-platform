@@ -25,6 +25,12 @@ class Settings(BaseSettings):
     github_backup_encryption_passphrase: str = ""
     github_backup_timeout_seconds: int = Field(default=30, ge=5, le=120)
     notification_timeout_seconds: int = Field(default=15, ge=3, le=60)
+    notification_bark_enabled: bool = False
+    notification_bark_server_url: str = "https://api.day.app"
+    notification_bark_device_key: str = ""
+    notification_bark_group: str = "HAP"
+    notification_bark_sound: str = ""
+    notification_bark_level: str = "active"
     notification_wecom_enabled: bool = False
     notification_wecom_webhook_url: str = ""
     notification_whatsapp_enabled: bool = False

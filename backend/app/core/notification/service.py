@@ -21,6 +21,7 @@ class NotificationService:
     def get_status(self) -> NotificationStatusRead:
         return NotificationStatusRead(
             channels=[
+                self._build_bark_status(),
                 self._build_wecom_status(),
                 self._build_whatsapp_status(),
                 self._build_custom_webhook_status(),
@@ -45,6 +46,7 @@ class NotificationService:
     def _expand_channels(self, channel: NotificationChannel) -> list[NotificationChannel]:
         if channel == NotificationChannel.all:
             return [
+                NotificationChannel.bark,
                 NotificationChannel.wecom,
                 NotificationChannel.whatsapp,
                 NotificationChannel.custom_webhook,
@@ -58,6 +60,8 @@ class NotificationService:
         message: str,
     ) -> NotificationSendResult:
         try:
+            if channel == NotificationChannel.bark:
+                return self._send_bark(title=title, message=message)
             if channel == NotificationChannel.wecom:
                 return self._send_wecom(title=title, message=message)
             if channel == NotificationChannel.whatsapp:
@@ -79,6 +83,44 @@ class NotificationService:
                 status="failed",
                 message=str(exc),
             )
+
+    def _send_bark(self, title: str, message: str) -> NotificationSendResult:
+        if not self._settings.notification_bark_enabled:
+            return self._skipped(NotificationChannel.bark, "Bark is disabled.")
+        server_url = self._settings.notification_bark_server_url.strip().rstrip("/")
+        device_key = self._settings.notification_bark_device_key.strip()
+        if not server_url or not device_key:
+            return self._skipped(
+                NotificationChannel.bark,
+                "Bark server URL or device key is not configured.",
+            )
+
+        payload = {
+            "title": title,
+            "body": message,
+            "group": self._settings.notification_bark_group.strip() or "HAP",
+            "level": self._settings.notification_bark_level.strip() or "active",
+        }
+        sound = self._settings.notification_bark_sound.strip()
+        if sound:
+            payload["sound"] = sound
+
+        response = requests.post(
+            f"{server_url}/{device_key}",
+            headers={"Content-Type": "application/json; charset=utf-8"},
+            json=payload,
+            timeout=self._settings.notification_timeout_seconds,
+        )
+        response.raise_for_status()
+        response_payload = self._safe_json(response)
+        code = response_payload.get("code")
+        if code not in (None, 200):
+            return NotificationSendResult(
+                channel=NotificationChannel.bark,
+                status="failed",
+                message=str(response_payload.get("message") or response_payload),
+            )
+        return self._sent(NotificationChannel.bark, "Bark message sent.")
 
     def _send_wecom(self, title: str, message: str) -> NotificationSendResult:
         if not self._settings.notification_wecom_enabled:
@@ -180,6 +222,22 @@ class NotificationService:
         response.raise_for_status()
         return self._sent(NotificationChannel.custom_webhook, "Custom webhook message sent.")
 
+    def _build_bark_status(self) -> NotificationChannelStatus:
+        server_url = self._settings.notification_bark_server_url.strip().rstrip("/")
+        device_key = self._settings.notification_bark_device_key.strip()
+        return NotificationChannelStatus(
+            channel=NotificationChannel.bark,
+            label="Bark iPhone 推送",
+            enabled=self._settings.notification_bark_enabled,
+            configured=bool(server_url and device_key),
+            description="通过 Bark App 的设备 Key 给 iPhone 推送通知，适合个人家庭服务器。",
+            target=(
+                f"{self._mask_url(server_url)}/{self._mask_key(device_key)}"
+                if server_url
+                else "未配置"
+            ),
+        )
+
     def _build_wecom_status(self) -> NotificationChannelStatus:
         webhook_url = self._settings.notification_wecom_webhook_url.strip()
         return NotificationChannelStatus(
@@ -272,3 +330,11 @@ class NotificationService:
         if len(value) <= 6:
             return "***"
         return f"{value[:3]}***{value[-3:]}"
+
+    @staticmethod
+    def _mask_key(value: str) -> str:
+        if not value:
+            return "未配置"
+        if len(value) <= 8:
+            return "***"
+        return f"{value[:4]}***{value[-4:]}"

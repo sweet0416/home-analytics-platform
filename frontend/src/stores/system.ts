@@ -32,7 +32,7 @@ export interface DatabaseRestoreRun {
   created_at: string;
 }
 
-export type NotificationChannel = 'all' | 'wecom' | 'whatsapp' | 'custom_webhook';
+export type NotificationChannel = 'all' | 'bark' | 'wecom' | 'whatsapp' | 'custom_webhook';
 
 export interface NotificationChannelStatus {
   channel: NotificationChannel;

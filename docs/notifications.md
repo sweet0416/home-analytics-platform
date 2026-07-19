@@ -5,6 +5,24 @@ HomeLab alerts. All credentials are read from backend environment variables only
 
 ## Recommended Channels
 
+### Bark iPhone Push
+
+Bark is the recommended personal iPhone notification channel for HAP. Install the Bark app, copy
+the device key shown in the app, and configure it in Portainer.
+
+```text
+NOTIFICATION_BARK_ENABLED=true
+NOTIFICATION_BARK_SERVER_URL="https://api.day.app"
+NOTIFICATION_BARK_DEVICE_KEY="your-bark-device-key"
+NOTIFICATION_BARK_GROUP="HAP"
+NOTIFICATION_BARK_SOUND=""
+NOTIFICATION_BARK_LEVEL="active"
+```
+
+HAP sends a JSON request to the Bark endpoint with `title`, `body`, `group`, and optional sound
+settings. For the public Bark service, keep `NOTIFICATION_BARK_SERVER_URL` as
+`https://api.day.app`.
+
 ### WeCom Group Robot
 
 Personal WeChat does not provide a normal official server-side push API for this use case, so HAP
@@ -56,7 +74,7 @@ Payload:
 
 ## Test
 
-Open `Settings -> 推送通知`, check whether a channel is enabled and configured, then click
+Open `Settings -> 推送通知`, check whether Bark is enabled and configured, then click
 `发送测试`.
 
 API:
