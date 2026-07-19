@@ -32,6 +32,8 @@
       </div>
     </section>
 
+    <DltModuleNav />
+
     <div class="grid metrics same-period-metrics">
       <MetricCard label="目标期号" :value="targetIssue" :meta="targetDate" />
       <MetricCard label="同期序号" :value="issueSuffix" meta="期号后三位" />
@@ -68,8 +70,6 @@
         />
       </div>
     </section>
-
-    <DltModuleNav />
 
     <section class="panel same-period-panel">
       <div class="panel-header">
