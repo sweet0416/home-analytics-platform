@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config.settings import get_settings
 from app.core.database.session import SessionLocal, get_db
-from app.plugins.lottery.application.notification import DltNotificationService
+from app.plugins.lottery.application.notification import DltNotificationService, MANUAL_TRIGGER
 from app.plugins.lottery.application.services import LotteryService
 from app.plugins.lottery.domain.constants import DLT_DISCLAIMER
 from app.plugins.lottery.domain.sync import DrawSyncCommand
@@ -278,14 +278,14 @@ def sync_draws(
         result = service.sync_draws(command)
     except Exception as exc:
         if payload.sync_type == "manual":
-            notifier.notify_sync_exception(trigger_type="手动", exc=exc)
+            notifier.notify_sync_exception(trigger_type=MANUAL_TRIGGER, exc=exc)
         raise
 
     if payload.sync_type == "manual":
         notifier.notify_sync_result(
             service=service,
             result=result,
-            trigger_type="手动",
+            trigger_type=MANUAL_TRIGGER,
         )
     return ok(result)
 
@@ -323,7 +323,7 @@ def start_backfill_draws(
     return ok(
         {
             "status": "queued",
-            "message": "历史回填已在后台开始，页面会自动刷新进度。",
+            "message": "\u5386\u53f2\u56de\u586b\u5df2\u5728\u540e\u53f0\u5f00\u59cb\uff0c\u9875\u9762\u4f1a\u81ea\u52a8\u5237\u65b0\u8fdb\u5ea6\u3002",
             "start_page": payload.start_page,
             "page_count": payload.page_count,
             "page_size": payload.page_size,

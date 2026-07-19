@@ -4,7 +4,7 @@ from loguru import logger
 
 from app.core.config.settings import get_settings
 from app.core.database.session import SessionLocal
-from app.plugins.lottery.application.notification import DltNotificationService
+from app.plugins.lottery.application.notification import DltNotificationService, SCHEDULED_TRIGGER
 from app.plugins.lottery.application.services import LotteryService
 from app.plugins.lottery.domain.sync import DrawSyncCommand
 
@@ -79,12 +79,12 @@ def _run_scheduled_dlt_sync() -> None:
         DltNotificationService(settings).notify_sync_result(
             service=service,
             result=result,
-            trigger_type="定时",
+            trigger_type=SCHEDULED_TRIGGER,
         )
     except Exception as exc:
         logger.exception("Scheduled DLT draw sync failed: {}", exc)
         DltNotificationService(settings).notify_sync_exception(
-            trigger_type="定时",
+            trigger_type=SCHEDULED_TRIGGER,
             exc=exc,
         )
     finally:
