@@ -172,6 +172,101 @@
       <div class="panel">
         <div class="panel-header">
           <div>
+            <h2 class="panel-title">推送通知</h2>
+            <div class="panel-hint">开奖提醒、日报、备份异常和系统告警会复用这里的通道</div>
+          </div>
+          <el-button :icon="Refresh" :loading="system.notificationLoading" @click="reloadNotifications">
+            刷新
+          </el-button>
+        </div>
+        <div class="panel-body">
+          <div class="notification-summary">
+            <div class="scheduler-status">
+              <span class="status-dot" :class="{ online: notificationReadyCount > 0 }" />
+              <strong>{{ notificationStatusText }}</strong>
+            </div>
+            <p>{{ system.notifications?.note ?? '推送配置只从后端环境变量读取，页面不会显示密钥。' }}</p>
+          </div>
+
+          <div class="notification-grid">
+            <div
+              v-for="channel in notificationChannels"
+              :key="channel.channel"
+              class="notification-card"
+            >
+              <div class="notification-card-header">
+                <strong>{{ channel.label }}</strong>
+                <div class="notification-tags">
+                  <el-tag size="small" :type="channel.enabled ? 'success' : 'info'">
+                    {{ channel.enabled ? '已启用' : '未启用' }}
+                  </el-tag>
+                  <el-tag size="small" :type="channel.configured ? 'success' : 'warning'">
+                    {{ channel.configured ? '已配置' : '未配置' }}
+                  </el-tag>
+                </div>
+              </div>
+              <p>{{ channel.description }}</p>
+              <div class="notification-target">{{ channel.target }}</div>
+            </div>
+          </div>
+
+          <div class="notification-test-form">
+            <el-form label-position="top">
+              <el-form-item label="推送通道">
+                <el-select v-model="notificationForm.channel" class="notification-select">
+                  <el-option
+                    v-for="option in notificationChannelOptions"
+                    :key="option.value"
+                    :label="option.label"
+                    :value="option.value"
+                  />
+                </el-select>
+              </el-form-item>
+              <el-form-item label="标题">
+                <el-input v-model="notificationForm.title" maxlength="120" show-word-limit />
+              </el-form-item>
+              <el-form-item label="内容">
+                <el-input
+                  v-model="notificationForm.message"
+                  type="textarea"
+                  :rows="3"
+                  maxlength="2048"
+                  show-word-limit
+                />
+              </el-form-item>
+              <div class="backup-actions">
+                <el-button
+                  type="primary"
+                  :icon="Bell"
+                  :loading="system.notificationLoading"
+                  @click="sendNotificationTest"
+                >
+                  发送测试
+                </el-button>
+                <span v-if="system.notificationError" class="error-text">{{ system.notificationError }}</span>
+              </div>
+            </el-form>
+          </div>
+
+          <div v-if="notificationResults.length" class="notification-result-list">
+            <div
+              v-for="result in notificationResults"
+              :key="`${result.channel}-${result.status}`"
+              class="notification-result-item"
+            >
+              <el-tag size="small" :type="notificationResultTagType(result.status)">
+                {{ notificationResultStatusText(result.status) }}
+              </el-tag>
+              <span>{{ notificationChannelLabel(result.channel) }}</span>
+              <em>{{ result.message }}</em>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <div>
             <h2 class="panel-title">后续配置中心</h2>
             <div class="panel-hint">插件配置、数据源、同步策略会逐步放到这里</div>
           </div>
@@ -185,15 +280,21 @@
 </template>
 
 <script setup lang="ts">
-import { FolderChecked, Refresh } from '@element-plus/icons-vue';
+import { Bell, FolderChecked, Refresh } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { computed, onMounted } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 
 import EmptyState from '@/components/common/EmptyState.vue';
-import { useSystemStore } from '@/stores/system';
+import { type NotificationChannel, type NotificationSendResult, useSystemStore } from '@/stores/system';
 
 const system = useSystemStore();
 const RESTORE_CONFIRMATION = 'RESTORE HAP DATABASE';
+const notificationForm = ref({
+  channel: 'all' as NotificationChannel,
+  title: 'HAP 通知测试',
+  message: '如果你收到这条消息，说明 Home Analytics Platform 推送通道已经连通。',
+});
+const notificationResults = ref<NotificationSendResult[]>([]);
 
 const backupCount = computed(() => String(system.backups?.items.length ?? 0));
 const databaseEngine = computed(() => system.backups?.database_engine.toUpperCase() ?? 'SQLITE');
@@ -261,6 +362,26 @@ const latestBackupTime = computed(() => {
   const latest = system.backups?.items[0];
   return latest ? formatDateTime(latest.created_at) : '暂无';
 });
+const notificationChannels = computed(() => system.notifications?.channels ?? []);
+const notificationReadyCount = computed(() => {
+  return notificationChannels.value.filter((channel) => channel.enabled && channel.configured).length;
+});
+const notificationStatusText = computed(() => {
+  if (!system.notifications) {
+    return '推送状态待读取';
+  }
+  if (notificationReadyCount.value === 0) {
+    return '暂无可用推送通道';
+  }
+  return `${notificationReadyCount.value} 个推送通道已就绪`;
+});
+const notificationChannelOptions = computed(() => [
+  { label: '全部已启用通道', value: 'all' as NotificationChannel },
+  ...notificationChannels.value.map((channel) => ({
+    label: channel.label,
+    value: channel.channel,
+  })),
+]);
 
 function formatDateTime(value: string): string {
   return new Date(value).toLocaleString('zh-CN', { hour12: false });
@@ -278,6 +399,10 @@ function formatBytes(value: number): string {
 
 async function reloadBackups(): Promise<void> {
   await system.fetchBackups();
+}
+
+async function reloadNotifications(): Promise<void> {
+  await system.fetchNotifications();
 }
 
 async function createBackup(): Promise<void> {
@@ -321,8 +446,47 @@ async function restoreBackup(fileName: string): Promise<void> {
   }
 }
 
+async function sendNotificationTest(): Promise<void> {
+  try {
+    const result = await system.sendNotificationTest(notificationForm.value);
+    notificationResults.value = result.results;
+    const sentCount = result.results.filter((item) => item.status === 'sent').length;
+    if (sentCount > 0) {
+      ElMessage.success(`推送测试完成：${sentCount} 个通道发送成功`);
+      return;
+    }
+    ElMessage.warning('推送测试完成，但没有通道成功发送。');
+  } catch {
+    ElMessage.error('推送测试失败，请查看后端日志。');
+  }
+}
+
+function notificationChannelLabel(channel: NotificationChannel): string {
+  if (channel === 'all') {
+    return '全部通道';
+  }
+  return notificationChannels.value.find((item) => item.channel === channel)?.label ?? channel;
+}
+
+function notificationResultStatusText(status: NotificationSendResult['status']): string {
+  const statusMap: Record<NotificationSendResult['status'], string> = {
+    sent: '已发送',
+    skipped: '已跳过',
+    failed: '失败',
+  };
+  return statusMap[status];
+}
+
+function notificationResultTagType(status: NotificationSendResult['status']): 'success' | 'warning' | 'danger' {
+  if (status === 'sent') {
+    return 'success';
+  }
+  return status === 'skipped' ? 'warning' : 'danger';
+}
+
 onMounted(() => {
   void system.fetchBackups();
+  void system.fetchNotifications();
 });
 </script>
 
@@ -444,6 +608,111 @@ onMounted(() => {
   color: var(--color-warning);
 }
 
+.notification-summary {
+  display: grid;
+  gap: 8px;
+  border: 1px solid rgba(45, 212, 191, 0.2);
+  border-radius: 8px;
+  background: rgba(45, 212, 191, 0.07);
+  color: var(--color-muted);
+  line-height: 1.6;
+  margin-bottom: 14px;
+  padding: 12px 14px;
+}
+
+.notification-summary p {
+  margin: 0;
+}
+
+.notification-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.notification-card {
+  min-width: 0;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.42);
+  padding: 12px;
+}
+
+.notification-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.notification-card-header strong {
+  color: var(--color-text);
+}
+
+.notification-tags {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.notification-card p {
+  min-height: 40px;
+  margin: 9px 0;
+  color: var(--color-muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.notification-target {
+  overflow-wrap: anywhere;
+  border-radius: 6px;
+  background: rgba(2, 6, 23, 0.38);
+  color: var(--color-primary);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  padding: 7px 8px;
+}
+
+.notification-test-form {
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 8px;
+  background: rgba(2, 6, 23, 0.2);
+  margin-bottom: 14px;
+  padding: 14px;
+}
+
+.notification-select {
+  width: min(100%, 320px);
+}
+
+.notification-result-list {
+  display: grid;
+  gap: 8px;
+}
+
+.notification-result-item {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.34);
+  padding: 9px 10px;
+}
+
+.notification-result-item span {
+  color: var(--color-text);
+  font-weight: 650;
+}
+
+.notification-result-item em {
+  color: var(--color-muted);
+  font-style: normal;
+}
+
 .scheduler-status {
   display: flex;
   align-items: center;
@@ -475,10 +744,18 @@ onMounted(() => {
   .backup-summary {
     grid-template-columns: 1fr;
   }
+
+  .notification-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (min-width: 761px) and (max-width: 1100px) {
   .backup-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .notification-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }

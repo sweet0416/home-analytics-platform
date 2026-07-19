@@ -32,9 +32,46 @@ export interface DatabaseRestoreRun {
   created_at: string;
 }
 
+export type NotificationChannel = 'all' | 'wecom' | 'whatsapp' | 'custom_webhook';
+
+export interface NotificationChannelStatus {
+  channel: NotificationChannel;
+  label: string;
+  enabled: boolean;
+  configured: boolean;
+  description: string;
+  target: string;
+}
+
+export interface NotificationStatus {
+  channels: NotificationChannelStatus[];
+  default_channel: NotificationChannel;
+  supports_imessage_bridge: boolean;
+  note: string;
+}
+
+export interface NotificationSendResult {
+  channel: NotificationChannel;
+  status: 'sent' | 'skipped' | 'failed';
+  message: string;
+  sent_at: string | null;
+  provider_message_id: string | null;
+}
+
+export interface NotificationTestResult {
+  requested_channel: NotificationChannel;
+  results: NotificationSendResult[];
+}
+
 interface DatabaseRestorePayload {
   file_name: string;
   confirmation: string;
+}
+
+interface NotificationTestPayload {
+  channel: NotificationChannel;
+  title: string;
+  message: string;
 }
 
 export interface DatabaseBackupList {
@@ -72,10 +109,13 @@ export const useSystemStore = defineStore('system', {
   state: () => ({
     health: null as HealthStatus | null,
     backups: null as DatabaseBackupList | null,
+    notifications: null as NotificationStatus | null,
     loading: false,
     backupLoading: false,
+    notificationLoading: false,
     error: '',
     backupError: '',
+    notificationError: '',
   }),
   actions: {
     async fetchHealth(): Promise<void> {
@@ -100,6 +140,35 @@ export const useSystemStore = defineStore('system', {
         this.backupError = error instanceof Error ? error.message : '无法读取备份列表';
       } finally {
         this.backupLoading = false;
+      }
+    },
+    async fetchNotifications(): Promise<void> {
+      this.notificationLoading = true;
+      this.notificationError = '';
+      try {
+        this.notifications = await getApiData<NotificationStatus>('/system/notifications');
+      } catch (error) {
+        this.notifications = null;
+        this.notificationError = error instanceof Error ? error.message : '无法读取推送配置';
+      } finally {
+        this.notificationLoading = false;
+      }
+    },
+    async sendNotificationTest(payload: NotificationTestPayload): Promise<NotificationTestResult> {
+      this.notificationLoading = true;
+      this.notificationError = '';
+      try {
+        const result = await postApiData<NotificationTestResult, NotificationTestPayload>(
+          '/system/notifications/test',
+          payload,
+        );
+        await this.fetchNotifications();
+        return result;
+      } catch (error) {
+        this.notificationError = error instanceof Error ? error.message : '推送测试失败';
+        throw error;
+      } finally {
+        this.notificationLoading = false;
       }
     },
     async createBackup(): Promise<DatabaseBackup> {

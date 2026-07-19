@@ -24,6 +24,17 @@ class Settings(BaseSettings):
     github_backup_release_tag: str = "hap-backups"
     github_backup_encryption_passphrase: str = ""
     github_backup_timeout_seconds: int = Field(default=30, ge=5, le=120)
+    notification_timeout_seconds: int = Field(default=15, ge=3, le=60)
+    notification_wecom_enabled: bool = False
+    notification_wecom_webhook_url: str = ""
+    notification_whatsapp_enabled: bool = False
+    notification_whatsapp_graph_version: str = "v20.0"
+    notification_whatsapp_phone_number_id: str = ""
+    notification_whatsapp_access_token: str = ""
+    notification_whatsapp_recipient_phone: str = ""
+    notification_custom_webhook_enabled: bool = False
+    notification_custom_webhook_url: str = ""
+    notification_custom_webhook_bearer_token: str = ""
     lottery_dlt_auto_sync_enabled: bool = True
     lottery_dlt_sync_cron: str = "30 22 * * *"
     lottery_dlt_sync_page_size: int = Field(default=100, ge=1, le=500)

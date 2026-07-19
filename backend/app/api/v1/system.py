@@ -10,6 +10,12 @@ from app.core.backup.schemas import (
 from app.core.backup.scheduler import get_backup_scheduler_status, upload_remote_backup
 from app.core.backup.service import DatabaseBackupService
 from app.core.config.settings import get_settings
+from app.core.notification.schemas import (
+    NotificationStatusRead,
+    NotificationTestRequest,
+    NotificationTestResult,
+)
+from app.core.notification.service import NotificationService
 from app.shared.exceptions.base import AppError
 from app.shared.exceptions.codes import ErrorCode
 from app.shared.responses.schemas import ApiResponse, ok
@@ -27,6 +33,27 @@ def health_check() -> ApiResponse[dict[str, str]]:
             "database": "ok",
         }
     )
+
+
+@router.get("/notifications", response_model=ApiResponse[NotificationStatusRead])
+def get_notification_status() -> ApiResponse[NotificationStatusRead]:
+    settings = get_settings()
+    service = NotificationService(settings=settings)
+    return ok(service.get_status())
+
+
+@router.post("/notifications/test", response_model=ApiResponse[NotificationTestResult])
+def test_notification(
+    payload: NotificationTestRequest,
+) -> ApiResponse[NotificationTestResult]:
+    settings = get_settings()
+    service = NotificationService(settings=settings)
+    result = service.send_test(
+        channel=payload.channel,
+        title=payload.title,
+        message=payload.message,
+    )
+    return ok(result, message="notification test finished")
 
 
 @router.get("/backups", response_model=ApiResponse[DatabaseBackupListRead])

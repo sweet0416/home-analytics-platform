@@ -61,4 +61,5 @@ LOTTERY_DLT_500_HISTORY_URL="https://datachart.500.com/dlt/history/newinc/histor
 ## Release
 
 - Changelog: [CHANGELOG.md](CHANGELOG.md)
+- Notifications: [docs/notifications.md](docs/notifications.md)
 - v1.0.0 checklist: [docs/release-v1.0.0.md](docs/release-v1.0.0.md)
