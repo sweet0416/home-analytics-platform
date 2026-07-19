@@ -1,7 +1,9 @@
 from fastapi import APIRouter, BackgroundTasks, Depends, Query
 from sqlalchemy.orm import Session
 
+from app.core.config.settings import get_settings
 from app.core.database.session import SessionLocal, get_db
+from app.plugins.lottery.application.notification import DltNotificationService
 from app.plugins.lottery.application.services import LotteryService
 from app.plugins.lottery.domain.constants import DLT_DISCLAIMER
 from app.plugins.lottery.domain.sync import DrawSyncCommand
@@ -271,7 +273,21 @@ def sync_draws(
         page_size=payload.page_size,
         force=payload.force,
     )
-    return ok(service.sync_draws(command))
+    notifier = DltNotificationService(get_settings())
+    try:
+        result = service.sync_draws(command)
+    except Exception as exc:
+        if payload.sync_type == "manual":
+            notifier.notify_sync_exception(trigger_type="手动", exc=exc)
+        raise
+
+    if payload.sync_type == "manual":
+        notifier.notify_sync_result(
+            service=service,
+            result=result,
+            trigger_type="手动",
+        )
+    return ok(result)
 
 
 @router.post("/sync/backfill", response_model=ApiResponse[LotteryBackfillRunRead])

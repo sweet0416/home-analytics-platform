@@ -85,9 +85,9 @@ curl -X POST http://127.0.0.1:8088/api/v1/system/notifications/test \
   -d '{"channel":"all","title":"HAP 通知测试","message":"Hello from HAP"}'
 ```
 
-## DLT Scheduled Sync Notifications
+## DLT Sync Notifications
 
-The scheduled DLT sync job can reuse the notification service.
+DLT sync jobs can reuse the notification service.
 
 ```text
 LOTTERY_DLT_NOTIFY_ENABLED=true
@@ -98,9 +98,12 @@ LOTTERY_DLT_NOTIFY_ON_NO_CHANGES=false
 Default behavior:
 
 - Send a notification when scheduled sync inserts a new DLT draw.
-- Send a notification when scheduled sync fails.
+- Send a notification when manual sync inserts a new DLT draw.
+- Send a notification when scheduled or manual sync fails.
 - Do not send a notification when there is no new draw, unless
   `LOTTERY_DLT_NOTIFY_ON_NO_CHANGES=true`.
+- Do not push one notification per backfilled history page. Backfill progress stays in the sync
+  detail view to avoid noisy phone notifications.
 
 For Bark-only notifications, set:
 
