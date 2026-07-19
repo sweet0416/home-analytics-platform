@@ -29,13 +29,19 @@ const moduleNavItems = [
 
 <style scoped>
 .dlt-module-nav {
+  position: sticky;
+  top: 0;
+  z-index: 30;
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   max-width: 100%;
   border: 1px solid rgba(148, 163, 184, 0.16);
   border-radius: 8px;
-  background: rgba(15, 23, 42, 0.38);
+  background: rgba(15, 23, 42, 0.84);
+  box-shadow: 0 14px 32px rgba(2, 6, 23, 0.2);
+  backdrop-filter: blur(14px);
+  margin-bottom: 16px;
   padding: 10px;
 }
 
