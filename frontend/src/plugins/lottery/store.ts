@@ -5,6 +5,7 @@ import {
   analyzeSensitivity as analyzeSensitivityRequest,
   backtestNumbers as backtestNumbersRequest,
   fetchBasicStatistics,
+  fetchCoOccurrenceAnalysis,
   fetchCurrentRule,
   fetchDisclaimer,
   fetchDrawCoverage,
@@ -25,6 +26,7 @@ import {
   type DrawPage,
   type LotteryBacktestAnalysis,
   type LotteryBacktestRequest,
+  type LotteryCoOccurrenceAnalysis,
   type LotteryDantuoAnalysis,
   type LotteryDantuoRequest,
   type LotteryBackfillJob,
@@ -59,6 +61,7 @@ export const useLotteryStore = defineStore('lottery', {
     syncStatus: null as LotterySyncStatus | null,
     syncRuns: null as SyncRunPage | null,
     statistics: null as LotteryBasicStatistics | null,
+    coOccurrence: null as LotteryCoOccurrenceAnalysis | null,
     omissionStatistics: null as LotteryOmissionStatistics | null,
     randomnessDiagnostics: null as LotteryRandomnessDiagnostics | null,
     omissionDetail: null as LotteryNumberOmissionDetail | null,
@@ -130,6 +133,13 @@ export const useLotteryStore = defineStore('lottery', {
     },
     async loadStatistics(limit = 100): Promise<void> {
       this.statistics = await fetchBasicStatistics(limit);
+    },
+    async loadCoOccurrence(
+      area: 'front' | 'back' | 'cross' = 'front',
+      limit = 500,
+      top = 30,
+    ): Promise<void> {
+      this.coOccurrence = await fetchCoOccurrenceAnalysis(area, limit, top);
     },
     async loadOmissionStatistics(limit = 100): Promise<void> {
       this.omissionStatistics = await fetchOmissionStatistics(limit);

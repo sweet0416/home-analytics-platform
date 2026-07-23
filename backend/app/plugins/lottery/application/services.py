@@ -337,6 +337,50 @@ class LotteryService:
             "notes": notes,
         }
 
+    def get_co_occurrence_analysis(
+        self,
+        *,
+        area: str = "front",
+        limit: int = 500,
+        top: int = 30,
+    ) -> dict[str, object]:
+        if area not in {"front", "back", "cross"}:
+            raise AppError(
+                code=ErrorCode.validation_error,
+                message="Co-occurrence area must be front, back or cross.",
+                status_code=422,
+            )
+        draws = [
+            self._serialize_draw(draw)
+            for draw in self.repository.list_recent_draws(limit=limit)
+        ]
+        edges = self._build_co_occurrence_edges(draws=draws, area=area)
+        nodes = self._build_co_occurrence_nodes(draws=draws, area=area)
+        sorted_edges = sorted(
+            edges,
+            key=lambda item: (
+                -float(item["lift"]),
+                -int(item["count"]),
+                str(item["source"]),
+                str(item["target"]),
+            ),
+        )[:top]
+        return {
+            "area": area,
+            "sample_size": len(draws),
+            "requested_limit": limit,
+            "top": top,
+            "latest_issue_no": str(draws[0]["issue_no"]) if draws else None,
+            "earliest_issue_no": str(draws[-1]["issue_no"]) if draws else None,
+            "nodes": nodes,
+            "edges": sorted_edges,
+            "notes": [
+                "共现次数必须和随机期望比较，不能只看绝对出现次数。",
+                "lift 大于 1 表示高于随机期望，但不代表未来会继续共同出现。",
+                "样本窗口不同会改变共现强度，后续可扩展滚动窗口对比。",
+            ],
+        }
+
     def get_omission_statistics(self, limit: int = 100) -> dict[str, object]:
         draws = [
             self._serialize_draw(draw)
@@ -1857,6 +1901,90 @@ class LotteryService:
                 [str(gap) for gap in gaps]
             )[:12],
         }
+
+    @staticmethod
+    def _build_co_occurrence_nodes(
+        *,
+        draws: list[dict[str, object]],
+        area: str,
+    ) -> list[dict[str, object]]:
+        if area == "back":
+            number_ranges = [("back", range(1, 13))]
+        elif area == "cross":
+            number_ranges = [("front", range(1, 36)), ("back", range(1, 13))]
+        else:
+            number_ranges = [("front", range(1, 36))]
+        nodes: list[dict[str, object]] = []
+        for node_area, numbers in number_ranges:
+            key = "front_numbers" if node_area == "front" else "back_numbers"
+            counts = Counter(number for draw in draws for number in draw[key])
+            nodes.extend(
+                {
+                    "id": f"{node_area}-{number}",
+                    "area": node_area,
+                    "number": number,
+                    "count": counts[number],
+                }
+                for number in numbers
+            )
+        return sorted(nodes, key=lambda item: (-int(item["count"]), str(item["id"])))
+
+    @staticmethod
+    def _build_co_occurrence_edges(
+        *,
+        draws: list[dict[str, object]],
+        area: str,
+    ) -> list[dict[str, object]]:
+        counts: Counter[tuple[str, str]] = Counter()
+        sample_size = len(draws)
+        for draw in draws:
+            front_numbers = sorted(list(draw["front_numbers"]))
+            back_numbers = sorted(list(draw["back_numbers"]))
+            if area == "front":
+                pairs = [
+                    (f"front-{left}", f"front-{right}")
+                    for left, right in combinations(front_numbers, 2)
+                ]
+            elif area == "back":
+                pairs = [
+                    (f"back-{left}", f"back-{right}")
+                    for left, right in combinations(back_numbers, 2)
+                ]
+            else:
+                pairs = [
+                    (f"front-{front}", f"back-{back}")
+                    for front in front_numbers
+                    for back in back_numbers
+                ]
+            counts.update(pairs)
+
+        expected_probability = LotteryService._co_occurrence_expected_probability(area)
+        expected = sample_size * expected_probability
+        variance = sample_size * expected_probability * (1 - expected_probability)
+        stddev = sqrt(variance) if variance > 0 else 0
+        edges: list[dict[str, object]] = []
+        for (source, target), count in counts.items():
+            lift = count / expected if expected else 0
+            z_score = (count - expected) / stddev if stddev else 0
+            edges.append(
+                {
+                    "source": source,
+                    "target": target,
+                    "count": count,
+                    "expected": round(expected, 4),
+                    "lift": round(lift, 4),
+                    "z_score": round(z_score, 4),
+                }
+            )
+        return edges
+
+    @staticmethod
+    def _co_occurrence_expected_probability(area: str) -> float:
+        if area == "front":
+            return 5 * 4 / (35 * 34)
+        if area == "back":
+            return 2 * 1 / (12 * 11)
+        return (5 / 35) * (2 / 12)
 
     @classmethod
     def _build_omission_items(

@@ -701,6 +701,34 @@ export interface LotteryRandomnessDiagnostics {
   notes: string[];
 }
 
+export interface LotteryCoOccurrenceNode {
+  id: string;
+  area: string;
+  number: number;
+  count: number;
+}
+
+export interface LotteryCoOccurrenceEdge {
+  source: string;
+  target: string;
+  count: number;
+  expected: number;
+  lift: number;
+  z_score: number;
+}
+
+export interface LotteryCoOccurrenceAnalysis {
+  area: 'front' | 'back' | 'cross';
+  sample_size: number;
+  requested_limit: number;
+  top: number;
+  latest_issue_no: string | null;
+  earliest_issue_no: string | null;
+  nodes: LotteryCoOccurrenceNode[];
+  edges: LotteryCoOccurrenceEdge[];
+  notes: string[];
+}
+
 export function fetchCurrentRule(): Promise<LotteryRule> {
   return getApiData<LotteryRule>('/lottery/dlt/rules/current');
 }
@@ -740,6 +768,21 @@ export function fetchOmissionStatistics(limit = 100): Promise<LotteryOmissionSta
 export function fetchRandomnessDiagnostics(limit = 500): Promise<LotteryRandomnessDiagnostics> {
   return getApiData<LotteryRandomnessDiagnostics>(
     `/lottery/dlt/statistics/randomness?limit=${limit}`,
+  );
+}
+
+export function fetchCoOccurrenceAnalysis(
+  area: 'front' | 'back' | 'cross' = 'front',
+  limit = 500,
+  top = 30,
+): Promise<LotteryCoOccurrenceAnalysis> {
+  const params = new URLSearchParams({
+    area,
+    limit: String(limit),
+    top: String(top),
+  });
+  return getApiData<LotteryCoOccurrenceAnalysis>(
+    `/lottery/dlt/analysis/co-occurrence?${params.toString()}`,
   );
 }
 

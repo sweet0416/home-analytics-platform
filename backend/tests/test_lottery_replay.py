@@ -220,3 +220,21 @@ def test_randomness_diagnostics_return_frequency_metrics(db_session: Session) ->
     assert result["front_frequency"]["degrees_of_freedom"] == 34
     assert result["back_frequency"]["degrees_of_freedom"] == 11
     assert result["front_frequency"]["entropy"]["normalized"] > 0
+
+
+def test_co_occurrence_analysis_compares_random_expectation(
+    db_session: Session,
+) -> None:
+    seed_replay_draws(db_session)
+
+    result = LotteryService(db_session).get_co_occurrence_analysis(
+        area="front",
+        limit=50,
+        top=5,
+    )
+
+    assert result["area"] == "front"
+    assert result["sample_size"] >= 8
+    assert result["edges"]
+    assert result["edges"][0]["expected"] > 0
+    assert "lift" in result["edges"][0]

@@ -16,6 +16,7 @@ from app.plugins.lottery.interfaces.schemas import (
     LotteryBacktestAnalysisRead,
     LotteryBacktestRequest,
     LotteryBasicStatisticsRead,
+    LotteryCoOccurrenceRead,
     LotteryDantuoAnalysisRead,
     LotteryDantuoRequest,
     LotteryDrawCoverageRead,
@@ -201,6 +202,17 @@ def get_same_period_analysis(
 ) -> ApiResponse[LotterySamePeriodAnalysisRead]:
     service = LotteryService(db)
     return ok(service.get_same_period_analysis(issue_no=issue_no, count=count))
+
+
+@router.get("/analysis/co-occurrence", response_model=ApiResponse[LotteryCoOccurrenceRead])
+def get_co_occurrence_analysis(
+    area: str = Query(default="front", pattern="^(front|back|cross)$"),
+    limit: int = Query(default=500, ge=50, le=2000),
+    top: int = Query(default=30, ge=5, le=100),
+    db: Session = Depends(get_db),
+) -> ApiResponse[LotteryCoOccurrenceRead]:
+    service = LotteryService(db)
+    return ok(service.get_co_occurrence_analysis(area=area, limit=limit, top=top))
 
 
 @router.get("/analysis/recommendations", response_model=ApiResponse[LotteryRecommendationRead])

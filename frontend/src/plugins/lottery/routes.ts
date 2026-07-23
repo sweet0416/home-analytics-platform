@@ -1,6 +1,7 @@
 import type { RouteRecordRaw } from 'vue-router';
 
 import BacktestView from './views/BacktestView.vue';
+import CoOccurrenceView from './views/CoOccurrenceView.vue';
 import DataHealthView from './views/DataHealthView.vue';
 import DantuoView from './views/DantuoView.vue';
 import DrawHistory from './views/DrawHistory.vue';
@@ -45,6 +46,11 @@ export const lotteryRoutes: RouteRecordRaw[] = [
     path: 'lottery/dlt/same-period',
     name: 'lottery-dlt-same-period',
     component: SamePeriodView,
+  },
+  {
+    path: 'lottery/dlt/co-occurrence',
+    name: 'lottery-dlt-co-occurrence',
+    component: CoOccurrenceView,
   },
   {
     path: 'lottery/dlt/recommendations',

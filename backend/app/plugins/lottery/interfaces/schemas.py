@@ -732,6 +732,34 @@ class LotteryRandomnessDiagnosticsRead(BaseModel):
     notes: list[str]
 
 
+class LotteryCoOccurrenceNodeRead(BaseModel):
+    id: str
+    area: str
+    number: int
+    count: int
+
+
+class LotteryCoOccurrenceEdgeRead(BaseModel):
+    source: str
+    target: str
+    count: int
+    expected: float
+    lift: float
+    z_score: float
+
+
+class LotteryCoOccurrenceRead(BaseModel):
+    area: str
+    sample_size: int
+    requested_limit: int
+    top: int
+    latest_issue_no: str | None
+    earliest_issue_no: str | None
+    nodes: list[LotteryCoOccurrenceNodeRead]
+    edges: list[LotteryCoOccurrenceEdgeRead]
+    notes: list[str]
+
+
 def _normalize_numbers(
     *,
     value: list[int],
