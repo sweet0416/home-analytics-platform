@@ -644,6 +644,63 @@ export interface LotteryBasicStatistics {
   trend: LotteryDrawMetric[];
 }
 
+export interface LotteryRandomnessDeviation {
+  number: number;
+  count: number;
+  expected: number;
+  deviation: number;
+}
+
+export interface LotteryEntropy {
+  value: number;
+  max: number;
+  normalized: number;
+}
+
+export interface LotteryRandomnessFrequency {
+  area: string;
+  sample_size: number;
+  total_observations: number;
+  chi_square: number;
+  degrees_of_freedom: number;
+  p_value: number;
+  p_value_method: string;
+  entropy: LotteryEntropy;
+  top_deviations: LotteryRandomnessDeviation[];
+  interpretation: string;
+}
+
+export interface LotterySequenceSummary {
+  min: number | null;
+  max: number | null;
+  average: number | null;
+  stddev: number | null;
+}
+
+export interface LotteryFrontGapSummary extends LotterySequenceSummary {
+  distribution: Array<{ pattern: string; count: number }>;
+}
+
+export interface LotteryAutocorrelation {
+  lag: number;
+  value: number | null;
+  interpretation: string;
+}
+
+export interface LotteryRandomnessDiagnostics {
+  sample_size: number;
+  requested_limit: number;
+  latest_issue_no: string | null;
+  earliest_issue_no: string | null;
+  front_frequency: LotteryRandomnessFrequency;
+  back_frequency: LotteryRandomnessFrequency;
+  front_sum: LotterySequenceSummary;
+  front_sum_autocorrelation: LotteryAutocorrelation;
+  front_parity_distribution: Array<{ pattern: string; count: number }>;
+  front_gap_summary: LotteryFrontGapSummary;
+  notes: string[];
+}
+
 export function fetchCurrentRule(): Promise<LotteryRule> {
   return getApiData<LotteryRule>('/lottery/dlt/rules/current');
 }
@@ -678,6 +735,12 @@ export function fetchBasicStatistics(limit = 100): Promise<LotteryBasicStatistic
 
 export function fetchOmissionStatistics(limit = 100): Promise<LotteryOmissionStatistics> {
   return getApiData<LotteryOmissionStatistics>(`/lottery/dlt/statistics/omissions?limit=${limit}`);
+}
+
+export function fetchRandomnessDiagnostics(limit = 500): Promise<LotteryRandomnessDiagnostics> {
+  return getApiData<LotteryRandomnessDiagnostics>(
+    `/lottery/dlt/statistics/randomness?limit=${limit}`,
+  );
 }
 
 export function fetchNumberOmissionDetail(

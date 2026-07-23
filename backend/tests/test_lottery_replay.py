@@ -6,6 +6,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.plugins.lottery.application.replay_service import LotteryReplayService
+from app.plugins.lottery.application.services import LotteryService
 from app.plugins.lottery.domain.constants import DLT_GAME_CODE
 from app.plugins.lottery.domain.sync import DrawRecord
 from app.plugins.lottery.infrastructure.persistence.models import (
@@ -208,3 +209,14 @@ def test_sensitivity_analysis_can_roll_over_multiple_targets(db_session: Session
     assert result["combination_count"] == 4
     assert result["results"][0]["evaluated_target_count"] == 2
     assert "positive_target_rate" in result["results"][0]
+
+
+def test_randomness_diagnostics_return_frequency_metrics(db_session: Session) -> None:
+    seed_replay_draws(db_session)
+
+    result = LotteryService(db_session).get_randomness_diagnostics(limit=50)
+
+    assert result["sample_size"] >= 8
+    assert result["front_frequency"]["degrees_of_freedom"] == 34
+    assert result["back_frequency"]["degrees_of_freedom"] == 11
+    assert result["front_frequency"]["entropy"]["normalized"] > 0

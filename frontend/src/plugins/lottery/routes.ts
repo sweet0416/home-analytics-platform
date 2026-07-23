@@ -8,6 +8,7 @@ import HeatmapView from './views/HeatmapView.vue';
 import LotteryOverview from './views/LotteryOverview.vue';
 import OmissionView from './views/OmissionView.vue';
 import RecommendationView from './views/RecommendationView.vue';
+import RandomnessView from './views/RandomnessView.vue';
 import ReplayView from './views/ReplayView.vue';
 import SamePeriodView from './views/SamePeriodView.vue';
 import SensitivityView from './views/SensitivityView.vue';
@@ -74,6 +75,11 @@ export const lotteryRoutes: RouteRecordRaw[] = [
     path: 'lottery/dlt/sensitivity',
     name: 'lottery-dlt-sensitivity',
     component: SensitivityView,
+  },
+  {
+    path: 'lottery/dlt/randomness',
+    name: 'lottery-dlt-randomness',
+    component: RandomnessView,
   },
   {
     path: 'lottery/dlt/data-health',

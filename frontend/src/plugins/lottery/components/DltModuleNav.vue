@@ -28,6 +28,7 @@ const moduleNavItems = [
   { label: '组合回测', path: '/lottery/dlt/backtest' },
   { label: '历史回放', path: '/lottery/dlt/replay' },
   { label: '敏感度', path: '/lottery/dlt/sensitivity' },
+  { label: '随机体检', path: '/lottery/dlt/randomness' },
   { label: '数据健康', path: '/lottery/dlt/data-health' },
 ];
 

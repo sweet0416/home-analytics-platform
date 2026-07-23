@@ -675,6 +675,63 @@ class LotteryBasicStatisticsRead(BaseModel):
     trend: list[LotteryDrawMetricRead]
 
 
+class LotteryRandomnessDeviationRead(BaseModel):
+    number: int
+    count: int
+    expected: float
+    deviation: float
+
+
+class LotteryEntropyRead(BaseModel):
+    value: float
+    max: float
+    normalized: float
+
+
+class LotteryRandomnessFrequencyRead(BaseModel):
+    area: str
+    sample_size: int
+    total_observations: int
+    chi_square: float
+    degrees_of_freedom: int
+    p_value: float
+    p_value_method: str
+    entropy: LotteryEntropyRead
+    top_deviations: list[LotteryRandomnessDeviationRead]
+    interpretation: str
+
+
+class LotterySequenceSummaryRead(BaseModel):
+    min: int | None
+    max: int | None
+    average: float | None
+    stddev: float | None
+
+
+class LotteryFrontGapSummaryRead(LotterySequenceSummaryRead):
+    distribution: list[LotteryDistributionItemRead]
+
+
+class LotteryAutocorrelationRead(BaseModel):
+    lag: int
+    value: float | None
+    interpretation: str
+
+
+class LotteryRandomnessDiagnosticsRead(BaseModel):
+    sample_size: int
+    requested_limit: int
+    latest_issue_no: str | None
+    earliest_issue_no: str | None
+    front_frequency: LotteryRandomnessFrequencyRead
+    back_frequency: LotteryRandomnessFrequencyRead
+    front_sum: LotterySequenceSummaryRead
+    front_sum_autocorrelation: LotteryAutocorrelationRead
+    front_parity_distribution: list[LotteryDistributionItemRead]
+    front_gap_summary: LotteryFrontGapSummaryRead
+    notes: list[str]
+
+
 def _normalize_numbers(
     *,
     value: list[int],

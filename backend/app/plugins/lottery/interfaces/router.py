@@ -23,6 +23,7 @@ from app.plugins.lottery.interfaces.schemas import (
     LotteryDrawRead,
     LotteryNumberOmissionDetailRead,
     LotteryOmissionStatisticsRead,
+    LotteryRandomnessDiagnosticsRead,
     LotteryRecommendationRead,
     LotteryReplayContextRead,
     LotteryReplayRequest,
@@ -167,6 +168,15 @@ def get_omission_statistics(
 ) -> ApiResponse[LotteryOmissionStatisticsRead]:
     service = LotteryService(db)
     return ok(service.get_omission_statistics(limit=limit))
+
+
+@router.get("/statistics/randomness", response_model=ApiResponse[LotteryRandomnessDiagnosticsRead])
+def get_randomness_diagnostics(
+    limit: int = Query(default=500, ge=50, le=2000),
+    db: Session = Depends(get_db),
+) -> ApiResponse[LotteryRandomnessDiagnosticsRead]:
+    service = LotteryService(db)
+    return ok(service.get_randomness_diagnostics(limit=limit))
 
 
 @router.get(

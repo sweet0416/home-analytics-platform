@@ -1,8 +1,9 @@
 import json
 import random
+from collections import Counter
 from dataclasses import replace
 from itertools import combinations
-from math import ceil, comb
+from math import ceil, comb, erf, log2, sqrt
 from statistics import mean
 
 from loguru import logger
@@ -275,6 +276,65 @@ class LotteryService:
             ),
             "recent_metrics": per_draw[:20],
             "trend": list(reversed(per_draw)),
+        }
+
+    def get_randomness_diagnostics(self, limit: int = 500) -> dict[str, object]:
+        draws = [
+            self._serialize_draw(draw)
+            for draw in self.repository.list_recent_draws(limit=limit)
+        ]
+        per_draw = [
+            self._build_draw_metrics(
+                issue_no=str(item["issue_no"]),
+                front_numbers=list(item["front_numbers"]),
+                back_numbers=list(item["back_numbers"]),
+            )
+            for item in draws
+        ]
+        front_rows = [list(item["front_numbers"]) for item in draws]
+        back_rows = [list(item["back_numbers"]) for item in draws]
+        front_frequency = self._build_randomness_frequency_metric(
+            rows=front_rows,
+            min_number=1,
+            max_number=35,
+            picks_per_draw=5,
+            area_label="前区",
+        )
+        back_frequency = self._build_randomness_frequency_metric(
+            rows=back_rows,
+            min_number=1,
+            max_number=12,
+            picks_per_draw=2,
+            area_label="后区",
+        )
+        front_sums = [int(item["front_sum"]) for item in reversed(per_draw)]
+        front_sum_autocorrelation = self._lag_one_correlation(front_sums)
+        notes = [
+            "本页用于检查历史开奖序列的统计特征，不用于预测下一期。",
+            "p 值为近似计算；样本量不足或多重检验时不要过度解读。",
+            "彩票设计目标是随机，局部波动和短期偏离都可能自然出现。",
+        ]
+        if len(draws) < 100:
+            notes.append("当前样本量较小，随机性指标的稳定性有限。")
+
+        return {
+            "sample_size": len(draws),
+            "requested_limit": limit,
+            "latest_issue_no": str(draws[0]["issue_no"]) if draws else None,
+            "earliest_issue_no": str(draws[-1]["issue_no"]) if draws else None,
+            "front_frequency": front_frequency,
+            "back_frequency": back_frequency,
+            "front_sum": self._build_sequence_summary(front_sums),
+            "front_sum_autocorrelation": {
+                "lag": 1,
+                "value": front_sum_autocorrelation,
+                "interpretation": "接近 0 表示相邻期和值线性相关较弱。",
+            },
+            "front_parity_distribution": self._summarize_distribution(
+                [str(item["front_parity_pattern"]) for item in per_draw]
+            ),
+            "front_gap_summary": self._build_gap_summary(front_rows),
+            "notes": notes,
         }
 
     def get_omission_statistics(self, limit: int = 100) -> dict[str, object]:
@@ -1672,6 +1732,131 @@ class LotteryService:
             {"pattern": pattern, "count": count}
             for pattern, count in sorted(counts.items(), key=lambda item: (-item[1], item[0]))
         ]
+
+    @staticmethod
+    def _build_randomness_frequency_metric(
+        *,
+        rows: list[list[int]],
+        min_number: int,
+        max_number: int,
+        picks_per_draw: int,
+        area_label: str,
+    ) -> dict[str, object]:
+        counts = Counter(number for row in rows for number in row)
+        sample_size = len(rows)
+        number_count = max_number - min_number + 1
+        expected = sample_size * picks_per_draw / number_count if number_count else 0
+        chi_square = sum(
+            ((counts[number] - expected) ** 2 / expected) if expected else 0
+            for number in range(min_number, max_number + 1)
+        )
+        degrees = number_count - 1
+        p_value = LotteryService._chi_square_survival_approx(chi_square, degrees)
+        deviations = [
+            {
+                "number": number,
+                "count": counts[number],
+                "expected": round(expected, 2),
+                "deviation": round(counts[number] - expected, 2),
+            }
+            for number in range(min_number, max_number + 1)
+        ]
+        return {
+            "area": area_label,
+            "sample_size": sample_size,
+            "total_observations": sample_size * picks_per_draw,
+            "chi_square": round(chi_square, 4),
+            "degrees_of_freedom": degrees,
+            "p_value": p_value,
+            "p_value_method": "Wilson-Hilferty normal approximation",
+            "entropy": LotteryService._frequency_entropy(counts, min_number, max_number),
+            "top_deviations": sorted(
+                deviations,
+                key=lambda item: abs(float(item["deviation"])),
+                reverse=True,
+            )[:8],
+            "interpretation": "卡方统计量越大，号码频率与均匀分布差异越大。",
+        }
+
+    @staticmethod
+    def _chi_square_survival_approx(chi_square: float, degrees_of_freedom: int) -> float:
+        if degrees_of_freedom <= 0 or chi_square < 0:
+            return 0
+        if chi_square == 0:
+            return 1
+        z_score = (
+            (chi_square / degrees_of_freedom) ** (1 / 3)
+            - (1 - 2 / (9 * degrees_of_freedom))
+        ) / sqrt(2 / (9 * degrees_of_freedom))
+        return round(max(0, min(1, 0.5 * (1 - erf(z_score / sqrt(2))))), 6)
+
+    @staticmethod
+    def _frequency_entropy(
+        counts: Counter[int],
+        min_number: int,
+        max_number: int,
+    ) -> dict[str, object]:
+        total = sum(counts.values())
+        if total <= 0:
+            return {"value": 0, "max": 0, "normalized": 0}
+        entropy = 0.0
+        for number in range(min_number, max_number + 1):
+            probability = counts[number] / total
+            if probability > 0:
+                entropy -= probability * log2(probability)
+        max_entropy = log2(max_number - min_number + 1)
+        return {
+            "value": round(entropy, 4),
+            "max": round(max_entropy, 4),
+            "normalized": round(entropy / max_entropy, 4) if max_entropy else 0,
+        }
+
+    @staticmethod
+    def _build_sequence_summary(values: list[int]) -> dict[str, object]:
+        if not values:
+            return {"min": None, "max": None, "average": None, "stddev": None}
+        average = mean(values)
+        variance = mean([(value - average) ** 2 for value in values])
+        return {
+            "min": min(values),
+            "max": max(values),
+            "average": round(average, 2),
+            "stddev": round(sqrt(variance), 4),
+        }
+
+    @staticmethod
+    def _lag_one_correlation(values: list[int]) -> float | None:
+        if len(values) < 3:
+            return None
+        left = values[:-1]
+        right = values[1:]
+        left_mean = mean(left)
+        right_mean = mean(right)
+        numerator = sum(
+            (left_value - left_mean) * (right_value - right_mean)
+            for left_value, right_value in zip(left, right, strict=True)
+        )
+        left_denominator = sqrt(sum((value - left_mean) ** 2 for value in left))
+        right_denominator = sqrt(sum((value - right_mean) ** 2 for value in right))
+        if left_denominator == 0 or right_denominator == 0:
+            return None
+        return round(numerator / (left_denominator * right_denominator), 4)
+
+    @staticmethod
+    def _build_gap_summary(rows: list[list[int]]) -> dict[str, object]:
+        gaps: list[int] = []
+        for row in rows:
+            sorted_row = sorted(row)
+            gaps.extend(
+                sorted_row[index + 1] - sorted_row[index]
+                for index in range(len(sorted_row) - 1)
+            )
+        return {
+            **LotteryService._build_sequence_summary(gaps),
+            "distribution": LotteryService._summarize_distribution(
+                [str(gap) for gap in gaps]
+            )[:12],
+        }
 
     @classmethod
     def _build_omission_items(

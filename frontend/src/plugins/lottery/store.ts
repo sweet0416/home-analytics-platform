@@ -12,6 +12,7 @@ import {
   fetchLatestSyncRun,
   fetchNumberOmissionDetail,
   fetchOmissionStatistics,
+  fetchRandomnessDiagnostics,
   fetchRecommendationAnalysis,
   fetchReplayContext,
   fetchSamePeriodAnalysis,
@@ -33,6 +34,7 @@ import {
   type LotteryDrawCoverage,
   type LotteryNumberOmissionDetail,
   type LotteryOmissionStatistics,
+  type LotteryRandomnessDiagnostics,
   type LotteryRecommendationAnalysis,
   type LotteryRecommendationWeights,
   type LotteryReplayContext,
@@ -58,6 +60,7 @@ export const useLotteryStore = defineStore('lottery', {
     syncRuns: null as SyncRunPage | null,
     statistics: null as LotteryBasicStatistics | null,
     omissionStatistics: null as LotteryOmissionStatistics | null,
+    randomnessDiagnostics: null as LotteryRandomnessDiagnostics | null,
     omissionDetail: null as LotteryNumberOmissionDetail | null,
     samePeriod: null as LotterySamePeriodAnalysis | null,
     recommendations: null as LotteryRecommendationAnalysis | null,
@@ -130,6 +133,9 @@ export const useLotteryStore = defineStore('lottery', {
     },
     async loadOmissionStatistics(limit = 100): Promise<void> {
       this.omissionStatistics = await fetchOmissionStatistics(limit);
+    },
+    async loadRandomnessDiagnostics(limit = 500): Promise<void> {
+      this.randomnessDiagnostics = await fetchRandomnessDiagnostics(limit);
     },
     async loadOmissionDetail(
       area: 'front' | 'back',
