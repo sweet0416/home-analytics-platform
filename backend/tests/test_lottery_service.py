@@ -229,7 +229,7 @@ def test_lottery_service_applies_recommendation_weights(db_session: Session) -> 
         missing_weight=5,
         structure_weight=20,
         co_occurrence_weight=15,
-        coverage_weight=8,
+        coverage_weight=16,
     )
 
     assert analysis["strategy_weights"] == {
@@ -238,7 +238,7 @@ def test_lottery_service_applies_recommendation_weights(db_session: Session) -> 
         "missing": 5,
         "structure": 20,
         "co_occurrence": 15,
-        "coverage": 8,
+        "coverage": 16,
     }
     assert analysis["requested_sets"] == 2
     assert len(analysis["recommendations"]) == 2

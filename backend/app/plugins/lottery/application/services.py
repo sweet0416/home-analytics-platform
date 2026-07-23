@@ -513,7 +513,7 @@ class LotteryService:
         missing_weight: float = 20,
         structure_weight: float = 10,
         co_occurrence_weight: float = 15,
-        coverage_weight: float = 8,
+        coverage_weight: float = 16,
     ) -> dict[str, object]:
         latest_draw = self.repository.get_latest_draw()
         if latest_draw is None:
@@ -1650,7 +1650,7 @@ class LotteryService:
         missing_weight: float,
         structure_weight: float,
         co_occurrence_weight: float = 15,
-        coverage_weight: float = 8,
+        coverage_weight: float = 16,
     ) -> dict[str, float]:
         weights = {
             "same_period": max(0.0, same_period_weight),
@@ -1667,7 +1667,7 @@ class LotteryService:
                 "missing": 20.0,
                 "structure": 10.0,
                 "co_occurrence": 15.0,
-                "coverage": 8.0,
+                "coverage": 16.0,
             }
         return {key: round(value, 2) for key, value in weights.items()}
 
@@ -1929,10 +1929,12 @@ class LotteryService:
             return base_score
         metrics = cls._build_candidate_coverage_metrics(candidate, selected)
         coverage_score = (
-            (1 - float(metrics["max_jaccard"])) * 10
+            (1 - float(metrics["max_jaccard"])) * 12
             + int(metrics["new_front_count"]) * 1.3
-            + int(metrics["new_back_count"]) * 1.6
+            + int(metrics["new_back_count"]) * 5.0
         )
+        if int(metrics["new_back_count"]) == 0:
+            coverage_score -= 8
         return base_score + coverage_score * (coverage_weight / 10)
 
     @staticmethod

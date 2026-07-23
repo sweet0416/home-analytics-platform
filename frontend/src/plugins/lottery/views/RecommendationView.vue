@@ -115,7 +115,7 @@
             <strong>{{ coverageWeight }}</strong>
           </div>
           <el-slider v-model="coverageWeight" :min="0" :max="100" :step="5" />
-          <p>越高越倾向让多组号码之间少重复、覆盖面更分散。</p>
+          <p>越高越倾向让多组号码之间少重复，尤其减少后区重复。</p>
         </div>
       </div>
     </section>
@@ -288,7 +288,7 @@ const defaultStrategyWeights = {
   missing: 15,
   structure: 10,
   co_occurrence: 10,
-  coverage: 8,
+  coverage: 16,
 } as const;
 const targetIssueInput = ref('');
 const setCount = ref(5);
