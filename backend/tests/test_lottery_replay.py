@@ -140,3 +140,52 @@ def test_replay_endpoint_returns_context_and_run(client: TestClient, db_session:
     assert run_response.json()["data"]["cutoff_issue_no"] == "25080"
     assert "same_period_deviation" in run_response.json()["data"]
     assert len(run_response.json()["data"]["generated_sets"]) == 2
+
+
+def test_sensitivity_analysis_does_not_create_replay_run(db_session: Session) -> None:
+    seed_replay_draws(db_session)
+
+    result = LotteryReplayService(db_session).analyze_parameter_sensitivity(
+        target_issue_no="26080",
+        sets=2,
+        sample_windows=[20, 50],
+        baseline_simulations=500,
+        seed=42,
+    )
+
+    assert result["target_issue_no"] == "26080"
+    assert result["combination_count"] == 8
+    assert result["summary"]["stability_label"] in {
+        "相对稳定",
+        "疑似过拟合",
+        "波动较大",
+        "样本不足",
+    }
+    assert result["leakage_check"]["passed"] is True
+
+    run_count = db_session.scalar(select(func.count()).select_from(LotteryReplayRunModel))
+    assert run_count == 0
+
+
+def test_sensitivity_endpoint_returns_ranked_results(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    seed_replay_draws(db_session)
+
+    response = client.post(
+        "/api/v1/lottery/dlt/analysis/replay/sensitivity",
+        json={
+            "target_issue_no": "26080",
+            "sets": 2,
+            "sample_windows": [20, 50],
+            "baseline_simulations": 500,
+            "seed": 42,
+        },
+    )
+
+    assert response.status_code == 200
+    data = response.json()["data"]
+    assert data["combination_count"] == 8
+    assert data["results"][0]["profile_name"]
+    assert data["baseline"]["simulations"] == 500

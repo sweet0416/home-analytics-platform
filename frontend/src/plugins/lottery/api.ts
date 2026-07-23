@@ -520,6 +520,61 @@ export interface LotteryReplayRun {
   disclaimer: string;
 }
 
+export interface LotterySensitivityWeightProfile extends LotteryReplayStrategyRequest {
+  name: string;
+}
+
+export interface LotterySensitivityRequest {
+  target_issue_no: string;
+  sets: number;
+  same_period_count: number;
+  sample_windows: number[];
+  weight_profiles: LotterySensitivityWeightProfile[];
+  baseline_simulations: number;
+  seed?: number | null;
+}
+
+export interface LotterySensitivityResult {
+  profile_name: string;
+  sample_window: number;
+  actual_sample_size: number;
+  same_period_sample_size: number;
+  weights: Record<string, number>;
+  average_match_score: number;
+  average_score_delta: number;
+  best_match_key: string | null;
+  best_baseline_percentile: number;
+  best_front_numbers: number[];
+  best_back_numbers: number[];
+  generated_sets: LotteryReplayGeneratedSet[];
+  warning: string;
+}
+
+export interface LotterySensitivitySummary {
+  best_profile_name: string | null;
+  best_sample_window: number | null;
+  positive_delta_count: number;
+  positive_delta_rate: number;
+  score_delta_spread: number;
+  stability_label: string;
+  overfit_warning: string;
+}
+
+export interface LotterySensitivityAnalysis {
+  target_issue_no: string;
+  target_draw: LotteryDraw;
+  sets: number;
+  same_period_count: number;
+  sample_windows: number[];
+  profile_count: number;
+  combination_count: number;
+  baseline: LotteryReplayBaseline;
+  results: LotterySensitivityResult[];
+  summary: LotterySensitivitySummary;
+  leakage_check: LotteryReplayLeakageCheck;
+  disclaimer: string;
+}
+
 export interface LotterySavedCombination {
   id: number;
   game_code: string;
@@ -709,6 +764,15 @@ export function fetchReplayContext(
 export function runReplay(payload: LotteryReplayRequest): Promise<LotteryReplayRun> {
   return postApiData<LotteryReplayRun, LotteryReplayRequest>(
     '/lottery/dlt/analysis/replay',
+    payload,
+  );
+}
+
+export function analyzeSensitivity(
+  payload: LotterySensitivityRequest,
+): Promise<LotterySensitivityAnalysis> {
+  return postApiData<LotterySensitivityAnalysis, LotterySensitivityRequest>(
+    '/lottery/dlt/analysis/replay/sensitivity',
     payload,
   );
 }

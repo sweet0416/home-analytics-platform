@@ -10,6 +10,7 @@ import OmissionView from './views/OmissionView.vue';
 import RecommendationView from './views/RecommendationView.vue';
 import ReplayView from './views/ReplayView.vue';
 import SamePeriodView from './views/SamePeriodView.vue';
+import SensitivityView from './views/SensitivityView.vue';
 import SimulationView from './views/SimulationView.vue';
 import StatisticsView from './views/StatisticsView.vue';
 
@@ -68,6 +69,11 @@ export const lotteryRoutes: RouteRecordRaw[] = [
     path: 'lottery/dlt/replay',
     name: 'lottery-dlt-replay',
     component: ReplayView,
+  },
+  {
+    path: 'lottery/dlt/sensitivity',
+    name: 'lottery-dlt-sensitivity',
+    component: SensitivityView,
   },
   {
     path: 'lottery/dlt/data-health',

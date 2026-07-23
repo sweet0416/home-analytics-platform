@@ -32,6 +32,8 @@ from app.plugins.lottery.interfaces.schemas import (
     LotterySavedCombinationRead,
     LotterySavedCombinationUpdate,
     LotterySamePeriodAnalysisRead,
+    LotterySensitivityRead,
+    LotterySensitivityRequest,
     LotterySimulationRead,
     LotterySyncRequest,
     LotterySyncRunPageRead,
@@ -296,6 +298,28 @@ def run_replay(
             frequency_weight=payload.strategy.frequency_weight,
             missing_weight=payload.strategy.missing_weight,
             structure_weight=payload.strategy.structure_weight,
+        )
+    )
+
+
+@router.post(
+    "/analysis/replay/sensitivity",
+    response_model=ApiResponse[LotterySensitivityRead],
+)
+def analyze_replay_sensitivity(
+    payload: LotterySensitivityRequest,
+    db: Session = Depends(get_db),
+) -> ApiResponse[LotterySensitivityRead]:
+    service = LotteryReplayService(db)
+    return ok(
+        service.analyze_parameter_sensitivity(
+            target_issue_no=payload.target_issue_no,
+            sets=payload.sets,
+            same_period_count=payload.same_period_count,
+            sample_windows=payload.sample_windows,
+            weight_profiles=[profile.model_dump() for profile in payload.weight_profiles] or None,
+            baseline_simulations=payload.baseline_simulations,
+            seed=payload.seed,
         )
     )
 

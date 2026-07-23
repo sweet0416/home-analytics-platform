@@ -207,6 +207,94 @@ class LotteryReplayService:
             "disclaimer": DLT_DISCLAIMER,
         }
 
+    def analyze_parameter_sensitivity(
+        self,
+        *,
+        target_issue_no: str,
+        sets: int = 5,
+        same_period_count: int = 10,
+        sample_windows: list[int] | None = None,
+        weight_profiles: list[dict[str, float]] | None = None,
+        baseline_simulations: int = 3000,
+        seed: int | None = None,
+    ) -> dict[str, object]:
+        target_draw = self._get_target_draw(target_issue_no)
+        windows = sample_windows or [50, 100, 200, 500]
+        profiles = weight_profiles or self._default_sensitivity_profiles()
+        if len(windows) * len(profiles) > 30:
+            raise AppError(
+                code=ErrorCode.validation_error,
+                message="Sensitivity analysis supports at most 30 parameter combinations.",
+                status_code=422,
+            )
+
+        max_window = max(windows)
+        training_models = self.repository.list_draws_before_issue(
+            target_issue_no,
+            limit=max_window,
+        )
+        self._assert_no_future_data(target_issue_no=target_issue_no, draws=training_models)
+        if not training_models:
+            raise AppError(
+                code=ErrorCode.lottery_draw_not_found,
+                message="No past draw data is available before the target issue.",
+                status_code=404,
+            )
+
+        target = LotteryService._serialize_draw(target_draw)
+        all_training_draws = [
+            LotteryService._serialize_draw(draw) for draw in training_models
+        ]
+        baseline = self._build_random_baseline(
+            target_front_numbers=list(target["front_numbers"]),
+            target_back_numbers=list(target["back_numbers"]),
+            simulations=baseline_simulations,
+            seed=seed,
+        )
+        results: list[dict[str, object]] = []
+        for window in sorted(set(windows)):
+            window_draws = all_training_draws[:window]
+            if not window_draws:
+                continue
+            for profile in profiles:
+                result = self._evaluate_parameter_profile(
+                    target=target,
+                    training_draws=window_draws,
+                    sets=sets,
+                    sample_window=window,
+                    same_period_count=same_period_count,
+                    weight_profile=profile,
+                    baseline_scores=list(baseline["scores"]),
+                    baseline_average_score=float(baseline["average_score"]),
+                )
+                results.append(result)
+
+        sorted_results = sorted(
+            results,
+            key=lambda item: (
+                float(item["average_score_delta"]),
+                float(item["best_baseline_percentile"]),
+            ),
+            reverse=True,
+        )
+        return {
+            "target_issue_no": target_issue_no,
+            "target_draw": target,
+            "sets": sets,
+            "same_period_count": same_period_count,
+            "sample_windows": sorted(set(windows)),
+            "profile_count": len(profiles),
+            "combination_count": len(results),
+            "baseline": {key: value for key, value in baseline.items() if key != "scores"},
+            "results": sorted_results,
+            "summary": self._build_sensitivity_summary(sorted_results),
+            "leakage_check": {
+                "passed": True,
+                "rule": "each parameter combination trains only on issues before target_issue_no",
+            },
+            "disclaimer": DLT_DISCLAIMER,
+        }
+
     def _get_target_draw(self, target_issue_no: str) -> LotteryDrawModel:
         target_draw = self.repository.get_draw_by_issue(target_issue_no.strip())
         if target_draw is None:
@@ -303,6 +391,179 @@ class LotteryReplayService:
             "any_prize_rate": round(any_prize_count / simulations, 6),
             "scores": scores,
             "explanation": "Random baseline samples 5 front and 2 back numbers uniformly.",
+        }
+
+    @staticmethod
+    def _default_sensitivity_profiles() -> list[dict[str, float]]:
+        return [
+            {
+                "name": "均衡",
+                "same_period_weight": 35,
+                "frequency_weight": 25,
+                "missing_weight": 25,
+                "structure_weight": 15,
+            },
+            {
+                "name": "历史同期优先",
+                "same_period_weight": 55,
+                "frequency_weight": 20,
+                "missing_weight": 15,
+                "structure_weight": 10,
+            },
+            {
+                "name": "频率优先",
+                "same_period_weight": 20,
+                "frequency_weight": 45,
+                "missing_weight": 25,
+                "structure_weight": 10,
+            },
+            {
+                "name": "遗漏优先",
+                "same_period_weight": 20,
+                "frequency_weight": 20,
+                "missing_weight": 45,
+                "structure_weight": 15,
+            },
+        ]
+
+    @staticmethod
+    def _evaluate_parameter_profile(
+        *,
+        target: dict[str, object],
+        training_draws: list[dict[str, object]],
+        sets: int,
+        sample_window: int,
+        same_period_count: int,
+        weight_profile: dict[str, float],
+        baseline_scores: list[int],
+        baseline_average_score: float,
+    ) -> dict[str, object]:
+        strategy_weights = LotteryService._normalize_recommendation_weights(
+            same_period_weight=float(weight_profile.get("same_period_weight", 0)),
+            frequency_weight=float(weight_profile.get("frequency_weight", 0)),
+            missing_weight=float(weight_profile.get("missing_weight", 0)),
+            structure_weight=float(weight_profile.get("structure_weight", 0)),
+        )
+        issue_suffix = str(target["issue_no"])[-3:]
+        same_period_draws = [
+            draw for draw in training_draws if str(draw["issue_no"]).endswith(issue_suffix)
+        ][:same_period_count]
+        front_scores = LotteryService._score_recommendation_numbers(
+            area="front",
+            min_number=1,
+            max_number=35,
+            recent_draws=training_draws,
+            same_period_draws=same_period_draws,
+            strategy_weights=strategy_weights,
+        )
+        back_scores = LotteryService._score_recommendation_numbers(
+            area="back",
+            min_number=1,
+            max_number=12,
+            recent_draws=training_draws,
+            same_period_draws=same_period_draws,
+            strategy_weights=strategy_weights,
+        )
+        generated_sets = LotteryService._build_recommendation_sets(
+            front_scores=front_scores,
+            back_scores=back_scores,
+            recent_draws=training_draws,
+            structure_weight=float(strategy_weights["structure"]),
+            limit=sets,
+        )
+        evaluated_sets = [
+            LotteryReplayService._evaluate_generated_set(
+                generated_set=item,
+                target=target,
+                baseline_scores=baseline_scores,
+            )
+            for item in generated_sets
+        ]
+        match_scores = [
+            int(item["front_match_count"]) * 10 + int(item["back_match_count"])
+            for item in evaluated_sets
+        ]
+        average_score = round(mean(match_scores), 4) if match_scores else 0
+        best_set = max(
+            evaluated_sets,
+            key=lambda item: (
+                int(item["front_match_count"]),
+                int(item["back_match_count"]),
+                float(item["baseline_percentile"]),
+            ),
+            default=None,
+        )
+        return {
+            "profile_name": str(weight_profile.get("name") or "自定义"),
+            "sample_window": sample_window,
+            "actual_sample_size": len(training_draws),
+            "same_period_sample_size": len(same_period_draws),
+            "weights": strategy_weights,
+            "average_match_score": average_score,
+            "average_score_delta": round(average_score - baseline_average_score, 4),
+            "best_match_key": best_set["match_key"] if best_set else None,
+            "best_baseline_percentile": best_set["baseline_percentile"] if best_set else 0,
+            "best_front_numbers": best_set["front_numbers"] if best_set else [],
+            "best_back_numbers": best_set["back_numbers"] if best_set else [],
+            "generated_sets": evaluated_sets,
+            "warning": LotteryReplayService._classify_parameter_result(
+                average_score=average_score,
+                baseline_average_score=baseline_average_score,
+                best_percentile=float(best_set["baseline_percentile"]) if best_set else 0,
+                same_period_sample_size=len(same_period_draws),
+            ),
+        }
+
+    @staticmethod
+    def _classify_parameter_result(
+        *,
+        average_score: float,
+        baseline_average_score: float,
+        best_percentile: float,
+        same_period_sample_size: int,
+    ) -> str:
+        if same_period_sample_size < 3:
+            return "同期样本少"
+        if average_score <= baseline_average_score and best_percentile < 0.75:
+            return "接近随机"
+        if best_percentile >= 0.9 and average_score > baseline_average_score:
+            return "表现靠前"
+        return "中性"
+
+    @staticmethod
+    def _build_sensitivity_summary(results: list[dict[str, object]]) -> dict[str, object]:
+        if not results:
+            return {
+                "best_profile_name": None,
+                "best_sample_window": None,
+                "positive_delta_count": 0,
+                "positive_delta_rate": 0,
+                "score_delta_spread": 0,
+                "stability_label": "样本不足",
+                "overfit_warning": "没有可比较的参数组合。",
+            }
+        deltas = [float(item["average_score_delta"]) for item in results]
+        positive_count = sum(1 for delta in deltas if delta > 0)
+        positive_rate = round(positive_count / len(deltas), 4)
+        spread = round(max(deltas) - min(deltas), 4)
+        best = results[0]
+        if positive_rate >= 0.6 and spread <= 8:
+            stability_label = "相对稳定"
+            overfit_warning = "多数参数组合优于随机均值，暂未看到明显单点过拟合。"
+        elif positive_count <= 1 and len(results) >= 4:
+            stability_label = "疑似过拟合"
+            overfit_warning = "只有极少数组合表现靠前，可能是参数偶然性。"
+        else:
+            stability_label = "波动较大"
+            overfit_warning = "不同参数组合差异较大，需要更多目标期回放验证。"
+        return {
+            "best_profile_name": best["profile_name"],
+            "best_sample_window": best["sample_window"],
+            "positive_delta_count": positive_count,
+            "positive_delta_rate": positive_rate,
+            "score_delta_spread": spread,
+            "stability_label": stability_label,
+            "overfit_warning": overfit_warning,
         }
 
     @staticmethod

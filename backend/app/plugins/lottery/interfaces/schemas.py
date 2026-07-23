@@ -421,6 +421,43 @@ class LotteryReplayRequest(BaseModel):
     strategy: LotteryReplayStrategyRequest = Field(default_factory=LotteryReplayStrategyRequest)
 
 
+class LotterySensitivityWeightProfileRequest(LotteryReplayStrategyRequest):
+    name: str = Field(min_length=1, max_length=32)
+
+
+class LotterySensitivityRequest(BaseModel):
+    target_issue_no: str = Field(min_length=3, max_length=16)
+    sets: int = Field(default=5, ge=1, le=12)
+    same_period_count: int = Field(default=10, ge=1, le=20)
+    sample_windows: list[int] = Field(default_factory=lambda: [50, 100, 200, 500])
+    weight_profiles: list[LotterySensitivityWeightProfileRequest] = Field(default_factory=list)
+    baseline_simulations: int = Field(default=3000, ge=100, le=20000)
+    seed: int | None = Field(default=None, ge=0, le=2147483647)
+
+    @field_validator("sample_windows")
+    @classmethod
+    def validate_sample_windows(cls, value: list[int]) -> list[int]:
+        windows = sorted(set(value))
+        if not windows:
+            raise ValueError("At least one sample window is required.")
+        if len(windows) > 8:
+            raise ValueError("At most 8 sample windows are supported.")
+        invalid = [item for item in windows if item < 20 or item > 2000]
+        if invalid:
+            raise ValueError("Sample windows must be between 20 and 2000.")
+        return windows
+
+    @field_validator("weight_profiles")
+    @classmethod
+    def validate_weight_profiles(
+        cls,
+        value: list[LotterySensitivityWeightProfileRequest],
+    ) -> list[LotterySensitivityWeightProfileRequest]:
+        if len(value) > 8:
+            raise ValueError("At most 8 weight profiles are supported.")
+        return value
+
+
 class LotteryReplayLeakageCheckRead(BaseModel):
     passed: bool
     rule: str
@@ -524,6 +561,47 @@ class LotteryReplayRunRead(BaseModel):
     warnings: list[LotteryReplayWarningRead]
     leakage_check: LotteryReplayLeakageCheckRead
     same_period_deviation: LotterySamePeriodDeviationRead
+    disclaimer: str
+
+
+class LotterySensitivityResultRead(BaseModel):
+    profile_name: str
+    sample_window: int
+    actual_sample_size: int
+    same_period_sample_size: int
+    weights: dict[str, float]
+    average_match_score: float
+    average_score_delta: float
+    best_match_key: str | None
+    best_baseline_percentile: float
+    best_front_numbers: list[int]
+    best_back_numbers: list[int]
+    generated_sets: list[LotteryReplayGeneratedSetRead]
+    warning: str
+
+
+class LotterySensitivitySummaryRead(BaseModel):
+    best_profile_name: str | None
+    best_sample_window: int | None
+    positive_delta_count: int
+    positive_delta_rate: float
+    score_delta_spread: float
+    stability_label: str
+    overfit_warning: str
+
+
+class LotterySensitivityRead(BaseModel):
+    target_issue_no: str
+    target_draw: LotteryDrawRead
+    sets: int
+    same_period_count: int
+    sample_windows: list[int]
+    profile_count: int
+    combination_count: int
+    baseline: LotteryReplayBaselineRead
+    results: list[LotterySensitivityResultRead]
+    summary: LotterySensitivitySummaryRead
+    leakage_check: LotteryReplayLeakageCheckRead
     disclaimer: str
 
 

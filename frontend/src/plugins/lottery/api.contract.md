@@ -15,6 +15,9 @@ GET /api/v1/lottery/dlt/analysis/recommendations?sets&same_period_count&sample_l
 GET /api/v1/lottery/dlt/analysis/simulation
 POST /api/v1/lottery/dlt/analysis/dantuo
 POST /api/v1/lottery/dlt/analysis/backtest
+GET /api/v1/lottery/dlt/analysis/replay/context?target_issue_no&sample_limit
+POST /api/v1/lottery/dlt/analysis/replay
+POST /api/v1/lottery/dlt/analysis/replay/sensitivity
 POST /api/v1/lottery/dlt/sync
 POST /api/v1/lottery/dlt/sync/backfill
 POST /api/v1/lottery/dlt/sync/backfill/start

@@ -2,6 +2,7 @@ import { defineStore } from 'pinia';
 
 import {
   analyzeDantuo as analyzeDantuoRequest,
+  analyzeSensitivity as analyzeSensitivityRequest,
   backtestNumbers as backtestNumbersRequest,
   fetchBasicStatistics,
   fetchCurrentRule,
@@ -39,6 +40,8 @@ import {
   type LotteryReplayRun,
   type LotteryRule,
   type LotterySamePeriodAnalysis,
+  type LotterySensitivityAnalysis,
+  type LotterySensitivityRequest,
   type LotterySimulationAnalysis,
   type LotterySyncRun,
   type LotterySyncStatus,
@@ -60,6 +63,7 @@ export const useLotteryStore = defineStore('lottery', {
     recommendations: null as LotteryRecommendationAnalysis | null,
     replayContext: null as LotteryReplayContext | null,
     replayRun: null as LotteryReplayRun | null,
+    sensitivity: null as LotterySensitivityAnalysis | null,
     simulation: null as LotterySimulationAnalysis | null,
     dantuo: null as LotteryDantuoAnalysis | null,
     backtest: null as LotteryBacktestAnalysis | null,
@@ -175,6 +179,9 @@ export const useLotteryStore = defineStore('lottery', {
         warnings: this.replayRun.warnings,
         same_period_deviation: this.replayRun.same_period_deviation,
       };
+    },
+    async analyzeSensitivity(payload: LotterySensitivityRequest): Promise<void> {
+      this.sensitivity = await analyzeSensitivityRequest(payload);
     },
     async loadSimulation(simulations = 10000, sets = 5, seed?: number): Promise<void> {
       this.simulation = await fetchSimulationAnalysis(simulations, sets, seed);

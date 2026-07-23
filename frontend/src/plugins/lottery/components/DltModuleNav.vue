@@ -27,6 +27,7 @@ const moduleNavItems = [
   { label: '定胆胆拖', path: '/lottery/dlt/dantuo' },
   { label: '组合回测', path: '/lottery/dlt/backtest' },
   { label: '历史回放', path: '/lottery/dlt/replay' },
+  { label: '敏感度', path: '/lottery/dlt/sensitivity' },
   { label: '数据健康', path: '/lottery/dlt/data-health' },
 ];
 
