@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from app.core.config.settings import get_settings
 from app.core.database.session import SessionLocal, get_db
 from app.plugins.lottery.application.notification import DltNotificationService, MANUAL_TRIGGER
+from app.plugins.lottery.application.replay_service import LotteryReplayService
 from app.plugins.lottery.application.services import LotteryService
 from app.plugins.lottery.domain.constants import DLT_DISCLAIMER
 from app.plugins.lottery.domain.sync import DrawSyncCommand
@@ -23,6 +24,9 @@ from app.plugins.lottery.interfaces.schemas import (
     LotteryNumberOmissionDetailRead,
     LotteryOmissionStatisticsRead,
     LotteryRecommendationRead,
+    LotteryReplayContextRead,
+    LotteryReplayRequest,
+    LotteryReplayRunRead,
     LotteryRuleRead,
     LotterySavedCombinationCreate,
     LotterySavedCombinationRead,
@@ -257,6 +261,41 @@ def backtest_numbers(
             back_numbers=payload.back_numbers,
             addon=payload.addon,
             hit_limit=payload.hit_limit,
+        )
+    )
+
+
+@router.get(
+    "/analysis/replay/context",
+    response_model=ApiResponse[LotteryReplayContextRead],
+)
+def get_replay_context(
+    target_issue_no: str = Query(min_length=3, max_length=16),
+    sample_limit: int = Query(default=500, ge=20, le=2000),
+    db: Session = Depends(get_db),
+) -> ApiResponse[LotteryReplayContextRead]:
+    service = LotteryReplayService(db)
+    return ok(service.get_replay_context(target_issue_no=target_issue_no, sample_limit=sample_limit))
+
+
+@router.post("/analysis/replay", response_model=ApiResponse[LotteryReplayRunRead])
+def run_replay(
+    payload: LotteryReplayRequest,
+    db: Session = Depends(get_db),
+) -> ApiResponse[LotteryReplayRunRead]:
+    service = LotteryReplayService(db)
+    return ok(
+        service.run_replay(
+            target_issue_no=payload.target_issue_no,
+            sets=payload.sets,
+            sample_limit=payload.sample_limit,
+            same_period_count=payload.same_period_count,
+            baseline_simulations=payload.baseline_simulations,
+            seed=payload.seed,
+            same_period_weight=payload.strategy.same_period_weight,
+            frequency_weight=payload.strategy.frequency_weight,
+            missing_weight=payload.strategy.missing_weight,
+            structure_weight=payload.strategy.structure_weight,
         )
     )
 

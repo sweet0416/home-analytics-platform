@@ -26,6 +26,7 @@ const moduleNavItems = [
   { label: '模拟选号', path: '/lottery/dlt/simulation' },
   { label: '定胆胆拖', path: '/lottery/dlt/dantuo' },
   { label: '组合回测', path: '/lottery/dlt/backtest' },
+  { label: '历史回放', path: '/lottery/dlt/replay' },
   { label: '数据健康', path: '/lottery/dlt/data-health' },
 ];
 

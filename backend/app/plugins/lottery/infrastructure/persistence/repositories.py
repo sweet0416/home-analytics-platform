@@ -11,6 +11,8 @@ from app.plugins.lottery.infrastructure.persistence.models import (
     LotteryDrawModel,
     LotteryGameModel,
     LotteryPrizeTierModel,
+    LotteryReplayGeneratedSetModel,
+    LotteryReplayRunModel,
     LotteryRuleVersionModel,
     LotterySavedCombinationModel,
     LotterySyncRunModel,
@@ -110,6 +112,41 @@ class LotteryRepository:
                 .where(LotteryDrawModel.game_code == game_code)
                 .order_by(LotteryDrawModel.draw_date.desc())
             )
+        )
+
+    def list_draws_before_issue(
+        self,
+        target_issue_no: str,
+        *,
+        game_code: str = DLT_GAME_CODE,
+        limit: int | None = None,
+    ) -> list[LotteryDrawModel]:
+        statement = (
+            select(LotteryDrawModel)
+            .where(
+                LotteryDrawModel.game_code == game_code,
+                LotteryDrawModel.issue_no < target_issue_no,
+            )
+            .order_by(LotteryDrawModel.draw_date.desc(), LotteryDrawModel.issue_no.desc())
+        )
+        if limit is not None:
+            statement = statement.limit(limit)
+        return list(self.db.scalars(statement))
+
+    def get_previous_draw(
+        self,
+        target_issue_no: str,
+        *,
+        game_code: str = DLT_GAME_CODE,
+    ) -> LotteryDrawModel | None:
+        return self.db.scalar(
+            select(LotteryDrawModel)
+            .where(
+                LotteryDrawModel.game_code == game_code,
+                LotteryDrawModel.issue_no < target_issue_no,
+            )
+            .order_by(LotteryDrawModel.issue_no.desc())
+            .limit(1)
         )
 
     def list_saved_combinations(
@@ -217,6 +254,70 @@ class LotteryRepository:
     def delete_saved_combination(self, combination: LotterySavedCombinationModel) -> None:
         self.db.delete(combination)
         self.db.flush()
+
+    def create_replay_run(
+        self,
+        *,
+        game_code: str,
+        target_issue_no: str,
+        target_draw_date,
+        cutoff_issue_no: str | None,
+        cutoff_draw_date,
+        strategy_name: str,
+        strategy_params_json: str,
+        sample_size: int,
+        baseline_simulations: int,
+        status: str,
+        warnings_json: str,
+        result_summary_json: str,
+    ) -> LotteryReplayRunModel:
+        run = LotteryReplayRunModel(
+            game_code=game_code,
+            target_issue_no=target_issue_no,
+            target_draw_date=target_draw_date,
+            cutoff_issue_no=cutoff_issue_no,
+            cutoff_draw_date=cutoff_draw_date,
+            strategy_name=strategy_name,
+            strategy_params_json=strategy_params_json,
+            sample_size=sample_size,
+            baseline_simulations=baseline_simulations,
+            status=status,
+            warnings_json=warnings_json,
+            result_summary_json=result_summary_json,
+        )
+        self.db.add(run)
+        self.db.flush()
+        return run
+
+    def add_replay_generated_set(
+        self,
+        *,
+        replay_run: LotteryReplayRunModel,
+        rank: int,
+        front_numbers_json: str,
+        back_numbers_json: str,
+        score: Decimal | None,
+        rationale_json: str,
+        front_match_count: int,
+        back_match_count: int,
+        prize_tier: int | None,
+        baseline_percentile: Decimal | None,
+    ) -> LotteryReplayGeneratedSetModel:
+        generated_set = LotteryReplayGeneratedSetModel(
+            replay_run=replay_run,
+            rank=rank,
+            front_numbers_json=front_numbers_json,
+            back_numbers_json=back_numbers_json,
+            score=score,
+            rationale_json=rationale_json,
+            front_match_count=front_match_count,
+            back_match_count=back_match_count,
+            prize_tier=prize_tier,
+            baseline_percentile=baseline_percentile,
+        )
+        self.db.add(generated_set)
+        self.db.flush()
+        return generated_set
 
     def get_draw_by_issue(
         self,

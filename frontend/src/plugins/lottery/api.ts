@@ -409,6 +409,87 @@ export interface LotteryBacktestAnalysis {
   methodology: string[];
 }
 
+export interface LotteryReplayStrategyRequest {
+  same_period_weight: number;
+  frequency_weight: number;
+  missing_weight: number;
+  structure_weight: number;
+}
+
+export interface LotteryReplayRequest {
+  target_issue_no: string;
+  sets: number;
+  sample_limit: number;
+  same_period_count: number;
+  baseline_simulations: number;
+  seed?: number | null;
+  strategy: LotteryReplayStrategyRequest;
+}
+
+export interface LotteryReplayWarning {
+  code: string;
+  message: string;
+}
+
+export interface LotteryReplayLeakageCheck {
+  passed: boolean;
+  rule: string;
+}
+
+export interface LotteryReplayRange {
+  earliest_issue_no: string | null;
+  latest_issue_no: string | null;
+  earliest_draw_date: string | null;
+  latest_draw_date: string | null;
+}
+
+export interface LotteryReplayContext {
+  target: LotteryDraw;
+  cutoff: LotteryDraw | null;
+  sample_size: number;
+  requested_sample_limit: number;
+  available_range: LotteryReplayRange;
+  leakage_check: LotteryReplayLeakageCheck;
+  warnings: LotteryReplayWarning[];
+}
+
+export interface LotteryReplayGeneratedSet extends LotteryRecommendationSet {
+  front_matches: number[];
+  back_matches: number[];
+  front_match_count: number;
+  back_match_count: number;
+  match_key: string;
+  prize_tier: number | null;
+  baseline_percentile: number;
+}
+
+export interface LotteryReplayBaseline {
+  simulations: number;
+  seed: number | null;
+  average_front_match: number;
+  average_back_match: number;
+  average_score: number;
+  any_prize_rate: number;
+  explanation: string;
+}
+
+export interface LotteryReplayRun {
+  run_id: number;
+  target_issue_no: string;
+  target_draw: LotteryDraw;
+  cutoff_issue_no: string;
+  cutoff_draw_date: string;
+  sample_size: number;
+  same_period_count: number;
+  strategy_name: string;
+  strategy_params: Record<string, unknown>;
+  generated_sets: LotteryReplayGeneratedSet[];
+  baseline: LotteryReplayBaseline;
+  warnings: LotteryReplayWarning[];
+  leakage_check: LotteryReplayLeakageCheck;
+  disclaimer: string;
+}
+
 export interface LotterySavedCombination {
   id: number;
   game_code: string;
@@ -578,6 +659,26 @@ export function backtestNumbers(
 ): Promise<LotteryBacktestAnalysis> {
   return postApiData<LotteryBacktestAnalysis, LotteryBacktestRequest>(
     '/lottery/dlt/analysis/backtest',
+    payload,
+  );
+}
+
+export function fetchReplayContext(
+  targetIssueNo: string,
+  sampleLimit = 500,
+): Promise<LotteryReplayContext> {
+  const params = new URLSearchParams({
+    target_issue_no: targetIssueNo,
+    sample_limit: String(sampleLimit),
+  });
+  return getApiData<LotteryReplayContext>(
+    `/lottery/dlt/analysis/replay/context?${params.toString()}`,
+  );
+}
+
+export function runReplay(payload: LotteryReplayRequest): Promise<LotteryReplayRun> {
+  return postApiData<LotteryReplayRun, LotteryReplayRequest>(
+    '/lottery/dlt/analysis/replay',
     payload,
   );
 }

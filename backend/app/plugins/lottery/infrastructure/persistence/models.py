@@ -169,3 +169,54 @@ class LotterySavedCombinationModel(Base):
     note: Mapped[str] = mapped_column(Text, default="")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class LotteryReplayRunModel(Base):
+    __tablename__ = "lottery_replay_runs"
+    __table_args__ = (
+        Index("ix_lottery_replay_runs_game_created", "game_code", "created_at"),
+        Index("ix_lottery_replay_runs_game_target", "game_code", "target_issue_no"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    game_code: Mapped[str] = mapped_column(String(32), index=True)
+    target_issue_no: Mapped[str] = mapped_column(String(32), index=True)
+    target_draw_date: Mapped[date] = mapped_column(Date, index=True)
+    cutoff_issue_no: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    cutoff_draw_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    strategy_name: Mapped[str] = mapped_column(String(64))
+    strategy_params_json: Mapped[str] = mapped_column(Text)
+    sample_size: Mapped[int] = mapped_column(Integer)
+    baseline_simulations: Mapped[int] = mapped_column(Integer)
+    status: Mapped[str] = mapped_column(String(32), index=True)
+    warnings_json: Mapped[str] = mapped_column(Text, default="[]")
+    result_summary_json: Mapped[str] = mapped_column(Text, default="{}")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    generated_sets: Mapped[list["LotteryReplayGeneratedSetModel"]] = relationship(
+        back_populates="replay_run",
+        cascade="all, delete-orphan",
+    )
+
+
+class LotteryReplayGeneratedSetModel(Base):
+    __tablename__ = "lottery_replay_generated_sets"
+    __table_args__ = (
+        Index("ix_lottery_replay_generated_sets_run_rank", "replay_run_id", "rank"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    replay_run_id: Mapped[int] = mapped_column(ForeignKey("lottery_replay_runs.id"), index=True)
+    rank: Mapped[int] = mapped_column(Integer)
+    front_numbers_json: Mapped[str] = mapped_column(Text)
+    back_numbers_json: Mapped[str] = mapped_column(Text)
+    score: Mapped[Decimal | None] = mapped_column(Numeric(12, 4), nullable=True)
+    rationale_json: Mapped[str] = mapped_column(Text, default="[]")
+    front_match_count: Mapped[int] = mapped_column(Integer)
+    back_match_count: Mapped[int] = mapped_column(Integer)
+    prize_tier: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    baseline_percentile: Mapped[Decimal | None] = mapped_column(Numeric(8, 4), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    replay_run: Mapped[LotteryReplayRunModel] = relationship(back_populates="generated_sets")

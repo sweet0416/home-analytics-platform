@@ -8,6 +8,7 @@ import HeatmapView from './views/HeatmapView.vue';
 import LotteryOverview from './views/LotteryOverview.vue';
 import OmissionView from './views/OmissionView.vue';
 import RecommendationView from './views/RecommendationView.vue';
+import ReplayView from './views/ReplayView.vue';
 import SamePeriodView from './views/SamePeriodView.vue';
 import SimulationView from './views/SimulationView.vue';
 import StatisticsView from './views/StatisticsView.vue';
@@ -62,6 +63,11 @@ export const lotteryRoutes: RouteRecordRaw[] = [
     path: 'lottery/dlt/backtest',
     name: 'lottery-dlt-backtest',
     component: BacktestView,
+  },
+  {
+    path: 'lottery/dlt/replay',
+    name: 'lottery-dlt-replay',
+    component: ReplayView,
   },
   {
     path: 'lottery/dlt/data-health',

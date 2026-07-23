@@ -404,6 +404,99 @@ class LotteryBacktestAnalysisRead(BaseModel):
     methodology: list[str]
 
 
+class LotteryReplayStrategyRequest(BaseModel):
+    same_period_weight: float = Field(default=45, ge=0, le=100)
+    frequency_weight: float = Field(default=25, ge=0, le=100)
+    missing_weight: float = Field(default=20, ge=0, le=100)
+    structure_weight: float = Field(default=10, ge=0, le=100)
+
+
+class LotteryReplayRequest(BaseModel):
+    target_issue_no: str = Field(min_length=3, max_length=16)
+    sets: int = Field(default=5, ge=1, le=12)
+    sample_limit: int = Field(default=500, ge=20, le=2000)
+    same_period_count: int = Field(default=10, ge=1, le=20)
+    baseline_simulations: int = Field(default=10000, ge=100, le=50000)
+    seed: int | None = Field(default=None, ge=0, le=2147483647)
+    strategy: LotteryReplayStrategyRequest = Field(default_factory=LotteryReplayStrategyRequest)
+
+
+class LotteryReplayLeakageCheckRead(BaseModel):
+    passed: bool
+    rule: str
+
+
+class LotteryReplayRangeRead(BaseModel):
+    earliest_issue_no: str | None
+    latest_issue_no: str | None
+    earliest_draw_date: str | None
+    latest_draw_date: str | None
+
+
+class LotteryReplayWarningRead(BaseModel):
+    code: str
+    message: str
+
+
+class LotteryReplayContextRead(BaseModel):
+    target: LotteryDrawRead
+    cutoff: LotteryDrawRead | None
+    sample_size: int
+    requested_sample_limit: int
+    available_range: LotteryReplayRangeRead
+    leakage_check: LotteryReplayLeakageCheckRead
+    warnings: list[LotteryReplayWarningRead]
+
+
+class LotteryReplayGeneratedSetRead(BaseModel):
+    rank: int
+    front_numbers: list[int] = Field(min_length=5, max_length=5)
+    back_numbers: list[int] = Field(min_length=2, max_length=2)
+    score: float
+    rationale: list[str]
+    front_sum: int
+    front_span: int
+    front_parity_pattern: str
+    front_zone_pattern: str
+    front_route012_pattern: str
+    front_details: list[LotteryRecommendationNumberRead]
+    back_details: list[LotteryRecommendationNumberRead]
+    front_matches: list[int]
+    back_matches: list[int]
+    front_match_count: int
+    back_match_count: int
+    match_key: str
+    prize_tier: int | None
+    baseline_percentile: float
+
+
+class LotteryReplayBaselineRead(BaseModel):
+    simulations: int
+    seed: int | None
+    average_front_match: float
+    average_back_match: float
+    average_score: float
+    any_prize_rate: float
+    explanation: str
+
+
+class LotteryReplayRunRead(BaseModel):
+    run_id: int
+    target_issue_no: str
+    target_draw: LotteryDrawRead
+    cutoff_issue_no: str
+    cutoff_draw_date: str
+    sample_size: int
+    same_period_count: int
+    strategy_name: str
+    strategy_params: dict[str, object]
+    generated_sets: list[LotteryReplayGeneratedSetRead]
+    baseline: LotteryReplayBaselineRead
+    warnings: list[LotteryReplayWarningRead]
+    leakage_check: LotteryReplayLeakageCheckRead
+    disclaimer: str
+
+
 class LotterySavedCombinationCreate(BaseModel):
     label: str = Field(min_length=1, max_length=64)
     source: str = Field(default="manual", min_length=1, max_length=64)

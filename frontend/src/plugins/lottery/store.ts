@@ -12,10 +12,12 @@ import {
   fetchNumberOmissionDetail,
   fetchOmissionStatistics,
   fetchRecommendationAnalysis,
+  fetchReplayContext,
   fetchSamePeriodAnalysis,
   fetchSimulationAnalysis,
   fetchSyncRuns,
   fetchSyncStatus,
+  runReplay as runReplayRequest,
   startBackfill,
   triggerDrawSync,
   type DrawPage,
@@ -32,6 +34,9 @@ import {
   type LotteryOmissionStatistics,
   type LotteryRecommendationAnalysis,
   type LotteryRecommendationWeights,
+  type LotteryReplayContext,
+  type LotteryReplayRequest,
+  type LotteryReplayRun,
   type LotteryRule,
   type LotterySamePeriodAnalysis,
   type LotterySimulationAnalysis,
@@ -53,6 +58,8 @@ export const useLotteryStore = defineStore('lottery', {
     omissionDetail: null as LotteryNumberOmissionDetail | null,
     samePeriod: null as LotterySamePeriodAnalysis | null,
     recommendations: null as LotteryRecommendationAnalysis | null,
+    replayContext: null as LotteryReplayContext | null,
+    replayRun: null as LotteryReplayRun | null,
     simulation: null as LotterySimulationAnalysis | null,
     dantuo: null as LotteryDantuoAnalysis | null,
     backtest: null as LotteryBacktestAnalysis | null,
@@ -144,6 +151,28 @@ export const useLotteryStore = defineStore('lottery', {
         sampleLimit,
         weights,
       );
+    },
+    async loadReplayContext(targetIssueNo: string, sampleLimit = 500): Promise<void> {
+      this.replayContext = await fetchReplayContext(targetIssueNo, sampleLimit);
+    },
+    async runReplay(payload: LotteryReplayRequest): Promise<void> {
+      this.replayRun = await runReplayRequest(payload);
+      this.replayContext = {
+        target: payload.target_issue_no === this.replayContext?.target.issue_no
+          ? this.replayContext.target
+          : this.replayRun.target_draw,
+        cutoff: null,
+        sample_size: this.replayRun.sample_size,
+        requested_sample_limit: payload.sample_limit,
+        available_range: {
+          earliest_issue_no: null,
+          latest_issue_no: this.replayRun.cutoff_issue_no,
+          earliest_draw_date: null,
+          latest_draw_date: this.replayRun.cutoff_draw_date,
+        },
+        leakage_check: this.replayRun.leakage_check,
+        warnings: this.replayRun.warnings,
+      };
     },
     async loadSimulation(simulations = 10000, sets = 5, seed?: number): Promise<void> {
       this.simulation = await fetchSimulationAnalysis(simulations, sets, seed);
