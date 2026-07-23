@@ -48,7 +48,7 @@
       <div class="window-list">
         <span>样本窗口</span>
         <el-checkbox-group v-model="form.sampleWindows">
-          <el-checkbox-button v-for="window in windowOptions" :key="window" :label="window">
+          <el-checkbox-button v-for="window in windowOptions" :key="window" :value="window">
             {{ window }}
           </el-checkbox-button>
         </el-checkbox-group>
