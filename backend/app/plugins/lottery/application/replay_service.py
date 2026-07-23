@@ -217,8 +217,12 @@ class LotteryReplayService:
         weight_profiles: list[dict[str, float]] | None = None,
         baseline_simulations: int = 3000,
         seed: int | None = None,
+        target_count: int = 1,
     ) -> dict[str, object]:
-        target_draw = self._get_target_draw(target_issue_no)
+        target_models = self._get_sensitivity_target_draws(
+            target_issue_no=target_issue_no,
+            target_count=target_count,
+        )
         windows = sample_windows or [50, 100, 200, 500]
         profiles = weight_profiles or self._default_sensitivity_profiles()
         if len(windows) * len(profiles) > 30:
@@ -229,45 +233,62 @@ class LotteryReplayService:
             )
 
         max_window = max(windows)
-        training_models = self.repository.list_draws_before_issue(
-            target_issue_no,
-            limit=max_window,
-        )
-        self._assert_no_future_data(target_issue_no=target_issue_no, draws=training_models)
-        if not training_models:
+        per_target_results: list[dict[str, object]] = []
+        baseline_preview: dict[str, object] | None = None
+        target_reads: list[dict[str, object]] = []
+        for index, target_model in enumerate(target_models):
+            target = LotteryService._serialize_draw(target_model)
+            training_models = self.repository.list_draws_before_issue(
+                str(target["issue_no"]),
+                limit=max_window,
+            )
+            self._assert_no_future_data(
+                target_issue_no=str(target["issue_no"]),
+                draws=training_models,
+            )
+            if not training_models:
+                continue
+
+            all_training_draws = [
+                LotteryService._serialize_draw(draw) for draw in training_models
+            ]
+            baseline = self._build_random_baseline(
+                target_front_numbers=list(target["front_numbers"]),
+                target_back_numbers=list(target["back_numbers"]),
+                simulations=baseline_simulations,
+                seed=seed + index if seed is not None else None,
+            )
+            if baseline_preview is None:
+                baseline_preview = {
+                    key: value for key, value in baseline.items() if key != "scores"
+                }
+            target_reads.append(target)
+            for window in sorted(set(windows)):
+                window_draws = all_training_draws[:window]
+                if not window_draws:
+                    continue
+                for profile in profiles:
+                    result = self._evaluate_parameter_profile(
+                        target=target,
+                        training_draws=window_draws,
+                        sets=sets,
+                        sample_window=window,
+                        same_period_count=same_period_count,
+                        weight_profile=profile,
+                        baseline_scores=list(baseline["scores"]),
+                        baseline_average_score=float(baseline["average_score"]),
+                    )
+                    result["target_issue_no"] = target["issue_no"]
+                    per_target_results.append(result)
+
+        if not per_target_results or baseline_preview is None:
             raise AppError(
                 code=ErrorCode.lottery_draw_not_found,
-                message="No past draw data is available before the target issue.",
+                message="No past draw data is available before the selected targets.",
                 status_code=404,
             )
 
-        target = LotteryService._serialize_draw(target_draw)
-        all_training_draws = [
-            LotteryService._serialize_draw(draw) for draw in training_models
-        ]
-        baseline = self._build_random_baseline(
-            target_front_numbers=list(target["front_numbers"]),
-            target_back_numbers=list(target["back_numbers"]),
-            simulations=baseline_simulations,
-            seed=seed,
-        )
-        results: list[dict[str, object]] = []
-        for window in sorted(set(windows)):
-            window_draws = all_training_draws[:window]
-            if not window_draws:
-                continue
-            for profile in profiles:
-                result = self._evaluate_parameter_profile(
-                    target=target,
-                    training_draws=window_draws,
-                    sets=sets,
-                    sample_window=window,
-                    same_period_count=same_period_count,
-                    weight_profile=profile,
-                    baseline_scores=list(baseline["scores"]),
-                    baseline_average_score=float(baseline["average_score"]),
-                )
-                results.append(result)
+        results = self._aggregate_sensitivity_results(per_target_results)
 
         sorted_results = sorted(
             results,
@@ -279,18 +300,20 @@ class LotteryReplayService:
         )
         return {
             "target_issue_no": target_issue_no,
-            "target_draw": target,
+            "target_draw": target_reads[0],
+            "target_issue_nos": [str(item["issue_no"]) for item in target_reads],
+            "evaluated_target_count": len(target_reads),
             "sets": sets,
             "same_period_count": same_period_count,
             "sample_windows": sorted(set(windows)),
             "profile_count": len(profiles),
             "combination_count": len(results),
-            "baseline": {key: value for key, value in baseline.items() if key != "scores"},
+            "baseline": baseline_preview,
             "results": sorted_results,
             "summary": self._build_sensitivity_summary(sorted_results),
             "leakage_check": {
                 "passed": True,
-                "rule": "each parameter combination trains only on issues before target_issue_no",
+                "rule": "each target trains only on issues before that target issue",
             },
             "disclaimer": DLT_DISCLAIMER,
         }
@@ -304,6 +327,25 @@ class LotteryReplayService:
                 status_code=404,
             )
         return target_draw
+
+    def _get_sensitivity_target_draws(
+        self,
+        *,
+        target_issue_no: str,
+        target_count: int,
+    ) -> list[LotteryDrawModel]:
+        target_draw = self._get_target_draw(target_issue_no)
+        if target_count <= 1:
+            return [target_draw]
+        draws = [
+            draw
+            for draw in self.repository.list_all_draws()
+            if draw.issue_no <= target_issue_no
+        ]
+        selected = draws[:target_count]
+        if not selected or selected[0].issue_no != target_draw.issue_no:
+            selected = [target_draw, *[draw for draw in selected if draw.issue_no != target_draw.issue_no]]
+        return selected[:target_count]
 
     @staticmethod
     def _assert_no_future_data(
@@ -495,6 +537,7 @@ class LotteryReplayService:
         )
         return {
             "profile_name": str(weight_profile.get("name") or "自定义"),
+            "target_issue_no": str(target["issue_no"]),
             "sample_window": sample_window,
             "actual_sample_size": len(training_draws),
             "same_period_sample_size": len(same_period_draws),
@@ -513,6 +556,85 @@ class LotteryReplayService:
                 same_period_sample_size=len(same_period_draws),
             ),
         }
+
+    @staticmethod
+    def _aggregate_sensitivity_results(
+        per_target_results: list[dict[str, object]],
+    ) -> list[dict[str, object]]:
+        grouped: dict[tuple[str, int], list[dict[str, object]]] = {}
+        for item in per_target_results:
+            key = (str(item["profile_name"]), int(item["sample_window"]))
+            grouped.setdefault(key, []).append(item)
+
+        aggregated: list[dict[str, object]] = []
+        for (profile_name, sample_window), items in grouped.items():
+            best_item = max(
+                items,
+                key=lambda item: (
+                    float(item["best_baseline_percentile"]),
+                    float(item["average_score_delta"]),
+                ),
+            )
+            average_score = round(
+                mean(float(item["average_match_score"]) for item in items),
+                4,
+            )
+            average_delta = round(
+                mean(float(item["average_score_delta"]) for item in items),
+                4,
+            )
+            positive_count = sum(
+                1 for item in items if float(item["average_score_delta"]) > 0
+            )
+            target_results = [
+                {
+                    "target_issue_no": item["target_issue_no"],
+                    "average_score_delta": item["average_score_delta"],
+                    "best_match_key": item["best_match_key"],
+                    "best_baseline_percentile": item["best_baseline_percentile"],
+                    "warning": item["warning"],
+                }
+                for item in items
+            ]
+            aggregated.append(
+                {
+                    **best_item,
+                    "profile_name": profile_name,
+                    "sample_window": sample_window,
+                    "evaluated_target_count": len(items),
+                    "positive_target_count": positive_count,
+                    "positive_target_rate": round(positive_count / len(items), 4),
+                    "average_match_score": average_score,
+                    "average_score_delta": average_delta,
+                    "best_baseline_percentile": best_item["best_baseline_percentile"],
+                    "best_match_key": best_item["best_match_key"],
+                    "best_front_numbers": best_item["best_front_numbers"],
+                    "best_back_numbers": best_item["best_back_numbers"],
+                    "generated_sets": best_item["generated_sets"],
+                    "target_results": target_results,
+                    "warning": LotteryReplayService._classify_aggregated_parameter_result(
+                        average_delta=average_delta,
+                        positive_target_rate=positive_count / len(items),
+                        same_period_sample_size=int(best_item["same_period_sample_size"]),
+                    ),
+                }
+            )
+        return aggregated
+
+    @staticmethod
+    def _classify_aggregated_parameter_result(
+        *,
+        average_delta: float,
+        positive_target_rate: float,
+        same_period_sample_size: int,
+    ) -> str:
+        if same_period_sample_size < 3:
+            return "同期样本少"
+        if average_delta > 0 and positive_target_rate >= 0.6:
+            return "多期靠前"
+        if positive_target_rate <= 0.25:
+            return "接近随机"
+        return "波动"
 
     @staticmethod
     def _classify_parameter_result(

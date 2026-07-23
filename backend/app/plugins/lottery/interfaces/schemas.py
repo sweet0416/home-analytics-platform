@@ -427,6 +427,7 @@ class LotterySensitivityWeightProfileRequest(LotteryReplayStrategyRequest):
 
 class LotterySensitivityRequest(BaseModel):
     target_issue_no: str = Field(min_length=3, max_length=16)
+    target_count: int = Field(default=1, ge=1, le=20)
     sets: int = Field(default=5, ge=1, le=12)
     same_period_count: int = Field(default=10, ge=1, le=20)
     sample_windows: list[int] = Field(default_factory=lambda: [50, 100, 200, 500])
@@ -566,9 +567,13 @@ class LotteryReplayRunRead(BaseModel):
 
 class LotterySensitivityResultRead(BaseModel):
     profile_name: str
+    target_issue_no: str
     sample_window: int
     actual_sample_size: int
     same_period_sample_size: int
+    evaluated_target_count: int
+    positive_target_count: int
+    positive_target_rate: float
     weights: dict[str, float]
     average_match_score: float
     average_score_delta: float
@@ -577,6 +582,7 @@ class LotterySensitivityResultRead(BaseModel):
     best_front_numbers: list[int]
     best_back_numbers: list[int]
     generated_sets: list[LotteryReplayGeneratedSetRead]
+    target_results: list[dict[str, object]]
     warning: str
 
 
@@ -592,6 +598,8 @@ class LotterySensitivitySummaryRead(BaseModel):
 
 class LotterySensitivityRead(BaseModel):
     target_issue_no: str
+    target_issue_nos: list[str]
+    evaluated_target_count: int
     target_draw: LotteryDrawRead
     sets: int
     same_period_count: int

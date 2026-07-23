@@ -314,6 +314,7 @@ def analyze_replay_sensitivity(
     return ok(
         service.analyze_parameter_sensitivity(
             target_issue_no=payload.target_issue_no,
+            target_count=payload.target_count,
             sets=payload.sets,
             same_period_count=payload.same_period_count,
             sample_windows=payload.sample_windows,

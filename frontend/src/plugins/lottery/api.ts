@@ -526,6 +526,7 @@ export interface LotterySensitivityWeightProfile extends LotteryReplayStrategyRe
 
 export interface LotterySensitivityRequest {
   target_issue_no: string;
+  target_count: number;
   sets: number;
   same_period_count: number;
   sample_windows: number[];
@@ -536,9 +537,13 @@ export interface LotterySensitivityRequest {
 
 export interface LotterySensitivityResult {
   profile_name: string;
+  target_issue_no: string;
   sample_window: number;
   actual_sample_size: number;
   same_period_sample_size: number;
+  evaluated_target_count: number;
+  positive_target_count: number;
+  positive_target_rate: number;
   weights: Record<string, number>;
   average_match_score: number;
   average_score_delta: number;
@@ -547,6 +552,7 @@ export interface LotterySensitivityResult {
   best_front_numbers: number[];
   best_back_numbers: number[];
   generated_sets: LotteryReplayGeneratedSet[];
+  target_results: Array<Record<string, unknown>>;
   warning: string;
 }
 
@@ -562,6 +568,8 @@ export interface LotterySensitivitySummary {
 
 export interface LotterySensitivityAnalysis {
   target_issue_no: string;
+  target_issue_nos: string[];
+  evaluated_target_count: number;
   target_draw: LotteryDraw;
   sets: number;
   same_period_count: number;

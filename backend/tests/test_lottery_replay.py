@@ -189,3 +189,22 @@ def test_sensitivity_endpoint_returns_ranked_results(
     assert data["combination_count"] == 8
     assert data["results"][0]["profile_name"]
     assert data["baseline"]["simulations"] == 500
+
+
+def test_sensitivity_analysis_can_roll_over_multiple_targets(db_session: Session) -> None:
+    seed_replay_draws(db_session)
+
+    result = LotteryReplayService(db_session).analyze_parameter_sensitivity(
+        target_issue_no="26081",
+        target_count=2,
+        sets=2,
+        sample_windows=[20],
+        baseline_simulations=500,
+        seed=42,
+    )
+
+    assert result["evaluated_target_count"] == 2
+    assert result["target_issue_nos"] == ["26081", "26080"]
+    assert result["combination_count"] == 4
+    assert result["results"][0]["evaluated_target_count"] == 2
+    assert "positive_target_rate" in result["results"][0]

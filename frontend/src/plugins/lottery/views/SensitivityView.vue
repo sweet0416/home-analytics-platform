@@ -17,12 +17,16 @@
     <section class="panel sensitivity-panel">
       <div class="panel-header">
         <h2 class="panel-title">分析参数</h2>
-        <span class="panel-meta">第一版只做单目标期扫描，不写入回放记录</span>
+        <span class="panel-meta">默认从目标期向前滚动 5 期，不写入回放记录</span>
       </div>
       <div class="sensitivity-form">
         <label>
           目标期号
           <el-input v-model="form.targetIssueNo" placeholder="例如 26082" />
+        </label>
+        <label>
+          回放期数
+          <el-input-number v-model="form.targetCount" :min="1" :max="20" />
         </label>
         <label>
           生成组数
@@ -60,13 +64,13 @@
       <MetricCard label="参数组合" :value="combinationCount" :meta="profileMeta" />
       <MetricCard label="最佳组合" :value="bestProfile" :meta="bestWindow" />
       <MetricCard label="稳定性" :value="stabilityLabel" :meta="positiveRate" />
-      <MetricCard label="随机基准" :value="baselineValue" :meta="baselineMeta" />
+      <MetricCard label="滚动期数" :value="targetCountValue" :meta="targetRangeMeta" />
     </div>
 
     <section v-if="lottery.sensitivity" class="panel sensitivity-panel">
       <div class="panel-header">
         <h2 class="panel-title">稳定性结论</h2>
-        <span class="panel-meta">目标 {{ lottery.sensitivity.target_issue_no }}</span>
+        <span class="panel-meta">目标 {{ lottery.sensitivity.target_issue_nos.join(' / ') }}</span>
       </div>
       <div class="summary-band">
         <strong>{{ lottery.sensitivity.summary.stability_label }}</strong>
@@ -84,6 +88,7 @@
           <span>画像</span>
           <span>窗口</span>
           <span>均分差</span>
+          <span>多期胜率</span>
           <span>最佳命中</span>
           <span>随机分位</span>
           <span>提示</span>
@@ -98,6 +103,7 @@
           <span :class="scoreDeltaClass(item.average_score_delta)">
             {{ formatSigned(item.average_score_delta) }}
           </span>
+          <span>{{ formatPercent(item.positive_target_rate) }}</span>
           <span>{{ item.best_match_key ?? '--' }}</span>
           <span>{{ formatPercent(item.best_baseline_percentile) }}</span>
           <span>{{ item.warning }}</span>
@@ -156,6 +162,7 @@ const windowOptions = [50, 100, 200, 500];
 
 const form = reactive({
   targetIssueNo: '',
+  targetCount: 5,
   sets: 5,
   samePeriodCount: 10,
   baselineSimulations: 3000,
@@ -188,6 +195,14 @@ const baselineMeta = computed(() =>
     ? `均值 ${lottery.sensitivity.baseline.average_score}`
     : '随机抽样次数',
 );
+const targetCountValue = computed(() =>
+  String(lottery.sensitivity?.evaluated_target_count ?? form.targetCount),
+);
+const targetRangeMeta = computed(() =>
+  lottery.sensitivity?.target_issue_nos.length
+    ? lottery.sensitivity.target_issue_nos.join(' / ')
+    : '最近目标期',
+);
 
 const explanationSections: LotteryExplanationSection[] = [
   {
@@ -195,14 +210,14 @@ const explanationSections: LotteryExplanationSection[] = [
     items: [
       '如果结论只在某一个窗口或权重下好看，可能只是参数偶然性。',
       '稳定结果应该在多个相近参数下不至于完全反转。',
-      '本页比较的是历史回放表现，不代表未来开奖概率变化。',
+      '默认会连续检查最近多期，减少单期偶然性影响。',
     ],
   },
   {
     title: '如何读均分差',
     items: [
       '均分差大于 0 表示该组合平均命中分高于随机基准均值。',
-      '单次目标期仍然可能受随机波动影响，需要后续扩展多目标期滚动回放。',
+      '多期胜率表示该参数组合在多少目标期上超过随机均值。',
       '随机分位只表示当前回放结果相对随机样本的位置。',
     ],
   },
@@ -233,6 +248,7 @@ async function runAnalysis(): Promise<void> {
   try {
     await lottery.analyzeSensitivity({
       target_issue_no: form.targetIssueNo.trim(),
+      target_count: form.targetCount,
       sets: form.sets,
       same_period_count: form.samePeriodCount,
       sample_windows: [...form.sampleWindows].sort((left, right) => left - right),
@@ -294,7 +310,7 @@ function scoreDeltaClass(value: number): string {
 .sensitivity-form {
   display: grid;
   gap: 12px;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
 }
 
 .sensitivity-form label {
@@ -346,7 +362,7 @@ function scoreDeltaClass(value: number): string {
   border-radius: 8px;
   display: grid;
   gap: 10px;
-  grid-template-columns: 1.2fr 0.7fr 0.7fr 0.8fr 0.8fr 1fr;
+  grid-template-columns: 1.2fr 0.7fr 0.7fr 0.8fr 0.8fr 0.8fr 1fr;
   padding: 10px 12px;
 }
 

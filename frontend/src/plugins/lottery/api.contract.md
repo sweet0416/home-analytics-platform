@@ -18,6 +18,7 @@ POST /api/v1/lottery/dlt/analysis/backtest
 GET /api/v1/lottery/dlt/analysis/replay/context?target_issue_no&sample_limit
 POST /api/v1/lottery/dlt/analysis/replay
 POST /api/v1/lottery/dlt/analysis/replay/sensitivity
+  body: target_issue_no, target_count, sample_windows, weight_profiles, baseline_simulations
 POST /api/v1/lottery/dlt/sync
 POST /api/v1/lottery/dlt/sync/backfill
 POST /api/v1/lottery/dlt/sync/backfill/start
