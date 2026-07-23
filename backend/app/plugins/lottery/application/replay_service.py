@@ -63,7 +63,7 @@ class LotteryReplayService:
             "same_period_count": same_period_count,
             "strategy_params": strategy_params,
             "generated_sets": [
-                self._serialize_replay_generated_set(item)
+                self._serialize_replay_generated_set(item, target=target)
                 for item in sorted(replay_run.generated_sets, key=lambda current: current.rank)
             ],
             "baseline": {
@@ -165,13 +165,41 @@ class LotteryReplayService:
     @staticmethod
     def _serialize_replay_generated_set(
         generated_set: LotteryReplayGeneratedSetModel,
+        *,
+        target: dict[str, object] | None = None,
     ) -> dict[str, object]:
+        front_numbers = json.loads(generated_set.front_numbers_json)
+        back_numbers = json.loads(generated_set.back_numbers_json)
+        metrics = LotteryService._build_draw_metrics(
+            issue_no="replay",
+            front_numbers=front_numbers,
+            back_numbers=back_numbers,
+        )
+        front_matches = (
+            sorted(set(front_numbers) & set(target["front_numbers"]))
+            if target is not None
+            else []
+        )
+        back_matches = (
+            sorted(set(back_numbers) & set(target["back_numbers"]))
+            if target is not None
+            else []
+        )
         return {
             "rank": generated_set.rank,
-            "front_numbers": json.loads(generated_set.front_numbers_json),
-            "back_numbers": json.loads(generated_set.back_numbers_json),
+            "front_numbers": front_numbers,
+            "back_numbers": back_numbers,
             "score": float(generated_set.score or 0),
             "rationale": json.loads(generated_set.rationale_json),
+            "front_sum": metrics["front_sum"],
+            "front_span": metrics["front_span"],
+            "front_parity_pattern": metrics["front_parity_pattern"],
+            "front_zone_pattern": metrics["front_zone_pattern"],
+            "front_route012_pattern": metrics["front_route012_pattern"],
+            "front_details": [],
+            "back_details": [],
+            "front_matches": front_matches,
+            "back_matches": back_matches,
             "front_match_count": generated_set.front_match_count,
             "back_match_count": generated_set.back_match_count,
             "match_key": f"{generated_set.front_match_count}+{generated_set.back_match_count}",
