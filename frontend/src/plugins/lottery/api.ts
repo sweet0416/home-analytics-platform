@@ -782,6 +782,7 @@ export function analyzeSensitivity(
   return postApiData<LotterySensitivityAnalysis, LotterySensitivityRequest>(
     '/lottery/dlt/analysis/replay/sensitivity',
     payload,
+    { timeout: 60000 },
   );
 }
 

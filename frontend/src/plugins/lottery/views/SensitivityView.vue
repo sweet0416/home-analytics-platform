@@ -38,12 +38,7 @@
         </label>
         <label>
           随机基准
-          <el-input-number
-            v-model="form.baselineSimulations"
-            :min="100"
-            :max="20000"
-            :step="500"
-          />
+          <el-input-number v-model="form.baselineSimulations" :min="100" :max="20000" :step="500" />
         </label>
         <label>
           Seed
@@ -165,7 +160,7 @@ const form = reactive({
   targetCount: 5,
   sets: 5,
   samePeriodCount: 10,
-  baselineSimulations: 3000,
+  baselineSimulations: 1000,
   seedText: '20260723',
   sampleWindows: [50, 100, 200, 500],
 });

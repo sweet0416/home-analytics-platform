@@ -231,6 +231,12 @@ class LotteryReplayService:
                 message="Sensitivity analysis supports at most 30 parameter combinations.",
                 status_code=422,
             )
+        if target_count * len(windows) * len(profiles) > 120:
+            raise AppError(
+                code=ErrorCode.validation_error,
+                message="Rolling sensitivity analysis supports at most 120 evaluations.",
+                status_code=422,
+            )
 
         max_window = max(windows)
         per_target_results: list[dict[str, object]] = []
