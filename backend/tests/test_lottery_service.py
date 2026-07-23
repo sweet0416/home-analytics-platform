@@ -228,6 +228,8 @@ def test_lottery_service_applies_recommendation_weights(db_session: Session) -> 
         frequency_weight=10,
         missing_weight=5,
         structure_weight=20,
+        co_occurrence_weight=15,
+        coverage_weight=8,
     )
 
     assert analysis["strategy_weights"] == {
@@ -235,9 +237,15 @@ def test_lottery_service_applies_recommendation_weights(db_session: Session) -> 
         "frequency": 10,
         "missing": 5,
         "structure": 20,
+        "co_occurrence": 15,
+        "coverage": 8,
     }
     assert analysis["requested_sets"] == 2
     assert len(analysis["recommendations"]) == 2
+    assert "co_occurrence_score" in analysis["recommendations"][0]["front_details"][0]
+    assert any(
+        "覆盖分散" in reason for reason in analysis["recommendations"][0]["rationale"]
+    )
 
 
 def test_lottery_service_analyzes_combination_coverage(db_session: Session) -> None:

@@ -4,7 +4,7 @@
       <div>
         <h1 class="page-title">选号推荐</h1>
         <div class="page-subtitle">
-          结合历史同期、冷热、遗漏、和值、跨度、奇偶和区间分布生成参考组合
+          结合历史同期、冷热遗漏、共现强度、结构均衡和组合覆盖生成参考组合
         </div>
       </div>
       <div class="recommendation-actions">
@@ -100,6 +100,22 @@
           </div>
           <el-slider v-model="structureWeight" :min="0" :max="100" :step="5" />
           <p>越高越看重和值、跨度、奇偶、区间和012路是否均衡。</p>
+        </div>
+        <div class="strategy-item">
+          <div class="strategy-label">
+            <span>共现权重</span>
+            <strong>{{ coOccurrenceWeight }}</strong>
+          </div>
+          <el-slider v-model="coOccurrenceWeight" :min="0" :max="100" :step="5" />
+          <p>越高越参考近期号码同期开奖关联，但会按随机期望校正。</p>
+        </div>
+        <div class="strategy-item">
+          <div class="strategy-label">
+            <span>覆盖分散权重</span>
+            <strong>{{ coverageWeight }}</strong>
+          </div>
+          <el-slider v-model="coverageWeight" :min="0" :max="100" :step="5" />
+          <p>越高越倾向让多组号码之间少重复、覆盖面更分散。</p>
         </div>
       </div>
     </section>
@@ -267,10 +283,12 @@ import { useLotteryStore } from '@/plugins/lottery/store';
 
 const lottery = useLotteryStore();
 const defaultStrategyWeights = {
-  same_period: 45,
-  frequency: 25,
-  missing: 20,
+  same_period: 40,
+  frequency: 20,
+  missing: 15,
   structure: 10,
+  co_occurrence: 10,
+  coverage: 8,
 } as const;
 const targetIssueInput = ref('');
 const setCount = ref(5);
@@ -280,6 +298,8 @@ const samePeriodWeight = ref(defaultStrategyWeights.same_period);
 const frequencyWeight = ref(defaultStrategyWeights.frequency);
 const missingWeight = ref(defaultStrategyWeights.missing);
 const structureWeight = ref(defaultStrategyWeights.structure);
+const coOccurrenceWeight = ref(defaultStrategyWeights.co_occurrence);
+const coverageWeight = ref(defaultStrategyWeights.coverage);
 const fallbackDisclaimer = '本结果仅基于历史统计分析，仅供娱乐，不代表未来开奖结果。';
 
 const targetIssue = computed(() => lottery.recommendations?.target_issue_no ?? '--');
@@ -300,8 +320,8 @@ const methodology = computed(() =>
     ? lottery.recommendations.methodology
     : [
         '先找到目标期号对应的历史同期，观察同序号开奖里反复出现的号码。',
-        '再结合最近样本里的冷热程度、当前遗漏期数和号码分布，给每个号码打分。',
-        '最后筛掉过于极端的和值、跨度、奇偶和区间结构，保留更均衡的组合。',
+        '再结合最近样本里的冷热程度、当前遗漏期数和共现强度，给每个号码打分。',
+        '最后筛掉过于极端的和值、跨度、奇偶和区间结构，并让多组组合尽量分散。',
       ],
 );
 const explanationSections = computed<LotteryExplanationSection[]>(() => [
@@ -315,6 +335,7 @@ const explanationSections = computed<LotteryExplanationSection[]>(() => [
       '历史同期越高，越偏向目标期号同序号附近往年反复出现的号码。',
       '近期热度越高，越偏向最近样本中出现次数靠前的号码。',
       '遗漏权重越高，越偏向较久没有出现的号码；结构权重越高，越避免过于极端的组合。',
+      '共现权重越高，越参考近期同期开奖关联；覆盖分散越高，越避免多组号码互相太像。',
     ],
   },
   {
@@ -340,6 +361,8 @@ async function reloadRecommendations(): Promise<void> {
         frequency: frequencyWeight.value,
         missing: missingWeight.value,
         structure: structureWeight.value,
+        co_occurrence: coOccurrenceWeight.value,
+        coverage: coverageWeight.value,
       },
     );
   } finally {
@@ -352,6 +375,8 @@ function resetStrategyWeights(): void {
   frequencyWeight.value = defaultStrategyWeights.frequency;
   missingWeight.value = defaultStrategyWeights.missing;
   structureWeight.value = defaultStrategyWeights.structure;
+  coOccurrenceWeight.value = defaultStrategyWeights.co_occurrence;
+  coverageWeight.value = defaultStrategyWeights.coverage;
 }
 
 function formatNumber(value: number): string {

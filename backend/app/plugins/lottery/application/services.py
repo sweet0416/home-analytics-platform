@@ -512,6 +512,8 @@ class LotteryService:
         frequency_weight: float = 25,
         missing_weight: float = 20,
         structure_weight: float = 10,
+        co_occurrence_weight: float = 15,
+        coverage_weight: float = 8,
     ) -> dict[str, object]:
         latest_draw = self.repository.get_latest_draw()
         if latest_draw is None:
@@ -528,6 +530,8 @@ class LotteryService:
             frequency_weight=frequency_weight,
             missing_weight=missing_weight,
             structure_weight=structure_weight,
+            co_occurrence_weight=co_occurrence_weight,
+            coverage_weight=coverage_weight,
         )
         recent_draws = [
             self._serialize_draw(draw)
@@ -548,6 +552,10 @@ class LotteryService:
             recent_draws=recent_draws,
             same_period_draws=same_period_draws,
             strategy_weights=strategy_weights,
+            co_occurrence_scores=self._build_recommendation_co_occurrence_scores(
+                recent_draws=recent_draws,
+                area="front",
+            ),
         )
         back_scores = self._score_recommendation_numbers(
             area="back",
@@ -556,6 +564,10 @@ class LotteryService:
             recent_draws=recent_draws,
             same_period_draws=same_period_draws,
             strategy_weights=strategy_weights,
+            co_occurrence_scores=self._build_recommendation_co_occurrence_scores(
+                recent_draws=recent_draws,
+                area="back",
+            ),
         )
 
         return {
@@ -569,8 +581,9 @@ class LotteryService:
             "methodology": [
                 "历史同期：优先考虑目标期号后三位相同的往年开奖中重复出现的号码。",
                 "近期统计：结合最近样本内的出现频次、当前遗漏和冷热状态。",
+                "共现参考：观察号码在近期样本中的同期开奖关联强度，并按随机期望校正。",
                 "结构约束：参考和值、跨度、奇偶、三区和012路分布，避免结构过于极端。",
-                "组合去重：多组结果之间控制重合度，避免只给出高度相似的号码。",
+                "覆盖分散：多组结果之间控制重合度，尽量扩大前后区号码覆盖面。",
             ],
             "same_period_repeated_front": self._top_recommendation_numbers(
                 front_scores,
@@ -585,6 +598,7 @@ class LotteryService:
                 back_scores=back_scores,
                 recent_draws=recent_draws,
                 structure_weight=float(strategy_weights["structure"]),
+                coverage_weight=float(strategy_weights["coverage"]),
                 limit=sets,
             ),
         }
@@ -1635,12 +1649,16 @@ class LotteryService:
         frequency_weight: float,
         missing_weight: float,
         structure_weight: float,
+        co_occurrence_weight: float = 15,
+        coverage_weight: float = 8,
     ) -> dict[str, float]:
         weights = {
             "same_period": max(0.0, same_period_weight),
             "frequency": max(0.0, frequency_weight),
             "missing": max(0.0, missing_weight),
             "structure": max(0.0, structure_weight),
+            "co_occurrence": max(0.0, co_occurrence_weight),
+            "coverage": max(0.0, coverage_weight),
         }
         if sum(weights.values()) <= 0:
             return {
@@ -1648,8 +1666,31 @@ class LotteryService:
                 "frequency": 25.0,
                 "missing": 20.0,
                 "structure": 10.0,
+                "co_occurrence": 15.0,
+                "coverage": 8.0,
             }
         return {key: round(value, 2) for key, value in weights.items()}
+
+    @classmethod
+    def _build_recommendation_co_occurrence_scores(
+        cls,
+        *,
+        recent_draws: list[dict[str, object]],
+        area: str,
+    ) -> dict[int, float]:
+        edges = cls._build_co_occurrence_edges(draws=recent_draws, area=area)
+        prefix = f"{area}-"
+        scores: dict[int, float] = Counter()
+        for edge in edges:
+            lift = max(0.0, float(edge["lift"]) - 1)
+            if lift <= 0:
+                continue
+            for key in ("source", "target"):
+                node_id = str(edge[key])
+                if node_id.startswith(prefix):
+                    number = int(node_id.removeprefix(prefix))
+                    scores[number] += lift
+        return dict(scores)
 
     @classmethod
     def _score_recommendation_numbers(
@@ -1661,10 +1702,12 @@ class LotteryService:
         recent_draws: list[dict[str, object]],
         same_period_draws: list[dict[str, object]],
         strategy_weights: dict[str, float],
+        co_occurrence_scores: dict[int, float] | None = None,
     ) -> list[dict[str, object]]:
         recent_rows = [list(draw[f"{area}_numbers"]) for draw in recent_draws]
         if not recent_rows:
             return []
+        co_occurrence_scores = co_occurrence_scores or {}
 
         same_period_rows = [list(draw[f"{area}_numbers"]) for draw in same_period_draws]
         issue_numbers = [str(draw["issue_no"]) for draw in recent_draws]
@@ -1681,6 +1724,7 @@ class LotteryService:
         }
         max_same_count = max(same_counts.values(), default=0) or 1
         max_frequency = max((int(item["count"]) for item in frequency_items), default=0) or 1
+        max_co_occurrence = max(co_occurrence_scores.values(), default=0) or 1
         expected_gap = max(
             1,
             round(len(recent_rows) / ((max_number - min_number + 1) / len(recent_rows[0]))),
@@ -1694,8 +1738,19 @@ class LotteryService:
             same_score = strategy_weights["same_period"] * (same_hits / max_same_count)
             frequency_score = strategy_weights["frequency"] * (frequency / max_frequency)
             missing_score = strategy_weights["missing"] * min(missing / expected_gap, 1.25)
+            co_occurrence_raw = co_occurrence_scores.get(number, 0.0)
+            co_occurrence_score = (
+                strategy_weights["co_occurrence"] * (co_occurrence_raw / max_co_occurrence)
+            )
             balance_score = 6 if same_hits >= 1 or missing <= expected_gap * 2 else 2
-            score = round(same_score + frequency_score + missing_score + balance_score, 2)
+            score = round(
+                same_score
+                + frequency_score
+                + missing_score
+                + co_occurrence_score
+                + balance_score,
+                2,
+            )
             scored.append(
                 {
                     "number": number,
@@ -1703,11 +1758,13 @@ class LotteryService:
                     "same_period_hits": same_hits,
                     "recent_frequency": frequency,
                     "current_missing": missing,
+                    "co_occurrence_score": round(co_occurrence_raw, 4),
                     "reasons": cls._build_number_reasons(
                         same_hits=same_hits,
                         frequency=frequency,
                         missing=missing,
                         expected_gap=expected_gap,
+                        co_occurrence_score=co_occurrence_raw,
                     ),
                 }
             )
@@ -1721,12 +1778,15 @@ class LotteryService:
         frequency: int,
         missing: int,
         expected_gap: int,
+        co_occurrence_score: float,
     ) -> list[str]:
         reasons: list[str] = []
         if same_hits > 0:
             reasons.append(f"历史同期出现 {same_hits} 次")
         if frequency > 0:
             reasons.append(f"近期样本出现 {frequency} 次")
+        if co_occurrence_score >= 1.2:
+            reasons.append(f"近期共现强度 {round(co_occurrence_score, 2)}，高于随机期望")
         if missing >= expected_gap:
             reasons.append(f"当前遗漏 {missing} 期，高于理论间隔约 {expected_gap} 期")
         elif missing <= 2:
@@ -1744,6 +1804,7 @@ class LotteryService:
         recent_draws: list[dict[str, object]],
         structure_weight: float,
         limit: int,
+        coverage_weight: float = 0,
     ) -> list[dict[str, object]]:
         if not front_scores or not back_scores or not recent_draws:
             return []
@@ -1791,16 +1852,36 @@ class LotteryService:
                             2,
                         ),
                         "metrics": metrics,
+                        "coverage_note": "首组按综合评分优先选择。",
                     }
                 )
 
         selected: list[dict[str, object]] = []
-        for candidate in sorted(candidates, key=lambda item: -float(item["score"])):
+        remaining = sorted(candidates, key=lambda item: -float(item["score"]))
+        while remaining and len(selected) < limit:
+            ranked_candidates = sorted(
+                remaining,
+                key=lambda item: -cls._score_candidate_with_coverage(
+                    candidate=item,
+                    selected=selected,
+                    coverage_weight=coverage_weight,
+                ),
+            )
+            candidate = ranked_candidates[0]
+            remaining.remove(candidate)
             if cls._is_recommendation_too_similar(candidate, selected):
                 continue
+            coverage_metrics = cls._build_candidate_coverage_metrics(candidate, selected)
+            candidate["score"] = round(
+                cls._score_candidate_with_coverage(
+                    candidate=candidate,
+                    selected=selected,
+                    coverage_weight=coverage_weight,
+                ),
+                2,
+            )
+            candidate["coverage_note"] = cls._build_candidate_coverage_note(coverage_metrics)
             selected.append(candidate)
-            if len(selected) >= limit:
-                break
 
         return [
             cls._serialize_recommendation_set(
@@ -1834,6 +1915,61 @@ class LotteryService:
         if all(count > 0 for count in list(metrics["front_route012_counts"])):
             score += 6
         return round(score, 2)
+
+    @classmethod
+    def _score_candidate_with_coverage(
+        cls,
+        *,
+        candidate: dict[str, object],
+        selected: list[dict[str, object]],
+        coverage_weight: float,
+    ) -> float:
+        base_score = float(candidate["score"])
+        if not selected or coverage_weight <= 0:
+            return base_score
+        metrics = cls._build_candidate_coverage_metrics(candidate, selected)
+        coverage_score = (
+            (1 - float(metrics["max_jaccard"])) * 10
+            + int(metrics["new_front_count"]) * 1.3
+            + int(metrics["new_back_count"]) * 1.6
+        )
+        return base_score + coverage_score * (coverage_weight / 10)
+
+    @staticmethod
+    def _build_candidate_coverage_metrics(
+        candidate: dict[str, object],
+        selected: list[dict[str, object]],
+    ) -> dict[str, object]:
+        candidate_front = set(candidate["front_numbers"])
+        candidate_back = set(candidate["back_numbers"])
+        used_front = {
+            number for item in selected for number in set(item["front_numbers"])
+        }
+        used_back = {
+            number for item in selected for number in set(item["back_numbers"])
+        }
+        jaccards: list[float] = []
+        for item in selected:
+            combined_candidate = {f"f-{number}" for number in candidate_front} | {
+                f"b-{number}" for number in candidate_back
+            }
+            combined_item = {f"f-{number}" for number in set(item["front_numbers"])} | {
+                f"b-{number}" for number in set(item["back_numbers"])
+            }
+            union = combined_candidate | combined_item
+            jaccards.append(len(combined_candidate & combined_item) / len(union) if union else 0)
+        return {
+            "new_front_count": len(candidate_front - used_front),
+            "new_back_count": len(candidate_back - used_back),
+            "max_jaccard": round(max(jaccards, default=0), 6),
+        }
+
+    @staticmethod
+    def _build_candidate_coverage_note(metrics: dict[str, object]) -> str:
+        return (
+            f"与已选组合最高 Jaccard {metrics['max_jaccard']}，"
+            f"新增前区 {metrics['new_front_count']} 个、后区 {metrics['new_back_count']} 个覆盖点。"
+        )
 
     @staticmethod
     def _is_recommendation_too_similar(
@@ -1876,6 +2012,7 @@ class LotteryService:
                 metrics=metrics,
                 sum_average=sum_average,
                 span_average=span_average,
+                coverage_note=str(candidate["coverage_note"]),
             ),
             "front_sum": metrics["front_sum"],
             "front_span": metrics["front_span"],
@@ -1896,6 +2033,7 @@ class LotteryService:
         metrics: dict[str, object],
         sum_average: float,
         span_average: float,
+        coverage_note: str,
     ) -> list[str]:
         same_front = [
             number
@@ -1926,6 +2064,7 @@ class LotteryService:
             ),
             f"包含历史同期重复号：前区 {same_front or '无'}，后区 {same_back or '无'}。",
             f"冷热搭配：近期热号 {hot_front or '无'}，较高遗漏号 {missing_front or '无'}。",
+            f"覆盖分散：{coverage_note}",
         ]
 
     @staticmethod

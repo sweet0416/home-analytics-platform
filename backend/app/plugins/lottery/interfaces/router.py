@@ -227,6 +227,8 @@ def get_recommendations(
     frequency_weight: float = Query(default=25, ge=0, le=100),
     missing_weight: float = Query(default=20, ge=0, le=100),
     structure_weight: float = Query(default=10, ge=0, le=100),
+    co_occurrence_weight: float = Query(default=15, ge=0, le=100),
+    coverage_weight: float = Query(default=8, ge=0, le=100),
     db: Session = Depends(get_db),
 ) -> ApiResponse[LotteryRecommendationRead]:
     service = LotteryService(db)
@@ -240,6 +242,8 @@ def get_recommendations(
             frequency_weight=frequency_weight,
             missing_weight=missing_weight,
             structure_weight=structure_weight,
+            co_occurrence_weight=co_occurrence_weight,
+            coverage_weight=coverage_weight,
         )
     )
 

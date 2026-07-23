@@ -230,6 +230,7 @@ export interface LotteryRecommendationNumberDetail {
   same_period_hits: number;
   recent_frequency: number;
   current_missing: number;
+  co_occurrence_score: number;
   reasons: string[];
 }
 
@@ -253,6 +254,8 @@ export interface LotteryRecommendationWeights {
   frequency: number;
   missing: number;
   structure: number;
+  co_occurrence: number;
+  coverage: number;
 }
 
 export interface LotteryRecommendationAnalysis {
@@ -884,6 +887,8 @@ export function fetchRecommendationAnalysis(
     params.set('frequency_weight', String(weights.frequency));
     params.set('missing_weight', String(weights.missing));
     params.set('structure_weight', String(weights.structure));
+    params.set('co_occurrence_weight', String(weights.co_occurrence));
+    params.set('coverage_weight', String(weights.coverage));
   }
   if (issueNo) params.set('issue_no', issueNo);
   return getApiData<LotteryRecommendationAnalysis>(

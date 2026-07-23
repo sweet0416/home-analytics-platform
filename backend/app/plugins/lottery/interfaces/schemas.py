@@ -230,6 +230,7 @@ class LotteryRecommendationNumberRead(BaseModel):
     same_period_hits: int
     recent_frequency: int
     current_missing: int
+    co_occurrence_score: float
     reasons: list[str]
 
 
