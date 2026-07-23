@@ -157,6 +157,7 @@ export const useLotteryStore = defineStore('lottery', {
     },
     async runReplay(payload: LotteryReplayRequest): Promise<void> {
       this.replayRun = await runReplayRequest(payload);
+      const currentRange = this.replayContext?.available_range;
       this.replayContext = {
         target: payload.target_issue_no === this.replayContext?.target.issue_no
           ? this.replayContext.target
@@ -165,9 +166,9 @@ export const useLotteryStore = defineStore('lottery', {
         sample_size: this.replayRun.sample_size,
         requested_sample_limit: payload.sample_limit,
         available_range: {
-          earliest_issue_no: null,
+          earliest_issue_no: currentRange?.earliest_issue_no ?? null,
           latest_issue_no: this.replayRun.cutoff_issue_no,
-          earliest_draw_date: null,
+          earliest_draw_date: currentRange?.earliest_draw_date ?? null,
           latest_draw_date: this.replayRun.cutoff_draw_date,
         },
         leakage_check: this.replayRun.leakage_check,
