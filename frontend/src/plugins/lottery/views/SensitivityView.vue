@@ -82,6 +82,25 @@
         <h2 class="panel-title">参数组合表现</h2>
         <span class="panel-meta">按平均分超过随机基准的幅度排序</span>
       </div>
+      <div v-if="sensitivityHeatmap.length" class="sensitivity-heatmap">
+        <div class="heatmap-grid" :style="{ gridTemplateColumns: heatmapColumns }">
+          <span class="heatmap-corner">画像 / 窗口</span>
+          <span v-for="window in heatmapWindows" :key="`window-${window}`" class="heatmap-head">
+            {{ window }}
+          </span>
+          <template v-for="row in sensitivityHeatmap" :key="row.profileName">
+            <span class="heatmap-profile">{{ row.profileName }}</span>
+            <span
+              v-for="cell in row.cells"
+              :key="`${row.profileName}-${cell.sampleWindow}`"
+              :class="['heatmap-cell', heatmapCellClass(cell.scoreDelta)]"
+              :title="cell.title"
+            >
+              {{ formatSigned(cell.scoreDelta) }}
+            </span>
+          </template>
+        </div>
+      </div>
       <div class="result-table">
         <div class="result-row result-head">
           <span>画像</span>
@@ -203,6 +222,32 @@ const targetRangeMeta = computed(() =>
     ? lottery.sensitivity.target_issue_nos.join(' / ')
     : '最近目标期',
 );
+const heatmapWindows = computed(() =>
+  Array.from(
+    new Set((lottery.sensitivity?.results ?? []).map((item) => item.sample_window)),
+  ).sort((left, right) => left - right),
+);
+const heatmapColumns = computed(() => `minmax(120px, 1.1fr) repeat(${heatmapWindows.value.length}, minmax(76px, 1fr))`);
+const sensitivityHeatmap = computed(() => {
+  const results = lottery.sensitivity?.results ?? [];
+  const profileNames = Array.from(new Set(results.map((item) => item.profile_name)));
+  return profileNames.map((profileName) => ({
+    profileName,
+    cells: heatmapWindows.value.map((sampleWindow) => {
+      const result = results.find(
+        (item) => item.profile_name === profileName && item.sample_window === sampleWindow,
+      );
+      const scoreDelta = result?.average_score_delta ?? 0;
+      return {
+        sampleWindow,
+        scoreDelta,
+        title: result
+          ? `${profileName} / 窗口 ${sampleWindow} / 胜率 ${formatPercent(result.positive_target_rate)}`
+          : '无结果',
+      };
+    }),
+  }));
+});
 
 const explanationSections: LotteryExplanationSection[] = [
   {
@@ -297,6 +342,14 @@ function scoreDeltaClass(value: number): string {
   if (value < 0) return 'is-negative';
   return '';
 }
+
+function heatmapCellClass(value: number): string {
+  if (value >= 1) return 'is-strong-positive';
+  if (value > 0) return 'is-positive';
+  if (value <= -1) return 'is-strong-negative';
+  if (value < 0) return 'is-negative';
+  return 'is-neutral';
+}
 </script>
 
 <style scoped>
@@ -369,6 +422,75 @@ function scoreDeltaClass(value: number): string {
 .result-row span {
   color: var(--color-muted);
   font-size: 13px;
+}
+
+.sensitivity-heatmap {
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  border-radius: 8px;
+  margin-bottom: 14px;
+  overflow-x: auto;
+  padding: 10px;
+}
+
+.heatmap-grid {
+  display: grid;
+  gap: 6px;
+  min-width: 560px;
+}
+
+.heatmap-corner,
+.heatmap-head,
+.heatmap-profile,
+.heatmap-cell {
+  align-items: center;
+  border-radius: 7px;
+  display: flex;
+  font-size: 12px;
+  min-height: 34px;
+  padding: 7px 9px;
+}
+
+.heatmap-corner,
+.heatmap-head {
+  background: rgba(15, 23, 42, 0.58);
+  color: var(--color-muted);
+  font-weight: 700;
+}
+
+.heatmap-profile {
+  background: rgba(15, 23, 42, 0.38);
+  color: var(--color-text);
+  font-weight: 700;
+}
+
+.heatmap-cell {
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  color: var(--color-text);
+  justify-content: center;
+}
+
+.heatmap-cell.is-strong-positive {
+  background: rgba(34, 197, 94, 0.26);
+  border-color: rgba(34, 197, 94, 0.42);
+}
+
+.heatmap-cell.is-positive {
+  background: rgba(34, 197, 94, 0.13);
+  border-color: rgba(34, 197, 94, 0.24);
+}
+
+.heatmap-cell.is-neutral {
+  background: rgba(148, 163, 184, 0.08);
+}
+
+.heatmap-cell.is-negative {
+  background: rgba(248, 113, 113, 0.13);
+  border-color: rgba(248, 113, 113, 0.24);
+}
+
+.heatmap-cell.is-strong-negative {
+  background: rgba(248, 113, 113, 0.24);
+  border-color: rgba(248, 113, 113, 0.42);
 }
 
 .result-table {
