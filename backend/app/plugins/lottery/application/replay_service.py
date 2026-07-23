@@ -3,12 +3,17 @@ import random
 from collections import Counter
 from decimal import Decimal
 from statistics import mean
+from typing import Any
 
 from sqlalchemy.orm import Session
 
 from app.plugins.lottery.application.services import LotteryService
 from app.plugins.lottery.domain.constants import DLT_DISCLAIMER, DLT_GAME_CODE
-from app.plugins.lottery.infrastructure.persistence.models import LotteryDrawModel
+from app.plugins.lottery.infrastructure.persistence.models import (
+    LotteryDrawModel,
+    LotteryReplayGeneratedSetModel,
+    LotteryReplayRunModel,
+)
 from app.plugins.lottery.infrastructure.persistence.repositories import LotteryRepository
 from app.shared.exceptions.base import AppError
 from app.shared.exceptions.codes import ErrorCode
@@ -17,6 +22,70 @@ from app.shared.exceptions.codes import ErrorCode
 class LotteryReplayService:
     def __init__(self, db: Session) -> None:
         self.repository = LotteryRepository(db)
+
+    def list_replay_runs(self, *, limit: int = 20) -> list[dict[str, object]]:
+        return [
+            self._serialize_replay_run_summary(run)
+            for run in self.repository.list_replay_runs(limit=limit)
+        ]
+
+    def get_replay_run(self, replay_run_id: int) -> dict[str, object]:
+        replay_run = self.repository.get_replay_run(replay_run_id)
+        if replay_run is None:
+            raise AppError(
+                code=ErrorCode.lottery_draw_not_found,
+                message="Replay run was not found.",
+                status_code=404,
+            )
+        strategy_params = self._safe_json_loads(replay_run.strategy_params_json, {})
+        result_summary = self._safe_json_loads(replay_run.result_summary_json, {})
+        target_draw = self._get_target_draw(replay_run.target_issue_no)
+        target = LotteryService._serialize_draw(target_draw)
+        same_period_count = int(strategy_params.get("same_period_count", 0))
+        sample_limit = int(strategy_params.get("sample_limit", replay_run.sample_size))
+        training_models = self.repository.list_draws_before_issue(
+            replay_run.target_issue_no,
+            limit=sample_limit,
+        )
+        self._assert_no_future_data(
+            target_issue_no=replay_run.target_issue_no,
+            draws=training_models,
+        )
+        issue_suffix = replay_run.target_issue_no[-3:]
+        same_period_draws = [
+            LotteryService._serialize_draw(draw)
+            for draw in training_models
+            if draw.issue_no.endswith(issue_suffix)
+        ][:same_period_count]
+        return {
+            **self._serialize_replay_run_summary(replay_run),
+            "target_draw": target,
+            "same_period_count": same_period_count,
+            "strategy_params": strategy_params,
+            "generated_sets": [
+                self._serialize_replay_generated_set(item)
+                for item in sorted(replay_run.generated_sets, key=lambda current: current.rank)
+            ],
+            "baseline": {
+                "simulations": replay_run.baseline_simulations,
+                "seed": strategy_params.get("seed"),
+                "average_front_match": 0,
+                "average_back_match": 0,
+                "average_score": result_summary.get("baseline_average_score", 0),
+                "any_prize_rate": 0,
+                "explanation": "来自已保存回放记录的随机基准摘要。",
+            },
+            "warnings": self._safe_json_loads(replay_run.warnings_json, []),
+            "leakage_check": {
+                "passed": True,
+                "rule": "training issue_no must be smaller than target issue_no",
+            },
+            "same_period_deviation": self._build_same_period_deviation(
+                target=target,
+                same_period_draws=same_period_draws,
+            ),
+            "disclaimer": DLT_DISCLAIMER,
+        }
 
     def get_replay_context(
         self,
@@ -57,6 +126,69 @@ class LotteryReplayService:
                 same_period_draws=same_period_draws,
             ),
         }
+
+    @classmethod
+    def _serialize_replay_run_summary(
+        cls,
+        replay_run: LotteryReplayRunModel,
+    ) -> dict[str, object]:
+        result_summary = cls._safe_json_loads(replay_run.result_summary_json, {})
+        best_set = min(
+            replay_run.generated_sets,
+            key=lambda item: (
+                item.prize_tier if item.prize_tier is not None else 99,
+                -item.front_match_count,
+                -item.back_match_count,
+                item.rank,
+            ),
+            default=None,
+        )
+        return {
+            "run_id": replay_run.id,
+            "target_issue_no": replay_run.target_issue_no,
+            "target_draw_date": replay_run.target_draw_date.isoformat(),
+            "cutoff_issue_no": replay_run.cutoff_issue_no,
+            "cutoff_draw_date": replay_run.cutoff_draw_date.isoformat()
+            if replay_run.cutoff_draw_date
+            else None,
+            "strategy_name": replay_run.strategy_name,
+            "sample_size": replay_run.sample_size,
+            "baseline_simulations": replay_run.baseline_simulations,
+            "status": replay_run.status,
+            "generated_set_count": len(replay_run.generated_sets),
+            "best_match_key": cls._build_match_key(best_set) if best_set else None,
+            "best_prize_tier": best_set.prize_tier if best_set else None,
+            "result_summary": result_summary,
+            "created_at": replay_run.created_at.isoformat(),
+        }
+
+    @staticmethod
+    def _serialize_replay_generated_set(
+        generated_set: LotteryReplayGeneratedSetModel,
+    ) -> dict[str, object]:
+        return {
+            "rank": generated_set.rank,
+            "front_numbers": json.loads(generated_set.front_numbers_json),
+            "back_numbers": json.loads(generated_set.back_numbers_json),
+            "score": float(generated_set.score or 0),
+            "rationale": json.loads(generated_set.rationale_json),
+            "front_match_count": generated_set.front_match_count,
+            "back_match_count": generated_set.back_match_count,
+            "match_key": f"{generated_set.front_match_count}+{generated_set.back_match_count}",
+            "prize_tier": generated_set.prize_tier,
+            "baseline_percentile": float(generated_set.baseline_percentile or 0),
+        }
+
+    @staticmethod
+    def _build_match_key(generated_set: LotteryReplayGeneratedSetModel) -> str:
+        return f"{generated_set.front_match_count}+{generated_set.back_match_count}"
+
+    @staticmethod
+    def _safe_json_loads(value: str, fallback: Any) -> Any:
+        try:
+            return json.loads(value)
+        except json.JSONDecodeError:
+            return fallback
 
     def run_replay(
         self,

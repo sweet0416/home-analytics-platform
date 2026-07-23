@@ -17,6 +17,8 @@ import {
   fetchRandomnessDiagnostics,
   fetchRecommendationAnalysis,
   fetchReplayContext,
+  fetchReplayRun,
+  fetchReplayRuns,
   fetchSamePeriodAnalysis,
   fetchSimulationAnalysis,
   fetchSyncRuns,
@@ -45,6 +47,7 @@ import {
   type LotteryReplayContext,
   type LotteryReplayRequest,
   type LotteryReplayRun,
+  type LotteryReplayRunSummary,
   type LotteryRule,
   type LotterySamePeriodAnalysis,
   type LotterySensitivityAnalysis,
@@ -72,6 +75,7 @@ export const useLotteryStore = defineStore('lottery', {
     recommendations: null as LotteryRecommendationAnalysis | null,
     replayContext: null as LotteryReplayContext | null,
     replayRun: null as LotteryReplayRun | null,
+    replayRuns: [] as LotteryReplayRunSummary[],
     sensitivity: null as LotterySensitivityAnalysis | null,
     simulation: null as LotterySimulationAnalysis | null,
     combinationCoverage: null as LotteryCombinationCoverageAnalysis | null,
@@ -179,8 +183,22 @@ export const useLotteryStore = defineStore('lottery', {
     async loadReplayContext(targetIssueNo: string, sampleLimit = 500): Promise<void> {
       this.replayContext = await fetchReplayContext(targetIssueNo, sampleLimit);
     },
+    async loadReplayRuns(limit = 20): Promise<void> {
+      this.replayRuns = await fetchReplayRuns(limit);
+    },
+    async loadReplayRun(runId: number): Promise<void> {
+      const replayRun = await fetchReplayRun(runId);
+      this.replayRun = {
+        ...replayRun,
+        cutoff_issue_no: replayRun.cutoff_issue_no ?? '--',
+        cutoff_draw_date: replayRun.cutoff_draw_date ?? '--',
+        sample_size: replayRun.sample_size,
+        same_period_count: replayRun.same_period_count,
+      } as LotteryReplayRun;
+    },
     async runReplay(payload: LotteryReplayRequest): Promise<void> {
       this.replayRun = await runReplayRequest(payload);
+      await this.loadReplayRuns();
       const currentRange = this.replayContext?.available_range;
       this.replayContext = {
         target: payload.target_issue_no === this.replayContext?.target.issue_no

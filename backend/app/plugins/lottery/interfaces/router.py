@@ -30,7 +30,9 @@ from app.plugins.lottery.interfaces.schemas import (
     LotteryRecommendationRead,
     LotteryReplayContextRead,
     LotteryReplayRequest,
+    LotteryReplayRunDetailRead,
     LotteryReplayRunRead,
+    LotteryReplayRunSummaryRead,
     LotteryRuleRead,
     LotterySavedCombinationCreate,
     LotterySavedCombinationRead,
@@ -321,6 +323,30 @@ def get_replay_context(
 ) -> ApiResponse[LotteryReplayContextRead]:
     service = LotteryReplayService(db)
     return ok(service.get_replay_context(target_issue_no=target_issue_no, sample_limit=sample_limit))
+
+
+@router.get(
+    "/analysis/replay/runs",
+    response_model=ApiResponse[list[LotteryReplayRunSummaryRead]],
+)
+def list_replay_runs(
+    limit: int = Query(default=20, ge=1, le=100),
+    db: Session = Depends(get_db),
+) -> ApiResponse[list[LotteryReplayRunSummaryRead]]:
+    service = LotteryReplayService(db)
+    return ok(service.list_replay_runs(limit=limit))
+
+
+@router.get(
+    "/analysis/replay/runs/{run_id}",
+    response_model=ApiResponse[LotteryReplayRunDetailRead],
+)
+def get_replay_run(
+    run_id: int,
+    db: Session = Depends(get_db),
+) -> ApiResponse[LotteryReplayRunDetailRead]:
+    service = LotteryReplayService(db)
+    return ok(service.get_replay_run(run_id))
 
 
 @router.post("/analysis/replay", response_model=ApiResponse[LotteryReplayRunRead])

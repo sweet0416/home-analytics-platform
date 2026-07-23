@@ -319,6 +319,37 @@ class LotteryRepository:
         self.db.flush()
         return generated_set
 
+    def list_replay_runs(
+        self,
+        *,
+        game_code: str = DLT_GAME_CODE,
+        limit: int = 20,
+    ) -> list[LotteryReplayRunModel]:
+        return list(
+            self.db.scalars(
+                select(LotteryReplayRunModel)
+                .where(LotteryReplayRunModel.game_code == game_code)
+                .options(selectinload(LotteryReplayRunModel.generated_sets))
+                .order_by(LotteryReplayRunModel.created_at.desc(), LotteryReplayRunModel.id.desc())
+                .limit(limit)
+            )
+        )
+
+    def get_replay_run(
+        self,
+        replay_run_id: int,
+        *,
+        game_code: str = DLT_GAME_CODE,
+    ) -> LotteryReplayRunModel | None:
+        return self.db.scalar(
+            select(LotteryReplayRunModel)
+            .where(
+                LotteryReplayRunModel.id == replay_run_id,
+                LotteryReplayRunModel.game_code == game_code,
+            )
+            .options(selectinload(LotteryReplayRunModel.generated_sets))
+        )
+
     def get_draw_by_issue(
         self,
         issue_no: str,

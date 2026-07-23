@@ -20,6 +20,8 @@ POST /api/v1/lottery/dlt/analysis/coverage
 POST /api/v1/lottery/dlt/analysis/dantuo
 POST /api/v1/lottery/dlt/analysis/backtest
 GET /api/v1/lottery/dlt/analysis/replay/context?target_issue_no&sample_limit
+GET /api/v1/lottery/dlt/analysis/replay/runs?limit
+GET /api/v1/lottery/dlt/analysis/replay/runs/{run_id}
 POST /api/v1/lottery/dlt/analysis/replay
 POST /api/v1/lottery/dlt/analysis/replay/sensitivity
   body: target_issue_no, target_count, sample_windows, weight_profiles, baseline_simulations

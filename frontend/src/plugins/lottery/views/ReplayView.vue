@@ -184,6 +184,38 @@
       </div>
     </section>
 
+    <section class="panel replay-panel">
+      <div class="panel-header">
+        <h2 class="panel-title">最近回放记录</h2>
+        <span class="panel-meta">保存每次回放的参数、结果和命中摘要</span>
+      </div>
+      <div v-if="lottery.replayRuns.length" class="replay-history">
+        <article v-for="run in lottery.replayRuns" :key="run.run_id" class="history-row">
+          <div>
+            <strong>#{{ run.run_id }} · 目标 {{ run.target_issue_no }}</strong>
+            <span>
+              截止 {{ run.cutoff_issue_no ?? '--' }} · 样本 {{ run.sample_size }} ·
+              {{ formatDateTime(run.created_at) }}
+            </span>
+          </div>
+          <div class="history-meta">
+            <el-tag :type="run.best_prize_tier ? 'success' : 'info'" effect="dark">
+              {{ run.best_prize_tier ? `${run.best_prize_tier} 等` : run.best_match_key ?? '未命中奖级' }}
+            </el-tag>
+            <span>{{ run.generated_set_count }} 组</span>
+            <el-button size="small" :loading="loadingHistoryId === run.run_id" @click="loadReplayRun(run.run_id)">
+              查看
+            </el-button>
+          </div>
+        </article>
+      </div>
+      <EmptyState
+        v-else
+        title="暂无回放记录"
+        description="运行历史回放后，这里会保留实验记录，方便之后对比。"
+      />
+    </section>
+
     <LotteryExplanationPanel
       title="这页怎么看"
       subtitle="回放是为了检查策略稳定性，不是预测下一期"
@@ -197,6 +229,7 @@ import { ElMessage } from 'element-plus';
 import { computed, onMounted, reactive, ref } from 'vue';
 
 import MetricCard from '@/components/metric/MetricCard.vue';
+import EmptyState from '@/components/common/EmptyState.vue';
 import DisclaimerAlert from '@/plugins/lottery/components/DisclaimerAlert.vue';
 import DltModuleNav from '@/plugins/lottery/components/DltModuleNav.vue';
 import LotteryBall from '@/plugins/lottery/components/LotteryBall.vue';
@@ -214,6 +247,7 @@ type WeightKey = 'same_period_weight' | 'frequency_weight' | 'missing_weight' | 
 const lottery = useLotteryStore();
 const loadingContext = ref(false);
 const running = ref(false);
+const loadingHistoryId = ref<number | null>(null);
 const fallbackDisclaimer = '本结果仅基于历史统计分析，仅供娱乐，不代表未来开奖结果。';
 
 const form = reactive({
@@ -329,6 +363,7 @@ onMounted(() => {
       form.targetIssueNo = lottery.draws.items[0].issue_no;
     }
   });
+  void lottery.loadReplayRuns();
 });
 
 async function loadContext(): Promise<void> {
@@ -366,6 +401,16 @@ async function handleRunReplay(): Promise<void> {
   }
 }
 
+async function loadReplayRun(runId: number): Promise<void> {
+  loadingHistoryId.value = runId;
+  try {
+    await lottery.loadReplayRun(runId);
+    ElMessage.success(`已载入回放 #${runId}`);
+  } finally {
+    loadingHistoryId.value = null;
+  }
+}
+
 function parseSeed(): number | null {
   const value = form.seedText.trim();
   if (!value) return null;
@@ -384,6 +429,15 @@ function formatPercent(value: number): string {
 function formatSigned(value: number): string {
   if (value > 0) return `+${value}`;
   return String(value);
+}
+
+function formatDateTime(value: string): string {
+  return new Date(value).toLocaleString('zh-CN', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 }
 
 function deviationLevelLabel(level: string): string {
@@ -431,7 +485,8 @@ function deviationLevelClass(level: string): string {
 
 .replay-form,
 .weight-grid,
-.replay-list {
+.replay-list,
+.replay-history {
   display: grid;
   gap: 12px;
 }
@@ -591,6 +646,34 @@ function deviationLevelClass(level: string): string {
   justify-content: flex-start;
 }
 
+.history-row {
+  align-items: center;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 8px;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  padding: 12px;
+}
+
+.history-row > div:first-child {
+  display: grid;
+  gap: 5px;
+}
+
+.history-row span,
+.history-meta {
+  color: var(--color-muted);
+  font-size: 13px;
+}
+
+.history-meta {
+  align-items: center;
+  display: flex;
+  flex-shrink: 0;
+  gap: 10px;
+}
+
 @media (max-width: 1180px) {
   .replay-form,
   .weight-grid,
@@ -612,6 +695,12 @@ function deviationLevelClass(level: string): string {
   .deviation-grid,
   .replay-list {
     grid-template-columns: 1fr;
+  }
+
+  .history-row,
+  .history-meta {
+    align-items: stretch;
+    flex-direction: column;
   }
 }
 </style>

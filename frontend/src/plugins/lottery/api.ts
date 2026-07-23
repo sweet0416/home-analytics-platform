@@ -583,6 +583,35 @@ export interface LotteryReplayRun {
   disclaimer: string;
 }
 
+export interface LotteryReplayRunSummary {
+  run_id: number;
+  target_issue_no: string;
+  target_draw_date: string;
+  cutoff_issue_no: string | null;
+  cutoff_draw_date: string | null;
+  strategy_name: string;
+  sample_size: number;
+  baseline_simulations: number;
+  status: string;
+  generated_set_count: number;
+  best_match_key: string | null;
+  best_prize_tier: number | null;
+  result_summary: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface LotteryReplayRunDetail extends LotteryReplayRunSummary {
+  target_draw: LotteryDraw;
+  same_period_count: number;
+  strategy_params: Record<string, unknown>;
+  generated_sets: LotteryReplayGeneratedSet[];
+  baseline: LotteryReplayBaseline;
+  warnings: LotteryReplayWarning[];
+  leakage_check: LotteryReplayLeakageCheck;
+  same_period_deviation: LotterySamePeriodDeviation;
+  disclaimer: string;
+}
+
 export interface LotterySensitivityWeightProfile extends LotteryReplayStrategyRequest {
   name: string;
 }
@@ -955,6 +984,16 @@ export function runReplay(payload: LotteryReplayRequest): Promise<LotteryReplayR
     '/lottery/dlt/analysis/replay',
     payload,
   );
+}
+
+export function fetchReplayRuns(limit = 20): Promise<LotteryReplayRunSummary[]> {
+  return getApiData<LotteryReplayRunSummary[]>(
+    `/lottery/dlt/analysis/replay/runs?limit=${limit}`,
+  );
+}
+
+export function fetchReplayRun(runId: number): Promise<LotteryReplayRunDetail> {
+  return getApiData<LotteryReplayRunDetail>(`/lottery/dlt/analysis/replay/runs/${runId}`);
 }
 
 export function analyzeSensitivity(

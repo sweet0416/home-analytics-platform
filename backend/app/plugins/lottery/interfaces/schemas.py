@@ -626,6 +626,35 @@ class LotteryReplayRunRead(BaseModel):
     disclaimer: str
 
 
+class LotteryReplayRunSummaryRead(BaseModel):
+    run_id: int
+    target_issue_no: str
+    target_draw_date: str
+    cutoff_issue_no: str | None
+    cutoff_draw_date: str | None
+    strategy_name: str
+    sample_size: int
+    baseline_simulations: int
+    status: str
+    generated_set_count: int
+    best_match_key: str | None
+    best_prize_tier: int | None
+    result_summary: dict[str, object]
+    created_at: str
+
+
+class LotteryReplayRunDetailRead(LotteryReplayRunSummaryRead):
+    target_draw: LotteryDrawRead
+    same_period_count: int
+    strategy_params: dict[str, object]
+    generated_sets: list[LotteryReplayGeneratedSetRead]
+    baseline: LotteryReplayBaselineRead
+    warnings: list[LotteryReplayWarningRead]
+    leakage_check: LotteryReplayLeakageCheckRead
+    same_period_deviation: LotterySamePeriodDeviationRead
+    disclaimer: str
+
+
 class LotterySensitivityResultRead(BaseModel):
     profile_name: str
     target_issue_no: str

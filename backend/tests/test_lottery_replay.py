@@ -143,6 +143,39 @@ def test_replay_endpoint_returns_context_and_run(client: TestClient, db_session:
     assert len(run_response.json()["data"]["generated_sets"]) == 2
 
 
+def test_replay_history_endpoints_return_saved_runs(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    seed_replay_draws(db_session)
+    run_response = client.post(
+        "/api/v1/lottery/dlt/analysis/replay",
+        json={
+            "target_issue_no": "26080",
+            "sets": 2,
+            "sample_limit": 20,
+            "baseline_simulations": 500,
+            "seed": 42,
+        },
+    )
+    run_id = run_response.json()["data"]["run_id"]
+
+    list_response = client.get("/api/v1/lottery/dlt/analysis/replay/runs")
+    detail_response = client.get(f"/api/v1/lottery/dlt/analysis/replay/runs/{run_id}")
+
+    assert list_response.status_code == 200
+    assert list_response.json()["data"][0]["run_id"] == run_id
+    assert list_response.json()["data"][0]["best_match_key"]
+    assert detail_response.status_code == 200
+    detail = detail_response.json()["data"]
+    assert detail["target_issue_no"] == "26080"
+    assert detail["strategy_params"]["sample_limit"] == 20
+    assert detail["baseline"]["simulations"] == 500
+    assert detail["same_period_deviation"]["issue_suffix"] == "080"
+    assert len(detail["generated_sets"]) == 2
+    assert detail["generated_sets"][0]["match_key"]
+
+
 def test_sensitivity_analysis_does_not_create_replay_run(db_session: Session) -> None:
     seed_replay_draws(db_session)
 
