@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia';
 
 import {
+  analyzeCombinationCoverage as analyzeCombinationCoverageRequest,
   analyzeDantuo as analyzeDantuoRequest,
   analyzeSensitivity as analyzeSensitivityRequest,
   backtestNumbers as backtestNumbersRequest,
@@ -33,6 +34,8 @@ import {
   type LotteryBackfillRequest,
   type LotteryBackfillRun,
   type LotteryBasicStatistics,
+  type LotteryCombinationCoverageAnalysis,
+  type LotteryCoverageRequest,
   type LotteryDrawCoverage,
   type LotteryNumberOmissionDetail,
   type LotteryOmissionStatistics,
@@ -71,6 +74,7 @@ export const useLotteryStore = defineStore('lottery', {
     replayRun: null as LotteryReplayRun | null,
     sensitivity: null as LotterySensitivityAnalysis | null,
     simulation: null as LotterySimulationAnalysis | null,
+    combinationCoverage: null as LotteryCombinationCoverageAnalysis | null,
     dantuo: null as LotteryDantuoAnalysis | null,
     backtest: null as LotteryBacktestAnalysis | null,
     latestBackfillRun: null as LotteryBackfillRun | null,
@@ -201,6 +205,9 @@ export const useLotteryStore = defineStore('lottery', {
     },
     async loadSimulation(simulations = 10000, sets = 5, seed?: number): Promise<void> {
       this.simulation = await fetchSimulationAnalysis(simulations, sets, seed);
+    },
+    async analyzeCombinationCoverage(payload: LotteryCoverageRequest): Promise<void> {
+      this.combinationCoverage = await analyzeCombinationCoverageRequest(payload);
     },
     async analyzeDantuo(payload: LotteryDantuoRequest): Promise<void> {
       this.dantuo = await analyzeDantuoRequest(payload);

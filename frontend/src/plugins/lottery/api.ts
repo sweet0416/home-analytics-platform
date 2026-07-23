@@ -306,6 +306,66 @@ export interface LotterySimulationAnalysis {
   back_frequency: LotterySimulationFrequency[];
 }
 
+export interface LotteryCoverageCombinationRequest {
+  front_numbers: number[];
+  back_numbers: number[];
+}
+
+export interface LotteryCoverageRequest {
+  combinations: LotteryCoverageCombinationRequest[];
+}
+
+export interface LotteryEntropy {
+  value: number;
+  max: number;
+  normalized: number;
+}
+
+export interface LotteryCoverageCombination {
+  rank: number;
+  front_numbers: number[];
+  back_numbers: number[];
+  front_sum: number;
+  front_span: number;
+  front_parity_pattern: string;
+  front_zone_pattern: string;
+  front_route012_pattern: string;
+  front_min_distance: number;
+}
+
+export interface LotteryPairwiseSimilarity {
+  left_rank: number;
+  right_rank: number;
+  front_overlap: number;
+  back_overlap: number;
+  front_jaccard: number;
+  back_jaccard: number;
+  combined_jaccard: number;
+}
+
+export interface LotteryCombinationCoverageAnalysis {
+  disclaimer: string;
+  set_count: number;
+  front_unique_count: number;
+  back_unique_count: number;
+  front_coverage_rate: number;
+  back_coverage_rate: number;
+  front_duplicate_slots: number;
+  back_duplicate_slots: number;
+  front_entropy: LotteryEntropy;
+  back_entropy: LotteryEntropy;
+  average_jaccard: number;
+  max_jaccard: number;
+  min_front_distance: number;
+  zone_coverage: Record<string, number>;
+  parity_coverage: Record<string, number>;
+  size_coverage: Record<string, number>;
+  tail_coverage: Record<string, number>;
+  combinations: LotteryCoverageCombination[];
+  pairwise_similarity: LotteryPairwiseSimilarity[];
+  notes: string[];
+}
+
 export interface LotteryDantuoRequest {
   front_dan: number[];
   front_tuo: number[];
@@ -843,6 +903,15 @@ export function fetchSimulationAnalysis(
   if (seed !== undefined) params.set('seed', String(seed));
   return getApiData<LotterySimulationAnalysis>(
     `/lottery/dlt/analysis/simulation?${params.toString()}`,
+  );
+}
+
+export function analyzeCombinationCoverage(
+  payload: LotteryCoverageRequest,
+): Promise<LotteryCombinationCoverageAnalysis> {
+  return postApiData<LotteryCombinationCoverageAnalysis, LotteryCoverageRequest>(
+    '/lottery/dlt/analysis/coverage',
+    payload,
   );
 }
 

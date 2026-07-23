@@ -656,6 +656,61 @@ class LotteryService:
             ),
         }
 
+    def analyze_combination_coverage(
+        self,
+        *,
+        combinations: list[dict[str, object]],
+    ) -> dict[str, object]:
+        normalized = self._normalize_coverage_combinations(combinations)
+        front_sets = [set(item["front_numbers"]) for item in normalized]
+        back_sets = [set(item["back_numbers"]) for item in normalized]
+        all_front = [number for item in normalized for number in item["front_numbers"]]
+        all_back = [number for item in normalized for number in item["back_numbers"]]
+        pairwise = self._build_pairwise_similarity(front_sets=front_sets, back_sets=back_sets)
+        front_unique = len(set(all_front))
+        back_unique = len(set(all_back))
+        set_count = len(normalized)
+        return {
+            "disclaimer": DLT_DISCLAIMER,
+            "set_count": set_count,
+            "front_unique_count": front_unique,
+            "back_unique_count": back_unique,
+            "front_coverage_rate": round(front_unique / 35, 6),
+            "back_coverage_rate": round(back_unique / 12, 6),
+            "front_duplicate_slots": set_count * 5 - front_unique,
+            "back_duplicate_slots": set_count * 2 - back_unique,
+            "front_entropy": self._normalized_entropy(all_front, 35),
+            "back_entropy": self._normalized_entropy(all_back, 12),
+            "average_jaccard": round(mean(item["combined_jaccard"] for item in pairwise), 6)
+            if pairwise
+            else 0,
+            "max_jaccard": max((item["combined_jaccard"] for item in pairwise), default=0),
+            "min_front_distance": min(
+                self._minimum_number_distance(item["front_numbers"]) for item in normalized
+            ),
+            "zone_coverage": self._build_zone_coverage(all_front),
+            "parity_coverage": self._build_parity_coverage(all_front, all_back),
+            "size_coverage": self._build_size_coverage(all_front, all_back),
+            "tail_coverage": self._build_tail_coverage(all_front, all_back),
+            "combinations": [
+                {
+                    **item,
+                    **self._build_coverage_combination_metrics(
+                        front_numbers=item["front_numbers"],
+                        back_numbers=item["back_numbers"],
+                    ),
+                }
+                for item in normalized
+            ],
+            "pairwise_similarity": pairwise,
+            "notes": [
+                "最大熵/组合覆盖只衡量多组号码的分散度和覆盖结构，不能提高单注中奖概率。",
+                "Jaccard 越高表示两组越相似；如果多组号码过于相似，覆盖面会变窄。",
+                "覆盖率越高表示这批样本触达的号码更多，但不代表这些号码更可能开奖。",
+                "建议把它作为组合筛选和回测前的体检工具，而不是预测工具。",
+            ],
+        }
+
     def analyze_dantuo(
         self,
         *,
@@ -968,6 +1023,170 @@ class LotteryService:
                 key=lambda item: (-item[1], item[0]),
             )
         ]
+
+    @classmethod
+    def _normalize_coverage_combinations(
+        cls,
+        combinations: list[dict[str, object]],
+    ) -> list[dict[str, object]]:
+        if len(combinations) < 2:
+            raise AppError(
+                code=ErrorCode.validation_error,
+                message="At least two combinations are required for coverage analysis.",
+                status_code=422,
+            )
+        normalized: list[dict[str, object]] = []
+        seen_signatures: set[str] = set()
+        for index, item in enumerate(combinations, start=1):
+            front_numbers = cls._normalize_number_list(list(item["front_numbers"]))
+            back_numbers = cls._normalize_number_list(list(item["back_numbers"]))
+            cls._validate_exact_numbers(
+                area_label="front",
+                numbers=front_numbers,
+                min_number=1,
+                max_number=35,
+                required_count=5,
+            )
+            cls._validate_exact_numbers(
+                area_label="back",
+                numbers=back_numbers,
+                min_number=1,
+                max_number=12,
+                required_count=2,
+            )
+            signature = f"{','.join(map(str, front_numbers))}|{','.join(map(str, back_numbers))}"
+            if signature in seen_signatures:
+                raise AppError(
+                    code=ErrorCode.validation_error,
+                    message="Duplicate combinations are not allowed in coverage analysis.",
+                    status_code=422,
+                )
+            seen_signatures.add(signature)
+            normalized.append(
+                {
+                    "rank": index,
+                    "front_numbers": front_numbers,
+                    "back_numbers": back_numbers,
+                }
+            )
+        return normalized
+
+    @staticmethod
+    def _normalized_entropy(numbers: list[int], domain_size: int) -> dict[str, float]:
+        counts = Counter(numbers)
+        total = len(numbers)
+        entropy = 0.0
+        if total:
+            entropy = -sum(
+                (count / total) * log2(count / total)
+                for count in counts.values()
+                if count > 0
+            )
+        max_entropy = log2(domain_size)
+        return {
+            "value": round(entropy, 6),
+            "max": round(max_entropy, 6),
+            "normalized": round(entropy / max_entropy, 6) if max_entropy else 0,
+        }
+
+    @staticmethod
+    def _build_pairwise_similarity(
+        *,
+        front_sets: list[set[int]],
+        back_sets: list[set[int]],
+    ) -> list[dict[str, object]]:
+        items: list[dict[str, object]] = []
+        for left_index, right_index in combinations(range(len(front_sets)), 2):
+            front_union = front_sets[left_index] | front_sets[right_index]
+            back_union = back_sets[left_index] | back_sets[right_index]
+            combined_left = {f"f-{number}" for number in front_sets[left_index]} | {
+                f"b-{number}" for number in back_sets[left_index]
+            }
+            combined_right = {f"f-{number}" for number in front_sets[right_index]} | {
+                f"b-{number}" for number in back_sets[right_index]
+            }
+            combined_union = combined_left | combined_right
+            combined_intersection = combined_left & combined_right
+            front_jaccard = len(front_sets[left_index] & front_sets[right_index]) / len(front_union)
+            back_jaccard = len(back_sets[left_index] & back_sets[right_index]) / len(back_union)
+            combined_jaccard = (
+                len(combined_intersection) / len(combined_union) if combined_union else 0
+            )
+            items.append(
+                {
+                    "left_rank": left_index + 1,
+                    "right_rank": right_index + 1,
+                    "front_overlap": len(front_sets[left_index] & front_sets[right_index]),
+                    "back_overlap": len(back_sets[left_index] & back_sets[right_index]),
+                    "front_jaccard": round(front_jaccard, 6),
+                    "back_jaccard": round(back_jaccard, 6),
+                    "combined_jaccard": round(combined_jaccard, 6),
+                }
+            )
+        return sorted(items, key=lambda item: (-float(item["combined_jaccard"]), item["left_rank"]))
+
+    @staticmethod
+    def _minimum_number_distance(numbers: list[int]) -> int:
+        sorted_numbers = sorted(numbers)
+        return min(
+            right - left
+            for left, right in zip(sorted_numbers, sorted_numbers[1:], strict=False)
+        )
+
+    @classmethod
+    def _build_coverage_combination_metrics(
+        cls,
+        *,
+        front_numbers: list[int],
+        back_numbers: list[int],
+    ) -> dict[str, object]:
+        metrics = cls._build_draw_metrics(
+            issue_no="coverage",
+            front_numbers=front_numbers,
+            back_numbers=back_numbers,
+        )
+        return {
+            "front_sum": metrics["front_sum"],
+            "front_span": metrics["front_span"],
+            "front_parity_pattern": metrics["front_parity_pattern"],
+            "front_zone_pattern": metrics["front_zone_pattern"],
+            "front_route012_pattern": metrics["front_route012_pattern"],
+            "front_min_distance": cls._minimum_number_distance(front_numbers),
+        }
+
+    @staticmethod
+    def _build_zone_coverage(numbers: list[int]) -> dict[str, int]:
+        unique_numbers = set(numbers)
+        return {
+            "zone_1_12": sum(1 for number in unique_numbers if 1 <= number <= 12),
+            "zone_13_24": sum(1 for number in unique_numbers if 13 <= number <= 24),
+            "zone_25_35": sum(1 for number in unique_numbers if 25 <= number <= 35),
+        }
+
+    @staticmethod
+    def _build_parity_coverage(front_numbers: list[int], back_numbers: list[int]) -> dict[str, int]:
+        return {
+            "front_odd": sum(1 for number in front_numbers if number % 2 == 1),
+            "front_even": sum(1 for number in front_numbers if number % 2 == 0),
+            "back_odd": sum(1 for number in back_numbers if number % 2 == 1),
+            "back_even": sum(1 for number in back_numbers if number % 2 == 0),
+        }
+
+    @staticmethod
+    def _build_size_coverage(front_numbers: list[int], back_numbers: list[int]) -> dict[str, int]:
+        return {
+            "front_small": sum(1 for number in front_numbers if number <= 17),
+            "front_large": sum(1 for number in front_numbers if number >= 18),
+            "back_small": sum(1 for number in back_numbers if number <= 6),
+            "back_large": sum(1 for number in back_numbers if number >= 7),
+        }
+
+    @staticmethod
+    def _build_tail_coverage(front_numbers: list[int], back_numbers: list[int]) -> dict[str, int]:
+        return {
+            "front_unique_tails": len({number % 10 for number in front_numbers}),
+            "back_unique_tails": len({number % 10 for number in back_numbers}),
+        }
 
     @staticmethod
     def _normalize_number_list(numbers: list[int]) -> list[int]:

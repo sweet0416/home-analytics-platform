@@ -25,6 +25,7 @@ const moduleNavItems = [
   { label: '共现网络', path: '/lottery/dlt/co-occurrence' },
   { label: '选号推荐', path: '/lottery/dlt/recommendations' },
   { label: '模拟选号', path: '/lottery/dlt/simulation' },
+  { label: '组合覆盖', path: '/lottery/dlt/coverage' },
   { label: '定胆胆拖', path: '/lottery/dlt/dantuo' },
   { label: '组合回测', path: '/lottery/dlt/backtest' },
   { label: '历史回放', path: '/lottery/dlt/replay' },

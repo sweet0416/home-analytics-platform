@@ -238,3 +238,23 @@ def test_lottery_service_applies_recommendation_weights(db_session: Session) -> 
     }
     assert analysis["requested_sets"] == 2
     assert len(analysis["recommendations"]) == 2
+
+
+def test_lottery_service_analyzes_combination_coverage(db_session: Session) -> None:
+    LotteryRepository(db_session).ensure_dlt_seed_data()
+
+    analysis = LotteryService(db_session).analyze_combination_coverage(
+        combinations=[
+            {"front_numbers": [1, 2, 3, 4, 5], "back_numbers": [1, 2]},
+            {"front_numbers": [1, 6, 7, 8, 9], "back_numbers": [2, 3]},
+            {"front_numbers": [10, 11, 12, 13, 14], "back_numbers": [4, 5]},
+        ],
+    )
+
+    assert analysis["set_count"] == 3
+    assert analysis["front_unique_count"] == 14
+    assert analysis["back_unique_count"] == 5
+    assert analysis["front_duplicate_slots"] == 1
+    assert analysis["back_duplicate_slots"] == 1
+    assert analysis["pairwise_similarity"][0]["combined_jaccard"] > 0
+    assert analysis["front_entropy"]["normalized"] > 0

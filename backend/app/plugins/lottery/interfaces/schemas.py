@@ -301,6 +301,66 @@ class LotterySimulationRead(BaseModel):
     back_frequency: list[LotterySimulationFrequencyRead]
 
 
+class LotteryCoverageCombinationRequest(BaseModel):
+    front_numbers: list[int] = Field(min_length=5, max_length=5)
+    back_numbers: list[int] = Field(min_length=2, max_length=2)
+
+
+class LotteryCoverageRequest(BaseModel):
+    combinations: list[LotteryCoverageCombinationRequest] = Field(min_length=2, max_length=50)
+
+
+class LotteryEntropyRead(BaseModel):
+    value: float
+    max: float
+    normalized: float
+
+
+class LotteryCoverageCombinationRead(BaseModel):
+    rank: int
+    front_numbers: list[int] = Field(min_length=5, max_length=5)
+    back_numbers: list[int] = Field(min_length=2, max_length=2)
+    front_sum: int
+    front_span: int
+    front_parity_pattern: str
+    front_zone_pattern: str
+    front_route012_pattern: str
+    front_min_distance: int
+
+
+class LotteryPairwiseSimilarityRead(BaseModel):
+    left_rank: int
+    right_rank: int
+    front_overlap: int
+    back_overlap: int
+    front_jaccard: float
+    back_jaccard: float
+    combined_jaccard: float
+
+
+class LotteryCombinationCoverageRead(BaseModel):
+    disclaimer: str
+    set_count: int
+    front_unique_count: int
+    back_unique_count: int
+    front_coverage_rate: float
+    back_coverage_rate: float
+    front_duplicate_slots: int
+    back_duplicate_slots: int
+    front_entropy: LotteryEntropyRead
+    back_entropy: LotteryEntropyRead
+    average_jaccard: float
+    max_jaccard: float
+    min_front_distance: int
+    zone_coverage: dict[str, int]
+    parity_coverage: dict[str, int]
+    size_coverage: dict[str, int]
+    tail_coverage: dict[str, int]
+    combinations: list[LotteryCoverageCombinationRead]
+    pairwise_similarity: list[LotteryPairwiseSimilarityRead]
+    notes: list[str]
+
+
 class LotteryDantuoRequest(BaseModel):
     front_dan: list[int] = Field(default_factory=list)
     front_tuo: list[int] = Field(default_factory=list)

@@ -2,6 +2,7 @@ import type { RouteRecordRaw } from 'vue-router';
 
 import BacktestView from './views/BacktestView.vue';
 import CoOccurrenceView from './views/CoOccurrenceView.vue';
+import CombinationCoverageView from './views/CombinationCoverageView.vue';
 import DataHealthView from './views/DataHealthView.vue';
 import DantuoView from './views/DantuoView.vue';
 import DrawHistory from './views/DrawHistory.vue';
@@ -61,6 +62,11 @@ export const lotteryRoutes: RouteRecordRaw[] = [
     path: 'lottery/dlt/simulation',
     name: 'lottery-dlt-simulation',
     component: SimulationView,
+  },
+  {
+    path: 'lottery/dlt/coverage',
+    name: 'lottery-dlt-coverage',
+    component: CombinationCoverageView,
   },
   {
     path: 'lottery/dlt/dantuo',

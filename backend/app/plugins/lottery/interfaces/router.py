@@ -17,6 +17,8 @@ from app.plugins.lottery.interfaces.schemas import (
     LotteryBacktestRequest,
     LotteryBasicStatisticsRead,
     LotteryCoOccurrenceRead,
+    LotteryCombinationCoverageRead,
+    LotteryCoverageRequest,
     LotteryDantuoAnalysisRead,
     LotteryDantuoRequest,
     LotteryDrawCoverageRead,
@@ -251,6 +253,21 @@ def simulate_numbers(
 ) -> ApiResponse[LotterySimulationRead]:
     service = LotteryService(db)
     return ok(service.simulate_numbers(simulations=simulations, sets=sets, seed=seed))
+
+
+@router.post("/analysis/coverage", response_model=ApiResponse[LotteryCombinationCoverageRead])
+def analyze_combination_coverage(
+    payload: LotteryCoverageRequest,
+    db: Session = Depends(get_db),
+) -> ApiResponse[LotteryCombinationCoverageRead]:
+    service = LotteryService(db)
+    return ok(
+        service.analyze_combination_coverage(
+            combinations=[
+                combination.model_dump() for combination in payload.combinations
+            ],
+        )
+    )
 
 
 @router.post("/analysis/dantuo", response_model=ApiResponse[LotteryDantuoAnalysisRead])
