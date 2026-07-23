@@ -52,6 +52,10 @@
             {{ window }}
           </el-checkbox-button>
         </el-checkbox-group>
+        <div class="custom-window">
+          <el-input-number v-model="customWindow" :min="20" :max="2000" :step="50" size="small" />
+          <el-button size="small" @click="addCustomWindow">添加窗口</el-button>
+        </div>
       </div>
     </section>
 
@@ -153,7 +157,8 @@ import { useLotteryStore } from '@/plugins/lottery/store';
 const lottery = useLotteryStore();
 const loading = ref(false);
 const fallbackDisclaimer = '本结果仅基于历史统计分析，仅供娱乐，不代表未来开奖结果。';
-const windowOptions = [50, 100, 200, 500];
+const windowOptions = ref([50, 100, 200, 500]);
+const customWindow = ref(500);
 
 const form = reactive({
   targetIssueNo: '',
@@ -257,6 +262,20 @@ async function runAnalysis(): Promise<void> {
   }
 }
 
+function addCustomWindow(): void {
+  const value = Number(customWindow.value);
+  if (!Number.isInteger(value) || value < 20 || value > 2000) {
+    ElMessage.warning('样本窗口需要在 20 到 2000 之间');
+    return;
+  }
+  if (!windowOptions.value.includes(value)) {
+    windowOptions.value = [...windowOptions.value, value].sort((left, right) => left - right);
+  }
+  if (!form.sampleWindows.includes(value)) {
+    form.sampleWindows = [...form.sampleWindows, value].sort((left, right) => left - right);
+  }
+}
+
 function parseSeed(): number | null {
   const value = form.seedText.trim();
   if (!value) return null;
@@ -324,6 +343,12 @@ function scoreDeltaClass(value: number): string {
   gap: 12px;
   margin-top: 16px;
   padding-top: 16px;
+}
+
+.custom-window {
+  align-items: center;
+  display: flex;
+  gap: 8px;
 }
 
 .summary-band {
@@ -398,6 +423,11 @@ function scoreDeltaClass(value: number): string {
   .sensitivity-form,
   .result-row {
     grid-template-columns: 1fr;
+  }
+
+  .custom-window {
+    align-items: stretch;
+    flex-direction: column;
   }
 }
 </style>
