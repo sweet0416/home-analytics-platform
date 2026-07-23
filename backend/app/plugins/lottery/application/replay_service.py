@@ -336,12 +336,12 @@ class LotteryReplayService:
             for draw in same_period_draws
         ]
         notes = [
-            "All same-period samples are earlier than the selected target issue.",
-            "Deviation describes historical-sample distance, not next-draw probability.",
+            "所有历史同期样本都早于目标期，不包含目标期或之后的数据。",
+            "偏离度描述的是历史样本距离，不代表下一期概率变化。",
         ]
         if sample_size < 5:
             notes.append(
-                "Same-period sample is small; read the deviation as a rough hint only."
+                "历史同期样本较少，请把偏离度当作粗略观察，不要过度解读。"
             )
 
         return {
