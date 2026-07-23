@@ -1857,7 +1857,7 @@ class LotteryService:
                 )
 
         selected: list[dict[str, object]] = []
-        remaining = sorted(candidates, key=lambda item: -float(item["score"]))
+        remaining = sorted(candidates, key=lambda item: -float(item["score"]))[:1500]
         while remaining and len(selected) < limit:
             ranked_candidates = sorted(
                 remaining,

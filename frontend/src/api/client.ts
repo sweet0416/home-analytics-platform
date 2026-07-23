@@ -13,8 +13,8 @@ export const apiClient = axios.create({
   timeout: 15000,
 });
 
-export async function getApiData<T>(url: string): Promise<T> {
-  const response = await apiClient.get<ApiResponse<T>>(url);
+export async function getApiData<T>(url: string, options?: { timeout?: number }): Promise<T> {
+  const response = await apiClient.get<ApiResponse<T>>(url, options);
   return response.data.data;
 }
 

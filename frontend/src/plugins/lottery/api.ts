@@ -893,6 +893,7 @@ export function fetchRecommendationAnalysis(
   if (issueNo) params.set('issue_no', issueNo);
   return getApiData<LotteryRecommendationAnalysis>(
     `/lottery/dlt/analysis/recommendations?${params.toString()}`,
+    { timeout: 60000 },
   );
 }
 
