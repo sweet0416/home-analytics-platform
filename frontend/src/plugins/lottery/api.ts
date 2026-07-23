@@ -443,6 +443,34 @@ export interface LotteryReplayRange {
   latest_draw_date: string | null;
 }
 
+export interface LotterySamePeriodDeviationMetric {
+  label: string;
+  target_value: number;
+  historical_average: number;
+  deviation: number;
+  level: string;
+}
+
+export interface LotterySamePeriodDeviationPattern {
+  target_pattern: string;
+  historical_top_pattern: string;
+  historical_top_rate: number;
+  target_pattern_rate: number;
+  level: string;
+}
+
+export interface LotterySamePeriodDeviation {
+  issue_suffix: string;
+  sample_size: number;
+  front_repeat: LotterySamePeriodDeviationMetric;
+  back_repeat: LotterySamePeriodDeviationMetric;
+  front_sum: LotterySamePeriodDeviationMetric;
+  front_span: LotterySamePeriodDeviationMetric;
+  front_zone: LotterySamePeriodDeviationPattern;
+  front_route012: LotterySamePeriodDeviationPattern;
+  notes: string[];
+}
+
 export interface LotteryReplayContext {
   target: LotteryDraw;
   cutoff: LotteryDraw | null;
@@ -451,6 +479,7 @@ export interface LotteryReplayContext {
   available_range: LotteryReplayRange;
   leakage_check: LotteryReplayLeakageCheck;
   warnings: LotteryReplayWarning[];
+  same_period_deviation: LotterySamePeriodDeviation;
 }
 
 export interface LotteryReplayGeneratedSet extends LotteryRecommendationSet {
@@ -487,6 +516,7 @@ export interface LotteryReplayRun {
   baseline: LotteryReplayBaseline;
   warnings: LotteryReplayWarning[];
   leakage_check: LotteryReplayLeakageCheck;
+  same_period_deviation: LotterySamePeriodDeviation;
   disclaimer: string;
 }
 

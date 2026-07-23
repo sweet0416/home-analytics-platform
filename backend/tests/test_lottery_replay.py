@@ -58,6 +58,8 @@ def test_replay_context_uses_only_past_draws(db_session: Session) -> None:
     assert context["sample_size"] == 6
     assert context["available_range"]["latest_issue_no"] == "25080"
     assert context["leakage_check"]["passed"] is True
+    assert context["same_period_deviation"]["issue_suffix"] == "080"
+    assert context["same_period_deviation"]["sample_size"] == 2
 
 
 def test_replay_records_generated_sets_and_baseline(db_session: Session) -> None:
@@ -78,6 +80,12 @@ def test_replay_records_generated_sets_and_baseline(db_session: Session) -> None
     assert result["baseline"]["seed"] == 42
     assert result["baseline"]["simulations"] == 500
     assert result["leakage_check"]["passed"] is True
+    assert result["same_period_deviation"]["front_repeat"]["level"] in {
+        "low",
+        "medium",
+        "high",
+        "sample_limited",
+    }
 
     run_count = db_session.scalar(select(func.count()).select_from(LotteryReplayRunModel))
     set_count = db_session.scalar(select(func.count()).select_from(LotteryReplayGeneratedSetModel))
@@ -127,6 +135,8 @@ def test_replay_endpoint_returns_context_and_run(client: TestClient, db_session:
 
     assert context_response.status_code == 200
     assert context_response.json()["data"]["cutoff"]["issue_no"] == "25080"
+    assert "same_period_deviation" in context_response.json()["data"]
     assert run_response.status_code == 200
     assert run_response.json()["data"]["cutoff_issue_no"] == "25080"
+    assert "same_period_deviation" in run_response.json()["data"]
     assert len(run_response.json()["data"]["generated_sets"]) == 2

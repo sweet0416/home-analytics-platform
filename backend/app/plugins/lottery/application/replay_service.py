@@ -1,5 +1,6 @@
 import json
 import random
+from collections import Counter
 from decimal import Decimal
 from statistics import mean
 
@@ -29,6 +30,15 @@ class LotteryReplayService:
             limit=sample_limit,
         )
         self._assert_no_future_data(target_issue_no=target_issue_no, draws=training_draws)
+        serialized_training_draws = [
+            LotteryService._serialize_draw(draw) for draw in training_draws
+        ]
+        issue_suffix = target_issue_no[-3:]
+        same_period_draws = [
+            draw
+            for draw in serialized_training_draws
+            if str(draw["issue_no"]).endswith(issue_suffix)
+        ]
         cutoff_draw = training_draws[0] if training_draws else None
         warnings = self._build_sample_warnings(len(training_draws))
         return {
@@ -42,6 +52,10 @@ class LotteryReplayService:
                 "rule": "training issue_no must be smaller than target issue_no",
             },
             "warnings": warnings,
+            "same_period_deviation": self._build_same_period_deviation(
+                target=LotteryService._serialize_draw(target_draw),
+                same_period_draws=same_period_draws,
+            ),
         }
 
     def run_replay(
@@ -85,6 +99,10 @@ class LotteryReplayService:
         same_period_draws = [
             draw for draw in training_draws if str(draw["issue_no"]).endswith(issue_suffix)
         ][:same_period_count]
+        same_period_deviation = self._build_same_period_deviation(
+            target=target,
+            same_period_draws=same_period_draws,
+        )
         front_scores = LotteryService._score_recommendation_numbers(
             area="front",
             min_number=1,
@@ -185,6 +203,7 @@ class LotteryReplayService:
                 "passed": True,
                 "rule": "training issue_no must be smaller than target issue_no",
             },
+            "same_period_deviation": same_period_deviation,
             "disclaimer": DLT_DISCLAIMER,
         }
 
@@ -284,6 +303,172 @@ class LotteryReplayService:
             "any_prize_rate": round(any_prize_count / simulations, 6),
             "scores": scores,
             "explanation": "Random baseline samples 5 front and 2 back numbers uniformly.",
+        }
+
+    @staticmethod
+    def _build_same_period_deviation(
+        *,
+        target: dict[str, object],
+        same_period_draws: list[dict[str, object]],
+    ) -> dict[str, object]:
+        target_front = list(target["front_numbers"])
+        target_back = list(target["back_numbers"])
+        target_metrics = LotteryService._build_draw_metrics(
+            issue_no=str(target["issue_no"]),
+            front_numbers=target_front,
+            back_numbers=target_back,
+        )
+        historical_metrics = [
+            LotteryService._build_draw_metrics(
+                issue_no=str(draw["issue_no"]),
+                front_numbers=list(draw["front_numbers"]),
+                back_numbers=list(draw["back_numbers"]),
+            )
+            for draw in same_period_draws
+        ]
+        sample_size = len(same_period_draws)
+        front_repeat_values = [
+            len(set(target_front) & set(draw["front_numbers"]))
+            for draw in same_period_draws
+        ]
+        back_repeat_values = [
+            len(set(target_back) & set(draw["back_numbers"]))
+            for draw in same_period_draws
+        ]
+        notes = [
+            "All same-period samples are earlier than the selected target issue.",
+            "Deviation describes historical-sample distance, not next-draw probability.",
+        ]
+        if sample_size < 5:
+            notes.append(
+                "Same-period sample is small; read the deviation as a rough hint only."
+            )
+
+        return {
+            "issue_suffix": str(target["issue_no"])[-3:],
+            "sample_size": sample_size,
+            "front_repeat": LotteryReplayService._build_numeric_deviation_metric(
+                label="front repeat",
+                target_value=round(mean(front_repeat_values), 2)
+                if front_repeat_values
+                else 0,
+                historical_average=round(5 * 5 / 35, 2),
+                high_threshold=1.0,
+                medium_threshold=0.5,
+                sample_size=sample_size,
+            ),
+            "back_repeat": LotteryReplayService._build_numeric_deviation_metric(
+                label="back repeat",
+                target_value=round(mean(back_repeat_values), 2)
+                if back_repeat_values
+                else 0,
+                historical_average=round(2 * 2 / 12, 2),
+                high_threshold=0.8,
+                medium_threshold=0.35,
+                sample_size=sample_size,
+            ),
+            "front_sum": LotteryReplayService._build_numeric_deviation_metric(
+                label="front sum",
+                target_value=int(target_metrics["front_sum"]),
+                historical_average=LotteryReplayService._metric_average(
+                    historical_metrics,
+                    "front_sum",
+                ),
+                high_threshold=25,
+                medium_threshold=12,
+                sample_size=sample_size,
+            ),
+            "front_span": LotteryReplayService._build_numeric_deviation_metric(
+                label="front span",
+                target_value=int(target_metrics["front_span"]),
+                historical_average=LotteryReplayService._metric_average(
+                    historical_metrics,
+                    "front_span",
+                ),
+                high_threshold=10,
+                medium_threshold=5,
+                sample_size=sample_size,
+            ),
+            "front_zone": LotteryReplayService._build_pattern_deviation_metric(
+                target_pattern=str(target_metrics["front_zone_pattern"]),
+                historical_patterns=[
+                    str(item["front_zone_pattern"]) for item in historical_metrics
+                ],
+                sample_size=sample_size,
+            ),
+            "front_route012": LotteryReplayService._build_pattern_deviation_metric(
+                target_pattern=str(target_metrics["front_route012_pattern"]),
+                historical_patterns=[
+                    str(item["front_route012_pattern"]) for item in historical_metrics
+                ],
+                sample_size=sample_size,
+            ),
+            "notes": notes,
+        }
+
+    @staticmethod
+    def _metric_average(
+        metrics: list[dict[str, object]],
+        key: str,
+    ) -> float:
+        values = [float(item[key]) for item in metrics if item.get(key) is not None]
+        return round(mean(values), 2) if values else 0
+
+    @staticmethod
+    def _build_numeric_deviation_metric(
+        *,
+        label: str,
+        target_value: float,
+        historical_average: float,
+        high_threshold: float,
+        medium_threshold: float,
+        sample_size: int,
+    ) -> dict[str, object]:
+        deviation = round(target_value - historical_average, 2)
+        absolute_deviation = abs(deviation)
+        if sample_size < 3:
+            level = "sample_limited"
+        elif absolute_deviation >= high_threshold:
+            level = "high"
+        elif absolute_deviation >= medium_threshold:
+            level = "medium"
+        else:
+            level = "low"
+        return {
+            "label": label,
+            "target_value": target_value,
+            "historical_average": historical_average,
+            "deviation": deviation,
+            "level": level,
+        }
+
+    @staticmethod
+    def _build_pattern_deviation_metric(
+        *,
+        target_pattern: str,
+        historical_patterns: list[str],
+        sample_size: int,
+    ) -> dict[str, object]:
+        pattern_counter = Counter(historical_patterns)
+        top_pattern, top_count = (
+            pattern_counter.most_common(1)[0] if pattern_counter else ("--", 0)
+        )
+        target_count = pattern_counter.get(target_pattern, 0)
+        target_rate = round(target_count / sample_size, 4) if sample_size else 0
+        if sample_size < 3:
+            level = "sample_limited"
+        elif target_rate >= 0.2:
+            level = "common"
+        elif target_rate > 0:
+            level = "uncommon"
+        else:
+            level = "not_seen"
+        return {
+            "target_pattern": target_pattern,
+            "historical_top_pattern": top_pattern,
+            "historical_top_rate": round(top_count / sample_size, 4) if sample_size else 0,
+            "target_pattern_rate": target_rate,
+            "level": level,
         }
 
     @staticmethod

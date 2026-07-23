@@ -438,6 +438,34 @@ class LotteryReplayWarningRead(BaseModel):
     message: str
 
 
+class LotterySamePeriodDeviationMetricRead(BaseModel):
+    label: str
+    target_value: float
+    historical_average: float
+    deviation: float
+    level: str
+
+
+class LotterySamePeriodDeviationPatternRead(BaseModel):
+    target_pattern: str
+    historical_top_pattern: str
+    historical_top_rate: float
+    target_pattern_rate: float
+    level: str
+
+
+class LotterySamePeriodDeviationRead(BaseModel):
+    issue_suffix: str
+    sample_size: int
+    front_repeat: LotterySamePeriodDeviationMetricRead
+    back_repeat: LotterySamePeriodDeviationMetricRead
+    front_sum: LotterySamePeriodDeviationMetricRead
+    front_span: LotterySamePeriodDeviationMetricRead
+    front_zone: LotterySamePeriodDeviationPatternRead
+    front_route012: LotterySamePeriodDeviationPatternRead
+    notes: list[str]
+
+
 class LotteryReplayContextRead(BaseModel):
     target: LotteryDrawRead
     cutoff: LotteryDrawRead | None
@@ -446,6 +474,7 @@ class LotteryReplayContextRead(BaseModel):
     available_range: LotteryReplayRangeRead
     leakage_check: LotteryReplayLeakageCheckRead
     warnings: list[LotteryReplayWarningRead]
+    same_period_deviation: LotterySamePeriodDeviationRead
 
 
 class LotteryReplayGeneratedSetRead(BaseModel):
@@ -494,6 +523,7 @@ class LotteryReplayRunRead(BaseModel):
     baseline: LotteryReplayBaselineRead
     warnings: list[LotteryReplayWarningRead]
     leakage_check: LotteryReplayLeakageCheckRead
+    same_period_deviation: LotterySamePeriodDeviationRead
     disclaimer: str
 
 

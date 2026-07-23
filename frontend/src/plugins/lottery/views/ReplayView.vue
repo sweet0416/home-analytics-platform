@@ -87,6 +87,45 @@
       </div>
     </section>
 
+    <section v-if="samePeriodDeviation" class="panel replay-panel deviation-panel">
+      <div class="panel-header">
+        <h2 class="panel-title">历史同期偏离度</h2>
+        <span class="panel-meta">
+          同尾 {{ samePeriodDeviation.issue_suffix }} · 样本 {{ samePeriodDeviation.sample_size }}
+        </span>
+      </div>
+      <div class="deviation-grid">
+        <article v-for="item in deviationMetricItems" :key="item.key" class="deviation-card">
+          <div class="deviation-card-head">
+            <strong>{{ item.label }}</strong>
+            <span :class="['deviation-level', deviationLevelClass(item.metric.level)]">
+              {{ deviationLevelLabel(item.metric.level) }}
+            </span>
+          </div>
+          <div class="deviation-value">{{ formatSigned(item.metric.deviation) }}</div>
+          <div class="deviation-meta">
+            本期 {{ item.metric.target_value }} · 历史均值 {{ item.metric.historical_average }}
+          </div>
+        </article>
+        <article v-for="item in deviationPatternItems" :key="item.key" class="deviation-card">
+          <div class="deviation-card-head">
+            <strong>{{ item.label }}</strong>
+            <span :class="['deviation-level', deviationLevelClass(item.metric.level)]">
+              {{ deviationLevelLabel(item.metric.level) }}
+            </span>
+          </div>
+          <div class="deviation-value">{{ item.metric.target_pattern }}</div>
+          <div class="deviation-meta">
+            历史高频 {{ item.metric.historical_top_pattern }}
+            · 本结构占比 {{ formatPercent(item.metric.target_pattern_rate) }}
+          </div>
+        </article>
+      </div>
+      <ul class="deviation-notes">
+        <li v-for="note in samePeriodDeviation.notes" :key="note">{{ note }}</li>
+      </ul>
+    </section>
+
     <section v-if="lottery.replayRun" class="panel replay-panel">
       <div class="panel-header">
         <h2 class="panel-title">回放结果 #{{ lottery.replayRun.run_id }}</h2>
@@ -164,6 +203,10 @@ import LotteryBall from '@/plugins/lottery/components/LotteryBall.vue';
 import LotteryExplanationPanel, {
   type LotteryExplanationSection,
 } from '@/plugins/lottery/components/LotteryExplanationPanel.vue';
+import type {
+  LotterySamePeriodDeviationMetric,
+  LotterySamePeriodDeviationPattern,
+} from '@/plugins/lottery/api';
 import { useLotteryStore } from '@/plugins/lottery/store';
 
 type WeightKey = 'same_period_weight' | 'frequency_weight' | 'missing_weight' | 'structure_weight';
@@ -223,6 +266,31 @@ const baselineMeta = computed(() => {
   return `均值 ${lottery.replayRun.baseline.average_score} · 中奖率 ${formatPercentile(lottery.replayRun.baseline.any_prize_rate)}`;
 });
 const warnings = computed(() => lottery.replayRun?.warnings ?? lottery.replayContext?.warnings ?? []);
+const samePeriodDeviation = computed(
+  () => lottery.replayRun?.same_period_deviation ?? lottery.replayContext?.same_period_deviation ?? null,
+);
+const deviationMetricItems = computed<
+  Array<{ key: string; label: string; metric: LotterySamePeriodDeviationMetric }>
+>(() => {
+  const deviation = samePeriodDeviation.value;
+  if (!deviation) return [];
+  return [
+    { key: 'front-repeat', label: '前区重复', metric: deviation.front_repeat },
+    { key: 'back-repeat', label: '后区重复', metric: deviation.back_repeat },
+    { key: 'front-sum', label: '前区和值', metric: deviation.front_sum },
+    { key: 'front-span', label: '前区跨度', metric: deviation.front_span },
+  ];
+});
+const deviationPatternItems = computed<
+  Array<{ key: string; label: string; metric: LotterySamePeriodDeviationPattern }>
+>(() => {
+  const deviation = samePeriodDeviation.value;
+  if (!deviation) return [];
+  return [
+    { key: 'front-zone', label: '三区结构', metric: deviation.front_zone },
+    { key: 'front-route012', label: '012路结构', metric: deviation.front_route012 },
+  ];
+});
 
 const explanationSections: LotteryExplanationSection[] = [
   {
@@ -308,6 +376,34 @@ function parseSeed(): number | null {
 function formatPercentile(value: number): string {
   return `${(value * 100).toFixed(2)}%`;
 }
+
+function formatPercent(value: number): string {
+  return `${(value * 100).toFixed(1)}%`;
+}
+
+function formatSigned(value: number): string {
+  if (value > 0) return `+${value}`;
+  return String(value);
+}
+
+function deviationLevelLabel(level: string): string {
+  const labels: Record<string, string> = {
+    low: '接近',
+    medium: '中等偏离',
+    high: '明显偏离',
+    common: '常见',
+    uncommon: '少见',
+    not_seen: '未出现',
+    sample_limited: '样本少',
+  };
+  return labels[level] ?? level;
+}
+
+function deviationLevelClass(level: string): string {
+  if (['high', 'not_seen'].includes(level)) return 'is-high';
+  if (['medium', 'uncommon', 'sample_limited'].includes(level)) return 'is-medium';
+  return 'is-low';
+}
 </script>
 
 <style scoped>
@@ -380,6 +476,68 @@ function formatPercentile(value: number): string {
   gap: 10px;
 }
 
+.deviation-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.deviation-card {
+  background: rgba(15, 23, 42, 0.38);
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 8px;
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+}
+
+.deviation-card-head {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.deviation-level {
+  border-radius: 999px;
+  font-size: 12px;
+  padding: 3px 8px;
+}
+
+.deviation-level.is-low {
+  background: rgba(34, 197, 94, 0.14);
+  color: #86efac;
+}
+
+.deviation-level.is-medium {
+  background: rgba(245, 158, 11, 0.14);
+  color: #fcd34d;
+}
+
+.deviation-level.is-high {
+  background: rgba(248, 113, 113, 0.16);
+  color: #fca5a5;
+}
+
+.deviation-value {
+  color: var(--color-text);
+  font-size: 24px;
+  font-weight: 800;
+}
+
+.deviation-meta,
+.deviation-notes {
+  color: var(--color-muted);
+  font-size: 13px;
+}
+
+.deviation-notes {
+  display: grid;
+  gap: 6px;
+  margin: 12px 0 0;
+  padding-left: 18px;
+}
+
 .target-line,
 .card-head,
 .hit-grid {
@@ -436,6 +594,7 @@ function formatPercentile(value: number): string {
 @media (max-width: 1180px) {
   .replay-form,
   .weight-grid,
+  .deviation-grid,
   .replay-list {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -450,6 +609,7 @@ function formatPercentile(value: number): string {
 
   .replay-form,
   .weight-grid,
+  .deviation-grid,
   .replay-list {
     grid-template-columns: 1fr;
   }

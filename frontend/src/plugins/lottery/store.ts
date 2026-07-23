@@ -173,6 +173,7 @@ export const useLotteryStore = defineStore('lottery', {
         },
         leakage_check: this.replayRun.leakage_check,
         warnings: this.replayRun.warnings,
+        same_period_deviation: this.replayRun.same_period_deviation,
       };
     },
     async loadSimulation(simulations = 10000, sets = 5, seed?: number): Promise<void> {
