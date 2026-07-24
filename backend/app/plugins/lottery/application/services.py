@@ -545,6 +545,11 @@ class LotteryService:
                 limit=same_period_count,
             )
         ]
+        strategy_weights = self._adjust_same_period_weight_for_sample_size(
+            strategy_weights=strategy_weights,
+            sample_size=len(same_period_draws),
+            requested_size=same_period_count,
+        )
         front_scores = self._score_recommendation_numbers(
             area="front",
             min_number=1,
@@ -1671,6 +1676,21 @@ class LotteryService:
             }
         return {key: round(value, 2) for key, value in weights.items()}
 
+    @staticmethod
+    def _adjust_same_period_weight_for_sample_size(
+        *,
+        strategy_weights: dict[str, float],
+        sample_size: int,
+        requested_size: int,
+    ) -> dict[str, float]:
+        if requested_size <= 0 or sample_size >= requested_size:
+            return strategy_weights
+        adjusted = dict(strategy_weights)
+        confidence = max(0.25, sample_size / requested_size)
+        adjusted["same_period"] = round(float(adjusted["same_period"]) * confidence, 2)
+        adjusted["coverage"] = round(float(adjusted["coverage"]) + (1 - confidence) * 8, 2)
+        return adjusted
+
     @classmethod
     def _build_recommendation_co_occurrence_scores(
         cls,
@@ -1985,9 +2005,7 @@ class LotteryService:
         for item in selected:
             front_overlap = len(front_numbers & set(item["front_numbers"]))
             back_overlap = len(back_numbers & set(item["back_numbers"]))
-            if front_overlap >= 5:
-                return True
-            if front_overlap >= 4 and back_overlap >= 1:
+            if front_overlap >= 3:
                 return True
             if front_overlap >= 2 and back_overlap >= 2:
                 return True

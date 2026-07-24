@@ -265,6 +265,44 @@ def test_recommendation_similarity_blocks_repeated_front_set() -> None:
     )
 
 
+def test_recommendation_similarity_blocks_three_front_overlap() -> None:
+    selected = [
+        {
+            "front_numbers": [1, 2, 3, 4, 5],
+            "back_numbers": [1, 2],
+        }
+    ]
+
+    assert LotteryService._is_recommendation_too_similar(
+        {
+            "front_numbers": [1, 2, 3, 8, 9],
+            "back_numbers": [3, 4],
+        },
+        selected,
+    )
+
+
+def test_same_period_weight_is_reduced_for_small_sample() -> None:
+    weights = {
+        "same_period": 45.0,
+        "frequency": 25.0,
+        "missing": 20.0,
+        "structure": 10.0,
+        "co_occurrence": 15.0,
+        "coverage": 16.0,
+    }
+
+    adjusted = LotteryService._adjust_same_period_weight_for_sample_size(
+        strategy_weights=weights,
+        sample_size=3,
+        requested_size=10,
+    )
+
+    assert adjusted["same_period"] == 13.5
+    assert adjusted["coverage"] == 21.6
+    assert weights["same_period"] == 45.0
+
+
 def test_lottery_service_analyzes_combination_coverage(db_session: Session) -> None:
     LotteryRepository(db_session).ensure_dlt_seed_data()
 

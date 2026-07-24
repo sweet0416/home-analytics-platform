@@ -261,6 +261,11 @@ class LotteryReplayService:
         same_period_draws = [
             draw for draw in training_draws if str(draw["issue_no"]).endswith(issue_suffix)
         ][:same_period_count]
+        strategy_weights = LotteryService._adjust_same_period_weight_for_sample_size(
+            strategy_weights=strategy_weights,
+            sample_size=len(same_period_draws),
+            requested_size=same_period_count,
+        )
         same_period_deviation = self._build_same_period_deviation(
             target=target,
             same_period_draws=same_period_draws,
@@ -664,6 +669,11 @@ class LotteryReplayService:
         same_period_draws = [
             draw for draw in training_draws if str(draw["issue_no"]).endswith(issue_suffix)
         ][:same_period_count]
+        strategy_weights = LotteryService._adjust_same_period_weight_for_sample_size(
+            strategy_weights=strategy_weights,
+            sample_size=len(same_period_draws),
+            requested_size=same_period_count,
+        )
         front_scores = LotteryService._score_recommendation_numbers(
             area="front",
             min_number=1,
