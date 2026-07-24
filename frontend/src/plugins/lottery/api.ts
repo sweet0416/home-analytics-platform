@@ -984,6 +984,7 @@ export function runReplay(payload: LotteryReplayRequest): Promise<LotteryReplayR
   return postApiData<LotteryReplayRun, LotteryReplayRequest>(
     '/lottery/dlt/analysis/replay',
     payload,
+    { timeout: 60000 },
   );
 }
 
