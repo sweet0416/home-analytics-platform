@@ -1890,19 +1890,11 @@ class LotteryService:
             )
             candidate = ranked_candidates[0]
             remaining.remove(candidate)
-            if cls._is_recommendation_too_similar(candidate, selected):
-                continue
-            coverage_metrics = cls._build_candidate_coverage_metrics(candidate, selected)
-            candidate["score"] = round(
-                cls._score_candidate_with_coverage(
-                    candidate=candidate,
-                    selected=selected,
-                    coverage_weight=coverage_weight,
-                ),
-                2,
+            cls._try_add_recommendation_candidate(
+                candidate=candidate,
+                selected=selected,
+                coverage_weight=coverage_weight,
             )
-            candidate["coverage_note"] = cls._build_candidate_coverage_note(coverage_metrics)
-            selected.append(candidate)
 
         if len(selected) < limit:
             selected_keys = {
@@ -1921,30 +1913,14 @@ class LotteryService:
                 )
                 not in selected_keys
             ]
-            while remaining and len(selected) < limit:
-                ranked_candidates = sorted(
-                    remaining,
-                    key=lambda item: -cls._score_candidate_with_coverage(
-                        candidate=item,
-                        selected=selected,
-                        coverage_weight=coverage_weight,
-                    ),
+            for candidate in remaining:
+                if len(selected) >= limit:
+                    break
+                cls._try_add_recommendation_candidate(
+                    candidate=candidate,
+                    selected=selected,
+                    coverage_weight=coverage_weight,
                 )
-                candidate = ranked_candidates[0]
-                remaining.remove(candidate)
-                if cls._is_recommendation_too_similar(candidate, selected):
-                    continue
-                coverage_metrics = cls._build_candidate_coverage_metrics(candidate, selected)
-                candidate["score"] = round(
-                    cls._score_candidate_with_coverage(
-                        candidate=candidate,
-                        selected=selected,
-                        coverage_weight=coverage_weight,
-                    ),
-                    2,
-                )
-                candidate["coverage_note"] = cls._build_candidate_coverage_note(coverage_metrics)
-                selected.append(candidate)
 
         return [
             cls._serialize_recommendation_set(
@@ -1957,6 +1933,29 @@ class LotteryService:
             )
             for index, candidate in enumerate(selected, start=1)
         ]
+
+    @classmethod
+    def _try_add_recommendation_candidate(
+        cls,
+        *,
+        candidate: dict[str, object],
+        selected: list[dict[str, object]],
+        coverage_weight: float,
+    ) -> bool:
+        if cls._is_recommendation_too_similar(candidate, selected):
+            return False
+        coverage_metrics = cls._build_candidate_coverage_metrics(candidate, selected)
+        candidate["score"] = round(
+            cls._score_candidate_with_coverage(
+                candidate=candidate,
+                selected=selected,
+                coverage_weight=coverage_weight,
+            ),
+            2,
+        )
+        candidate["coverage_note"] = cls._build_candidate_coverage_note(coverage_metrics)
+        selected.append(candidate)
+        return True
 
     @staticmethod
     def _score_front_structure(
