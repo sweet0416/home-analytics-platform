@@ -265,7 +265,7 @@
 
 <script setup lang="ts">
 import { Refresh } from '@element-plus/icons-vue';
-import { computed, onMounted, ref } from 'vue';
+import { computed, ref } from 'vue';
 
 import EmptyState from '@/components/common/EmptyState.vue';
 import MetricCard from '@/components/metric/MetricCard.vue';
@@ -407,9 +407,6 @@ function topDetails(
   return [...details].sort((left, right) => right.score - left.score).slice(0, 3);
 }
 
-onMounted(() => {
-  void reloadRecommendations();
-});
 </script>
 
 <style scoped>
