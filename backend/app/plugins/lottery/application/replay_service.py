@@ -231,6 +231,7 @@ class LotteryReplayService:
         frequency_weight: float = 25,
         missing_weight: float = 20,
         structure_weight: float = 10,
+        coverage_weight: float = 16,
     ) -> dict[str, object]:
         target_draw = self._get_target_draw(target_issue_no)
         training_models = self.repository.list_draws_before_issue(
@@ -254,6 +255,7 @@ class LotteryReplayService:
             frequency_weight=frequency_weight,
             missing_weight=missing_weight,
             structure_weight=structure_weight,
+            coverage_weight=coverage_weight,
         )
         issue_suffix = target_issue_no[-3:]
         same_period_draws = [
@@ -285,6 +287,7 @@ class LotteryReplayService:
             recent_draws=training_draws,
             structure_weight=float(strategy_weights["structure"]),
             limit=sets,
+            coverage_weight=float(strategy_weights["coverage"]),
         )
         baseline = self._build_random_baseline(
             target_front_numbers=list(target["front_numbers"]),
@@ -610,6 +613,7 @@ class LotteryReplayService:
                 "frequency_weight": 25,
                 "missing_weight": 25,
                 "structure_weight": 15,
+                "coverage_weight": 16,
             },
             {
                 "name": "历史同期优先",
@@ -617,6 +621,7 @@ class LotteryReplayService:
                 "frequency_weight": 20,
                 "missing_weight": 15,
                 "structure_weight": 10,
+                "coverage_weight": 18,
             },
             {
                 "name": "频率优先",
@@ -624,6 +629,7 @@ class LotteryReplayService:
                 "frequency_weight": 45,
                 "missing_weight": 25,
                 "structure_weight": 10,
+                "coverage_weight": 18,
             },
             {
                 "name": "遗漏优先",
@@ -631,6 +637,7 @@ class LotteryReplayService:
                 "frequency_weight": 20,
                 "missing_weight": 45,
                 "structure_weight": 15,
+                "coverage_weight": 22,
             },
         ]
 
@@ -651,6 +658,7 @@ class LotteryReplayService:
             frequency_weight=float(weight_profile.get("frequency_weight", 0)),
             missing_weight=float(weight_profile.get("missing_weight", 0)),
             structure_weight=float(weight_profile.get("structure_weight", 0)),
+            coverage_weight=float(weight_profile.get("coverage_weight", 16)),
         )
         issue_suffix = str(target["issue_no"])[-3:]
         same_period_draws = [
@@ -678,6 +686,7 @@ class LotteryReplayService:
             recent_draws=training_draws,
             structure_weight=float(strategy_weights["structure"]),
             limit=sets,
+            coverage_weight=float(strategy_weights["coverage"]),
         )
         evaluated_sets = [
             LotteryReplayService._evaluate_generated_set(

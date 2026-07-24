@@ -470,6 +470,7 @@ class LotteryReplayStrategyRequest(BaseModel):
     frequency_weight: float = Field(default=25, ge=0, le=100)
     missing_weight: float = Field(default=20, ge=0, le=100)
     structure_weight: float = Field(default=10, ge=0, le=100)
+    coverage_weight: float = Field(default=16, ge=0, le=100)
 
 
 class LotteryReplayRequest(BaseModel):

@@ -1930,9 +1930,11 @@ class LotteryService:
         metrics = cls._build_candidate_coverage_metrics(candidate, selected)
         coverage_score = (
             (1 - float(metrics["max_jaccard"])) * 12
-            + int(metrics["new_front_count"]) * 1.3
+            + int(metrics["new_front_count"]) * 2.2
             + int(metrics["new_back_count"]) * 5.0
         )
+        if int(metrics["new_front_count"]) == 0:
+            coverage_score -= 10
         if int(metrics["new_back_count"]) == 0:
             coverage_score -= 8
         return base_score + coverage_score * (coverage_weight / 10)
@@ -1983,7 +1985,11 @@ class LotteryService:
         for item in selected:
             front_overlap = len(front_numbers & set(item["front_numbers"]))
             back_overlap = len(back_numbers & set(item["back_numbers"]))
+            if front_overlap >= 5:
+                return True
             if front_overlap >= 4 and back_overlap >= 1:
+                return True
+            if front_overlap >= 2 and back_overlap >= 2:
                 return True
         return False
 

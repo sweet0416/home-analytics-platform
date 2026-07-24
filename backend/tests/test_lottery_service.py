@@ -248,6 +248,23 @@ def test_lottery_service_applies_recommendation_weights(db_session: Session) -> 
     )
 
 
+def test_recommendation_similarity_blocks_repeated_front_set() -> None:
+    selected = [
+        {
+            "front_numbers": [1, 2, 3, 4, 5],
+            "back_numbers": [1, 2],
+        }
+    ]
+
+    assert LotteryService._is_recommendation_too_similar(
+        {
+            "front_numbers": [1, 2, 3, 4, 5],
+            "back_numbers": [3, 4],
+        },
+        selected,
+    )
+
+
 def test_lottery_service_analyzes_combination_coverage(db_session: Session) -> None:
     LotteryRepository(db_session).ensure_dlt_seed_data()
 

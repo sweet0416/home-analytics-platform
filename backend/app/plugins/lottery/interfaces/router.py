@@ -367,6 +367,7 @@ def run_replay(
             frequency_weight=payload.strategy.frequency_weight,
             missing_weight=payload.strategy.missing_weight,
             structure_weight=payload.strategy.structure_weight,
+            coverage_weight=payload.strategy.coverage_weight,
         )
     )
 

@@ -23,6 +23,7 @@ GET /api/v1/lottery/dlt/analysis/replay/context?target_issue_no&sample_limit
 GET /api/v1/lottery/dlt/analysis/replay/runs?limit
 GET /api/v1/lottery/dlt/analysis/replay/runs/{run_id}
 POST /api/v1/lottery/dlt/analysis/replay
+  body: target_issue_no, sets, sample_limit, same_period_count, baseline_simulations, seed, strategy{same_period_weight, frequency_weight, missing_weight, structure_weight, coverage_weight}
 POST /api/v1/lottery/dlt/analysis/replay/sensitivity
   body: target_issue_no, target_count, sample_windows, weight_profiles, baseline_simulations
 POST /api/v1/lottery/dlt/sync

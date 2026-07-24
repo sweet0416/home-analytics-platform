@@ -242,7 +242,12 @@ import type {
 } from '@/plugins/lottery/api';
 import { useLotteryStore } from '@/plugins/lottery/store';
 
-type WeightKey = 'same_period_weight' | 'frequency_weight' | 'missing_weight' | 'structure_weight';
+type WeightKey =
+  | 'same_period_weight'
+  | 'frequency_weight'
+  | 'missing_weight'
+  | 'structure_weight'
+  | 'coverage_weight';
 
 const lottery = useLotteryStore();
 const loadingContext = ref(false);
@@ -262,6 +267,7 @@ const form = reactive({
     frequency_weight: 25,
     missing_weight: 20,
     structure_weight: 10,
+    coverage_weight: 16,
   } as Record<WeightKey, number>,
 });
 
@@ -270,6 +276,7 @@ const weightItems = computed<Array<{ key: WeightKey; label: string; value: numbe
   { key: 'frequency_weight', label: '频率', value: form.weights.frequency_weight },
   { key: 'missing_weight', label: '遗漏', value: form.weights.missing_weight },
   { key: 'structure_weight', label: '结构', value: form.weights.structure_weight },
+  { key: 'coverage_weight', label: '覆盖分散', value: form.weights.coverage_weight },
 ]);
 
 const sampleSize = computed(() => String(lottery.replayContext?.sample_size ?? lottery.replayRun?.sample_size ?? 0));

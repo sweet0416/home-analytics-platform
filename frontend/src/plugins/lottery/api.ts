@@ -477,6 +477,7 @@ export interface LotteryReplayStrategyRequest {
   frequency_weight: number;
   missing_weight: number;
   structure_weight: number;
+  coverage_weight: number;
 }
 
 export interface LotteryReplayRequest {
