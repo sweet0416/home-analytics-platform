@@ -18,7 +18,7 @@
         <el-button
           type="primary"
           :icon="Refresh"
-          :loading="lottery.loading"
+          :loading="recommendationLoading"
           @click="reloadRecommendations"
         >
           生成推荐
@@ -300,6 +300,7 @@ const missingWeight = ref(defaultStrategyWeights.missing);
 const structureWeight = ref(defaultStrategyWeights.structure);
 const coOccurrenceWeight = ref(defaultStrategyWeights.co_occurrence);
 const coverageWeight = ref(defaultStrategyWeights.coverage);
+const recommendationLoading = ref(false);
 const fallbackDisclaimer = '本结果仅基于历史统计分析，仅供娱乐，不代表未来开奖结果。';
 
 const targetIssue = computed(() => lottery.recommendations?.target_issue_no ?? '--');
@@ -349,7 +350,7 @@ const explanationSections = computed<LotteryExplanationSection[]>(() => [
 ]);
 
 async function reloadRecommendations(): Promise<void> {
-  lottery.loading = true;
+  recommendationLoading.value = true;
   try {
     await lottery.loadRecommendations(
       targetIssueInput.value.trim() || undefined,
@@ -366,7 +367,7 @@ async function reloadRecommendations(): Promise<void> {
       },
     );
   } finally {
-    lottery.loading = false;
+    recommendationLoading.value = false;
   }
 }
 
