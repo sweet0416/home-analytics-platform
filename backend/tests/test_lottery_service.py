@@ -303,6 +303,19 @@ def test_same_period_weight_is_reduced_for_small_sample() -> None:
     assert weights["same_period"] == 45.0
 
 
+def test_recommendation_similarity_blocks_overused_front_anchor() -> None:
+    selected = [
+        {"front_numbers": [1, 2, 3, 4, 5], "back_numbers": [1, 2]},
+        {"front_numbers": [1, 6, 7, 8, 9], "back_numbers": [3, 4]},
+        {"front_numbers": [1, 10, 11, 12, 13], "back_numbers": [5, 6]},
+    ]
+
+    assert LotteryService._is_recommendation_too_similar(
+        {"front_numbers": [1, 14, 15, 16, 17], "back_numbers": [7, 8]},
+        selected,
+    )
+
+
 def test_lottery_service_analyzes_combination_coverage(db_session: Session) -> None:
     LotteryRepository(db_session).ensure_dlt_seed_data()
 

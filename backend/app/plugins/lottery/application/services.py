@@ -2002,6 +2002,16 @@ class LotteryService:
     ) -> bool:
         front_numbers = set(candidate["front_numbers"])
         back_numbers = set(candidate["back_numbers"])
+        front_usage = Counter(
+            number for item in selected for number in set(item["front_numbers"])
+        )
+        back_usage = Counter(
+            number for item in selected for number in set(item["back_numbers"])
+        )
+        if any(front_usage[number] >= 3 for number in front_numbers):
+            return True
+        if any(back_usage[number] >= 3 for number in back_numbers):
+            return True
         for item in selected:
             front_overlap = len(front_numbers & set(item["front_numbers"]))
             back_overlap = len(back_numbers & set(item["back_numbers"]))
