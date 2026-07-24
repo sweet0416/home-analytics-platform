@@ -1877,7 +1877,8 @@ class LotteryService:
                 )
 
         selected: list[dict[str, object]] = []
-        remaining = sorted(candidates, key=lambda item: -float(item["score"]))[:1500]
+        ranked_pool = sorted(candidates, key=lambda item: -float(item["score"]))
+        remaining = ranked_pool[:1500]
         while remaining and len(selected) < limit:
             ranked_candidates = sorted(
                 remaining,
@@ -1902,6 +1903,48 @@ class LotteryService:
             )
             candidate["coverage_note"] = cls._build_candidate_coverage_note(coverage_metrics)
             selected.append(candidate)
+
+        if len(selected) < limit:
+            selected_keys = {
+                (
+                    tuple(item["front_numbers"]),
+                    tuple(item["back_numbers"]),
+                )
+                for item in selected
+            }
+            remaining = [
+                candidate
+                for candidate in ranked_pool[1500:12000]
+                if (
+                    tuple(candidate["front_numbers"]),
+                    tuple(candidate["back_numbers"]),
+                )
+                not in selected_keys
+            ]
+            while remaining and len(selected) < limit:
+                ranked_candidates = sorted(
+                    remaining,
+                    key=lambda item: -cls._score_candidate_with_coverage(
+                        candidate=item,
+                        selected=selected,
+                        coverage_weight=coverage_weight,
+                    ),
+                )
+                candidate = ranked_candidates[0]
+                remaining.remove(candidate)
+                if cls._is_recommendation_too_similar(candidate, selected):
+                    continue
+                coverage_metrics = cls._build_candidate_coverage_metrics(candidate, selected)
+                candidate["score"] = round(
+                    cls._score_candidate_with_coverage(
+                        candidate=candidate,
+                        selected=selected,
+                        coverage_weight=coverage_weight,
+                    ),
+                    2,
+                )
+                candidate["coverage_note"] = cls._build_candidate_coverage_note(coverage_metrics)
+                selected.append(candidate)
 
         return [
             cls._serialize_recommendation_set(
