@@ -1880,21 +1880,28 @@ class LotteryService:
         ranked_pool = sorted(candidates, key=lambda item: -float(item["score"]))
         remaining = ranked_pool[:1500]
         while remaining and len(selected) < limit:
-            ranked_candidates = sorted(
-                remaining,
-                key=lambda item: -cls._score_candidate_with_coverage(
-                    candidate=item,
+            best_index: int | None = None
+            best_score = float("-inf")
+            for index, candidate in enumerate(remaining):
+                if cls._is_recommendation_too_similar(candidate, selected):
+                    continue
+                score = cls._score_candidate_with_coverage(
+                    candidate=candidate,
                     selected=selected,
                     coverage_weight=coverage_weight,
-                ),
-            )
-            candidate = ranked_candidates[0]
-            remaining.remove(candidate)
-            cls._try_add_recommendation_candidate(
-                candidate=candidate,
-                selected=selected,
-                coverage_weight=coverage_weight,
-            )
+                )
+                if score > best_score:
+                    best_score = score
+                    best_index = index
+
+            if best_index is None:
+                break
+
+            candidate = remaining.pop(best_index)
+            coverage_metrics = cls._build_candidate_coverage_metrics(candidate, selected)
+            candidate["score"] = round(best_score, 2)
+            candidate["coverage_note"] = cls._build_candidate_coverage_note(coverage_metrics)
+            selected.append(candidate)
 
         if len(selected) < limit:
             selected_keys = {
