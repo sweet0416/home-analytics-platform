@@ -10,7 +10,7 @@
           <el-radio-button label="front">前区</el-radio-button>
           <el-radio-button label="back">后区</el-radio-button>
         </el-radio-group>
-        <el-button :icon="Refresh" :loading="lottery.loading" @click="reloadOmissions">
+        <el-button :icon="Refresh" :loading="omissionLoading" @click="reloadOmissions">
           刷新
         </el-button>
       </div>
@@ -126,6 +126,7 @@ type BallArea = 'front' | 'back';
 const lottery = useLotteryStore();
 const selectedArea = ref<BallArea>('front');
 const detailChartRef = ref<HTMLDivElement | null>(null);
+const omissionLoading = ref(false);
 let detailChart: ECharts | null = null;
 
 const activeRows = computed(() => {
@@ -159,12 +160,12 @@ const topMaxMeta = computed(() =>
 );
 
 async function reloadOmissions(): Promise<void> {
-  lottery.loading = true;
+  omissionLoading.value = true;
   try {
     await lottery.loadOmissionStatistics();
     await selectDefaultNumber();
   } finally {
-    lottery.loading = false;
+    omissionLoading.value = false;
   }
 }
 

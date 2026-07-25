@@ -25,7 +25,7 @@
           />
           <span>期</span>
         </div>
-        <el-button :icon="Refresh" :loading="lottery.loading" @click="reloadSamePeriod">
+        <el-button :icon="Refresh" :loading="samePeriodLoading" @click="reloadSamePeriod">
           查询
         </el-button>
       </div>
@@ -146,6 +146,7 @@ import { useLotteryStore } from '@/plugins/lottery/store';
 const lottery = useLotteryStore();
 const targetIssueInput = ref('');
 const displayCount = ref(10);
+const samePeriodLoading = ref(false);
 
 const targetIssue = computed(() => lottery.samePeriod?.target.issue_no ?? '--');
 const targetDate = computed(() => lottery.samePeriod?.target.draw_date ?? '默认最新一期');
@@ -168,11 +169,11 @@ const bestMatchValue = computed(() =>
 const bestMatchMeta = computed(() => bestMatch.value?.draw.issue_no ?? '暂无历史同期');
 
 async function reloadSamePeriod(): Promise<void> {
-  lottery.loading = true;
+  samePeriodLoading.value = true;
   try {
     await lottery.loadSamePeriod(targetIssueInput.value.trim() || undefined, displayCount.value);
   } finally {
-    lottery.loading = false;
+    samePeriodLoading.value = false;
   }
 }
 

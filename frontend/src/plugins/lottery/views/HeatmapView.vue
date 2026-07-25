@@ -11,7 +11,7 @@
           <el-radio-button label="back">后区</el-radio-button>
         </el-radio-group>
         <el-segmented v-model="selectedMetric" :options="metricOptions" size="small" />
-        <el-button :icon="Refresh" :loading="lottery.loading" @click="reloadHeatmap">
+        <el-button :icon="Refresh" :loading="heatmapLoading" @click="reloadHeatmap">
           刷新
         </el-button>
       </div>
@@ -131,6 +131,7 @@ const selectedArea = ref<BallArea>('front');
 const selectedMetric = ref<HeatMetric>('temperature');
 const selectedCell = ref<HeatmapCell | null>(null);
 const detailChartRef = ref<HTMLDivElement | null>(null);
+const heatmapLoading = ref(false);
 let detailChart: ECharts | null = null;
 
 const metricOptions = [
@@ -221,12 +222,12 @@ const heatmapCells = computed(() => {
 });
 
 async function reloadHeatmap(): Promise<void> {
-  lottery.loading = true;
+  heatmapLoading.value = true;
   try {
     await Promise.all([lottery.loadStatistics(), lottery.loadOmissionStatistics()]);
     await selectDefaultCell();
   } finally {
-    lottery.loading = false;
+    heatmapLoading.value = false;
   }
 }
 

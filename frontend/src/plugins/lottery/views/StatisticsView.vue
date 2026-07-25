@@ -6,7 +6,7 @@
         <div class="page-subtitle">频率、遗漏、和值、跨度、冷热和结构分布</div>
       </div>
       <div class="statistics-actions">
-        <el-button :icon="Refresh" :loading="lottery.loading" @click="reloadStatistics">
+        <el-button :icon="Refresh" :loading="statisticsLoading" @click="reloadStatistics">
           刷新
         </el-button>
       </div>
@@ -150,6 +150,7 @@ type BallArea = 'front' | 'back';
 const lottery = useLotteryStore();
 const sumSpanChartRef = ref<HTMLDivElement | null>(null);
 const structureChartRef = ref<HTMLDivElement | null>(null);
+const statisticsLoading = ref(false);
 let sumSpanChart: ECharts | null = null;
 let structureChart: ECharts | null = null;
 
@@ -241,13 +242,13 @@ function formatRange(min: number | null | undefined, max: number | null | undefi
 }
 
 async function reloadStatistics(): Promise<void> {
-  lottery.loading = true;
+  statisticsLoading.value = true;
   try {
     await lottery.loadStatistics();
     await nextTick();
     renderCharts();
   } finally {
-    lottery.loading = false;
+    statisticsLoading.value = false;
   }
 }
 

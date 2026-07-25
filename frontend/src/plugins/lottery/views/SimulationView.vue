@@ -11,7 +11,7 @@
         <el-button
           type="primary"
           :icon="Refresh"
-          :loading="lottery.loading"
+          :loading="simulationLoading"
           @click="reloadSimulation"
         >
           开始模拟
@@ -187,6 +187,7 @@ const lottery = useLotteryStore();
 const simulationCount = ref(10000);
 const setCount = ref(5);
 const seedInput = ref('');
+const simulationLoading = ref(false);
 const fallbackDisclaimer = '本结果仅基于历史统计分析，仅供娱乐，不代表未来开奖结果。';
 
 const simulationTotal = computed(() => String(lottery.simulation?.simulations ?? 0));
@@ -266,11 +267,11 @@ const FrequencyList = defineComponent({
 });
 
 async function reloadSimulation(): Promise<void> {
-  lottery.loading = true;
+  simulationLoading.value = true;
   try {
     await lottery.loadSimulation(simulationCount.value, setCount.value, parseSeed());
   } finally {
-    lottery.loading = false;
+    simulationLoading.value = false;
   }
 }
 
