@@ -733,7 +733,6 @@ class LotteryReplayService:
             "best_baseline_percentile": best_set["baseline_percentile"] if best_set else 0,
             "best_front_numbers": best_set["front_numbers"] if best_set else [],
             "best_back_numbers": best_set["back_numbers"] if best_set else [],
-            "generated_sets": evaluated_sets,
             "warning": LotteryReplayService._classify_parameter_result(
                 average_score=average_score,
                 baseline_average_score=baseline_average_score,
@@ -795,7 +794,7 @@ class LotteryReplayService:
                     "best_match_key": best_item["best_match_key"],
                     "best_front_numbers": best_item["best_front_numbers"],
                     "best_back_numbers": best_item["best_back_numbers"],
-                    "generated_sets": best_item["generated_sets"],
+                    "generated_sets": [],
                     "target_results": target_results,
                     "warning": LotteryReplayService._classify_aggregated_parameter_result(
                         average_delta=average_delta,

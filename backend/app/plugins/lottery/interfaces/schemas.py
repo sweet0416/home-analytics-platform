@@ -672,7 +672,7 @@ class LotterySensitivityResultRead(BaseModel):
     best_baseline_percentile: float
     best_front_numbers: list[int]
     best_back_numbers: list[int]
-    generated_sets: list[LotteryReplayGeneratedSetRead]
+    generated_sets: list[LotteryReplayGeneratedSetRead] = Field(default_factory=list)
     target_results: list[dict[str, object]]
     warning: str
 
