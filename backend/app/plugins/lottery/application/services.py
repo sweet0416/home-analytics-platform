@@ -512,10 +512,12 @@ class LotteryService:
         limit: int = 500,
         half_life: int = 50,
         top: int = 10,
+        stage_code: str | None = None,
     ) -> dict[str, object]:
+        stage_rule = self.repository.get_rule_by_code(stage_code) if stage_code else None
         draws = [
             self._serialize_draw(draw)
-            for draw in self.repository.list_recent_draws(limit=limit)
+            for draw in self.repository.list_recent_draws(limit=limit, rule_code=stage_code)
         ]
         front_rows = [list(item["front_numbers"]) for item in draws]
         back_rows = [list(item["back_numbers"]) for item in draws]
@@ -530,6 +532,8 @@ class LotteryService:
             "requested_limit": limit,
             "half_life": half_life,
             "top": top,
+            "stage_code": stage_code,
+            "stage_name": stage_rule.rule_name if stage_rule else None,
             "latest_issue_no": str(draws[0]["issue_no"]) if draws else None,
             "earliest_issue_no": str(draws[-1]["issue_no"]) if draws else None,
             "weight_formula": "weight = 0.5 ** (distance / half_life)",

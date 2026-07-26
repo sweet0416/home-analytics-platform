@@ -28,6 +28,18 @@
           展示数量
           <el-input-number v-model="top" :min="5" :max="20" :step="1" />
         </label>
+        <label>
+          规则阶段
+          <el-select v-model="stageCode" placeholder="全部阶段">
+            <el-option label="全部阶段" value="" />
+            <el-option
+              v-for="stage in stageOptions"
+              :key="stage.stage_code"
+              :label="stage.stage_name"
+              :value="stage.stage_code"
+            />
+          </el-select>
+        </label>
       </div>
     </section>
 
@@ -36,6 +48,7 @@
       <MetricCard label="半衰期" :value="`${halfLifeValue} 期`" meta="距离越远权重越低" />
       <MetricCard label="前区有效权重" :value="frontWeight" meta="加权观察总量" />
       <MetricCard label="后区有效权重" :value="backWeight" meta="加权观察总量" />
+      <MetricCard label="规则阶段" :value="stageLabel" :meta="stageMeta" />
     </div>
 
     <section v-if="analysis" class="panel decay-panel">
@@ -97,8 +110,10 @@ const loading = ref(false);
 const limit = ref(500);
 const halfLife = ref(50);
 const top = ref(10);
+const stageCode = ref('');
 
 const analysis = computed(() => lottery.decayAnalysis);
+const stageOptions = computed(() => lottery.dataStageReport?.stages ?? []);
 const sampleSize = computed(() => String(analysis.value?.sample_size ?? 0));
 const halfLifeValue = computed(() => analysis.value?.half_life ?? halfLife.value);
 const issueRange = computed(() =>
@@ -111,6 +126,10 @@ const frontWeight = computed(() =>
 );
 const backWeight = computed(() =>
   analysis.value ? analysis.value.back.total_weight.toFixed(2) : '--',
+);
+const stageLabel = computed(() => analysis.value?.stage_name ?? '全部阶段');
+const stageMeta = computed(() =>
+  analysis.value?.stage_code ? '仅使用该规则阶段内样本' : '混合全部已入库阶段',
 );
 
 const DecayTable = defineComponent({
@@ -157,7 +176,8 @@ onMounted(() => {
 async function loadAnalysis(): Promise<void> {
   loading.value = true;
   try {
-    await lottery.loadDecayAnalysis(limit.value, halfLife.value, top.value);
+    await lottery.loadDataStageReport();
+    await lottery.loadDecayAnalysis(limit.value, halfLife.value, top.value, stageCode.value || undefined);
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : '指数衰减分析失败');
   } finally {

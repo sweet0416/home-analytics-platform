@@ -170,8 +170,13 @@ export const useLotteryStore = defineStore('lottery', {
     ): Promise<void> {
       this.coOccurrence = await fetchCoOccurrenceAnalysis(area, limit, top);
     },
-    async loadDecayAnalysis(limit = 500, halfLife = 50, top = 10): Promise<void> {
-      this.decayAnalysis = await fetchDecayAnalysis(limit, halfLife, top);
+    async loadDecayAnalysis(
+      limit = 500,
+      halfLife = 50,
+      top = 10,
+      stageCode?: string,
+    ): Promise<void> {
+      this.decayAnalysis = await fetchDecayAnalysis(limit, halfLife, top, stageCode);
     },
     async loadOmissionStatistics(limit = 100): Promise<void> {
       this.omissionStatistics = await fetchOmissionStatistics(limit);

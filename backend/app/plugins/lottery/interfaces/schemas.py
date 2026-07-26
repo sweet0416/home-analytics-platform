@@ -920,6 +920,8 @@ class LotteryDecayAnalysisRead(BaseModel):
     requested_limit: int
     half_life: int
     top: int
+    stage_code: str | None = None
+    stage_name: str | None = None
     latest_issue_no: str | None
     earliest_issue_no: str | None
     weight_formula: str

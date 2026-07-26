@@ -31,7 +31,9 @@ GET /api/v1/lottery/dlt/statistics/randomness?limit&stage_code
 GET /api/v1/lottery/dlt/numbers/{area}/{number}/omission
 GET /api/v1/lottery/dlt/analysis/same-period
 GET /api/v1/lottery/dlt/analysis/co-occurrence?area&limit&top
-GET /api/v1/lottery/dlt/analysis/decay?limit&half_life&top
+GET /api/v1/lottery/dlt/analysis/decay?limit&half_life&top&stage_code
+  query: stage_code is optional; when present, analysis only uses draws in that rule stage
+  response: stage_code, stage_name
   response: front/back
     fields: total_weight, numbers[], rising_numbers[]
   response: front/back.numbers[]

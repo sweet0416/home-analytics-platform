@@ -241,6 +241,46 @@ def test_lottery_randomness_diagnostics_can_filter_by_rule_stage(db_session: Ses
     assert result["latest_issue_no"] == "26014"
 
 
+def test_lottery_decay_analysis_can_filter_by_rule_stage(db_session: Session) -> None:
+    repository = LotteryRepository(db_session)
+    repository.ensure_dlt_seed_data()
+    fixtures = [
+        ("19019", date(2019, 2, 18), "dlt-2019-official"),
+        ("26014", date(2026, 1, 31), "dlt-2026-official"),
+    ]
+    for issue_no, draw_date, rule_code in fixtures:
+        rule = repository.get_rule_by_code(rule_code)
+        assert rule is not None
+        repository.upsert_draw(
+            DrawRecord(
+                game_code=DLT_GAME_CODE,
+                issue_no=issue_no,
+                draw_date=draw_date,
+                front_numbers=[1, 2, 3, 4, 5],
+                back_numbers=[1, 2],
+                sales_amount=Decimal("100.00"),
+                pool_amount=Decimal("200.00"),
+                source_url="https://datachart.500.com/dlt/history/history.shtml",
+                raw_data={"fixture": issue_no},
+            ),
+            rule_version_id=rule.id,
+        )
+    db_session.commit()
+
+    result = LotteryService(db_session).get_decay_analysis(
+        limit=50,
+        half_life=50,
+        top=5,
+        stage_code="dlt-2026-official",
+    )
+
+    assert result["sample_size"] == 1
+    assert result["stage_code"] == "dlt-2026-official"
+    assert result["stage_name"] == "超级大乐透 2026 当前规则阶段"
+    assert result["earliest_issue_no"] == "26014"
+    assert result["latest_issue_no"] == "26014"
+
+
 def test_lottery_service_returns_omission_statistics(db_session: Session) -> None:
     repository = LotteryRepository(db_session)
     repository.ensure_dlt_seed_data()

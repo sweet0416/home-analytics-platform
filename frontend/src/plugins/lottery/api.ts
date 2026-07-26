@@ -919,6 +919,8 @@ export interface LotteryDecayAnalysis {
   requested_limit: number;
   half_life: number;
   top: number;
+  stage_code: string | null;
+  stage_name: string | null;
   latest_issue_no: string | null;
   earliest_issue_no: string | null;
   weight_formula: string;
@@ -1004,12 +1006,14 @@ export function fetchDecayAnalysis(
   limit = 500,
   halfLife = 50,
   top = 10,
+  stageCode?: string,
 ): Promise<LotteryDecayAnalysis> {
   const params = new URLSearchParams({
     limit: String(limit),
     half_life: String(halfLife),
     top: String(top),
   });
+  if (stageCode) params.set('stage_code', stageCode);
   return getApiData<LotteryDecayAnalysis>(`/lottery/dlt/analysis/decay?${params.toString()}`);
 }
 

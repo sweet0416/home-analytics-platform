@@ -329,10 +329,18 @@ def get_decay_analysis(
     limit: int = Query(default=500, ge=50, le=2000),
     half_life: int = Query(default=50, ge=5, le=500),
     top: int = Query(default=10, ge=5, le=20),
+    stage_code: str | None = Query(default=None, min_length=1, max_length=64),
     db: Session = Depends(get_db),
 ) -> ApiResponse[LotteryDecayAnalysisRead]:
     service = LotteryService(db)
-    return ok(service.get_decay_analysis(limit=limit, half_life=half_life, top=top))
+    return ok(
+        service.get_decay_analysis(
+            limit=limit,
+            half_life=half_life,
+            top=top,
+            stage_code=stage_code,
+        )
+    )
 
 
 @router.get("/analysis/recommendations", response_model=ApiResponse[LotteryRecommendationRead])
