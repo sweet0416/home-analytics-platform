@@ -13,6 +13,9 @@ GET /api/v1/lottery/dlt/data/stages
   response: quality
     fields: level, label, description, sales_present_rate, pool_present_rate, rule_bound_rate
   note: stage report highlights rule/source/field-quality risks and does not affect recommendations or backtest scoring
+POST /api/v1/lottery/dlt/data/stages/repair-rule-bindings
+  response: repaired_count, rule_code, stage_report
+  note: only fills empty rule_version_id values with the configured current rule; it does not change draw numbers or source records
 GET /api/v1/lottery/dlt/statistics/basic
 GET /api/v1/lottery/dlt/statistics/omissions
 GET /api/v1/lottery/dlt/statistics/randomness

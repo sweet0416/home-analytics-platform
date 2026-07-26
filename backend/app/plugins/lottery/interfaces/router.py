@@ -25,6 +25,7 @@ from app.plugins.lottery.interfaces.schemas import (
     LotteryCoverageRequest,
     LotteryDecayAnalysisRead,
     LotteryDataStageReportRead,
+    LotteryDataStageRepairRead,
     LotteryDantuoAnalysisRead,
     LotteryDantuoRequest,
     LotteryDrawCoverageRead,
@@ -185,6 +186,17 @@ def get_data_stage_report(
 ) -> ApiResponse[LotteryDataStageReportRead]:
     service = LotteryService(db)
     return ok(service.get_data_stage_report())
+
+
+@router.post(
+    "/data/stages/repair-rule-bindings",
+    response_model=ApiResponse[LotteryDataStageRepairRead],
+)
+def repair_data_stage_bindings(
+    db: Session = Depends(get_db),
+) -> ApiResponse[LotteryDataStageRepairRead]:
+    service = LotteryService(db)
+    return ok(service.repair_data_stage_bindings())
 
 
 @router.get("/draws/{issue_no}", response_model=ApiResponse[LotteryDrawRead])

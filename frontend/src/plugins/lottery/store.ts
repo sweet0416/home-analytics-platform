@@ -26,6 +26,7 @@ import {
   fetchSimulationAnalysis,
   fetchSyncRuns,
   fetchSyncStatus,
+  repairDataStageBindings as repairDataStageBindingsRequest,
   runReplay as runReplayRequest,
   startBackfill,
   startSensitivityAnalysis,
@@ -131,6 +132,11 @@ export const useLotteryStore = defineStore('lottery', {
     },
     async loadDataStageReport(): Promise<void> {
       this.dataStageReport = await fetchDataStageReport();
+    },
+    async repairDataStageBindings(): Promise<number> {
+      const result = await repairDataStageBindingsRequest();
+      this.dataStageReport = result.stage_report;
+      return result.repaired_count;
     },
     async loadSyncState(): Promise<void> {
       this.syncError = '';

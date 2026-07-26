@@ -237,6 +237,24 @@ class LotteryService:
             ],
         }
 
+    def repair_data_stage_bindings(self) -> dict[str, object]:
+        current_rule = self.repository.get_current_rule()
+        if current_rule is None:
+            raise AppError(
+                code=ErrorCode.not_found,
+                message="Current DLT rule version was not found.",
+                status_code=404,
+            )
+        repaired_count = self.repository.bind_unassigned_draws_to_rule(
+            rule_version_id=current_rule.id,
+        )
+        self.repository.db.commit()
+        return {
+            "repaired_count": repaired_count,
+            "rule_code": current_rule.rule_code,
+            "stage_report": self.get_data_stage_report(),
+        }
+
     def list_saved_combinations(self) -> list[dict[str, object]]:
         return [
             self._serialize_saved_combination(item)
@@ -1612,6 +1630,8 @@ class LotteryService:
         sync_details: list[dict[str, str]] = []
         latest_issue_no: str | None = None
         try:
+            current_rule = self.repository.get_current_rule()
+            current_rule_id = current_rule.id if current_rule else None
             source_page = self._fetch_source_page(
                 sources=sources,
                 page=command.page,
@@ -1619,7 +1639,11 @@ class LotteryService:
             )
             for record in source_page.records:
                 fetched_count += 1
-                action = self.repository.upsert_draw(record, force=command.force)
+                action = self.repository.upsert_draw(
+                    record,
+                    force=command.force,
+                    rule_version_id=current_rule_id,
+                )
                 sync_details.append(
                     {
                         "issue_no": record.issue_no,

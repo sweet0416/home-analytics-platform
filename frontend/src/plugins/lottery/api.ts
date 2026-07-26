@@ -108,6 +108,12 @@ export interface LotteryDataStageReport {
   notes: string[];
 }
 
+export interface LotteryDataStageRepair {
+  repaired_count: number;
+  rule_code: string;
+  stage_report: LotteryDataStageReport;
+}
+
 export interface LotterySyncRequest {
   sync_type: 'manual' | 'backfill';
   page: number;
@@ -933,6 +939,13 @@ export function fetchDrawCoverage(): Promise<LotteryDrawCoverage> {
 
 export function fetchDataStageReport(): Promise<LotteryDataStageReport> {
   return getApiData<LotteryDataStageReport>('/lottery/dlt/data/stages');
+}
+
+export function repairDataStageBindings(): Promise<LotteryDataStageRepair> {
+  return postApiData<LotteryDataStageRepair, Record<string, never>>(
+    '/lottery/dlt/data/stages/repair-rule-bindings',
+    {},
+  );
 }
 
 export function fetchDisclaimer(): Promise<{ disclaimer: string }> {

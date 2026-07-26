@@ -506,7 +506,13 @@ class LotteryRepository:
         )
         return items, total
 
-    def upsert_draw(self, record: DrawRecord, *, force: bool = False) -> str:
+    def upsert_draw(
+        self,
+        record: DrawRecord,
+        *,
+        force: bool = False,
+        rule_version_id: int | None = None,
+    ) -> str:
         existing = self.get_draw_by_issue(record.issue_no, record.game_code)
         front_numbers_json = json.dumps(record.front_numbers, ensure_ascii=False)
         back_numbers_json = json.dumps(record.back_numbers, ensure_ascii=False)
@@ -522,18 +528,21 @@ class LotteryRepository:
                     back_numbers_json=back_numbers_json,
                     sales_amount=record.sales_amount,
                     pool_amount=record.pool_amount,
+                    rule_version_id=rule_version_id,
                     source_url=record.source_url,
                     raw_data_json=raw_data_json,
                 )
             )
             return "inserted"
 
+        rule_changed = rule_version_id is not None and existing.rule_version_id != rule_version_id
         changed = (
             existing.draw_date != record.draw_date
             or existing.front_numbers_json != front_numbers_json
             or existing.back_numbers_json != back_numbers_json
             or existing.sales_amount != record.sales_amount
             or existing.pool_amount != record.pool_amount
+            or rule_changed
         )
         if not changed and not force:
             return "skipped"
@@ -543,10 +552,33 @@ class LotteryRepository:
         existing.back_numbers_json = back_numbers_json
         existing.sales_amount = record.sales_amount
         existing.pool_amount = record.pool_amount
+        if rule_version_id is not None:
+            existing.rule_version_id = rule_version_id
         existing.source_url = record.source_url
         existing.raw_data_json = raw_data_json
         existing.updated_at = datetime.utcnow()
         return "updated"
+
+    def bind_unassigned_draws_to_rule(
+        self,
+        *,
+        rule_version_id: int,
+        game_code: str = DLT_GAME_CODE,
+    ) -> int:
+        draws = list(
+            self.db.scalars(
+                select(LotteryDrawModel).where(
+                    LotteryDrawModel.game_code == game_code,
+                    LotteryDrawModel.rule_version_id.is_(None),
+                )
+            )
+        )
+        now = datetime.utcnow()
+        for draw in draws:
+            draw.rule_version_id = rule_version_id
+            draw.updated_at = now
+        self.db.flush()
+        return len(draws)
 
     def ensure_dlt_seed_data(self) -> None:
         game = self.get_game(DLT_GAME_CODE)

@@ -135,6 +135,34 @@ def test_lottery_service_reports_data_stage_quality(db_session: Session) -> None
     assert any("rule_version_id" in warning for warning in report["warnings"])
 
 
+def test_lottery_service_repairs_data_stage_rule_bindings(db_session: Session) -> None:
+    repository = LotteryRepository(db_session)
+    repository.ensure_dlt_seed_data()
+    repository.upsert_draw(
+        DrawRecord(
+            game_code=DLT_GAME_CODE,
+            issue_no="25001",
+            draw_date=date(2026, 1, 1),
+            front_numbers=[1, 2, 3, 4, 5],
+            back_numbers=[1, 2],
+            sales_amount=Decimal("100.00"),
+            pool_amount=Decimal("200.00"),
+            source_url="https://datachart.500.com/dlt/history/history.shtml",
+            raw_data={"fixture": 1},
+        )
+    )
+    db_session.commit()
+
+    result = LotteryService(db_session).repair_data_stage_bindings()
+    draw = repository.get_draw_by_issue("25001")
+
+    assert result["repaired_count"] == 1
+    assert result["rule_code"] == "dlt-current-official"
+    assert result["stage_report"]["quality"]["rule_bound_rate"] == 1
+    assert draw is not None
+    assert draw.rule_version_id is not None
+
+
 def test_lottery_service_returns_omission_statistics(db_session: Session) -> None:
     repository = LotteryRepository(db_session)
     repository.ensure_dlt_seed_data()

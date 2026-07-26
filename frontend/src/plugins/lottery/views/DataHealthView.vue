@@ -46,7 +46,19 @@
     <section class="panel health-panel">
       <div class="panel-header">
         <h2 class="panel-title">制度与数据阶段</h2>
-        <span class="panel-meta">{{ stageQualityDescription }}</span>
+        <div class="stage-actions">
+          <span class="panel-meta">{{ stageQualityDescription }}</span>
+          <el-button
+            v-if="canRepairRuleBindings"
+            size="small"
+            type="primary"
+            plain
+            :loading="repairingStages"
+            @click="handleRepairRuleBindings"
+          >
+            修复规则绑定
+          </el-button>
+        </div>
       </div>
       <div class="stage-layout">
         <article
@@ -242,6 +254,7 @@
 
 <script setup lang="ts">
 import { Refresh } from '@element-plus/icons-vue';
+import { ElMessage } from 'element-plus';
 import { computed, defineComponent, h, onBeforeUnmount, onMounted, ref } from 'vue';
 
 import EmptyState from '@/components/common/EmptyState.vue';
@@ -256,6 +269,7 @@ const backfillStartPage = ref(2);
 const backfillPageCount = ref(5);
 const backfillPageSize = ref(100);
 const backfillForce = ref(false);
+const repairingStages = ref(false);
 let pollTimer: number | undefined;
 
 const drawTotal = computed(() => String(lottery.draws?.pagination.total ?? 0));
@@ -283,6 +297,9 @@ const stageQualityDescription = computed(
   () => lottery.dataStageReport?.quality.description ?? '正在检查规则版本、来源和字段完整度。',
 );
 const stageWarnings = computed(() => lottery.dataStageReport?.warnings ?? []);
+const canRepairRuleBindings = computed(
+  () => (lottery.dataStageReport?.quality.rule_bound_rate ?? 1) < 1,
+);
 const qualityBars = computed(() => {
   const quality = lottery.dataStageReport?.quality;
   return [
@@ -363,6 +380,18 @@ async function handleBackfill(): Promise<void> {
     force: backfillForce.value,
   });
   startPolling();
+}
+
+async function handleRepairRuleBindings(): Promise<void> {
+  repairingStages.value = true;
+  try {
+    const repairedCount = await lottery.repairDataStageBindings();
+    ElMessage.success(`已修复 ${repairedCount} 期规则绑定`);
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : '规则绑定修复失败');
+  } finally {
+    repairingStages.value = false;
+  }
 }
 
 function startPolling(): void {
@@ -518,6 +547,14 @@ const InfoBlock = defineComponent({
 .panel-meta {
   color: var(--color-muted);
   font-size: 13px;
+}
+
+.stage-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
 }
 
 .health-alert,

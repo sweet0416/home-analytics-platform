@@ -102,6 +102,12 @@ class LotteryDataStageReportRead(BaseModel):
     notes: list[str]
 
 
+class LotteryDataStageRepairRead(BaseModel):
+    repaired_count: int
+    rule_code: str
+    stage_report: LotteryDataStageReportRead
+
+
 class DisclaimerRead(BaseModel):
     disclaimer: str
 
