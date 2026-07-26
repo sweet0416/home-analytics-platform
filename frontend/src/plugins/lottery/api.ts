@@ -799,11 +799,18 @@ export interface LotteryAutocorrelation {
   interpretation: string;
 }
 
+export interface LotteryRandomnessSampleQuality {
+  level: 'small' | 'limited' | 'usable' | 'strong';
+  label: string;
+  description: string;
+}
+
 export interface LotteryRandomnessDiagnostics {
   sample_size: number;
   requested_limit: number;
   latest_issue_no: string | null;
   earliest_issue_no: string | null;
+  sample_quality: LotteryRandomnessSampleQuality;
   front_frequency: LotteryRandomnessFrequency;
   back_frequency: LotteryRandomnessFrequency;
   front_sum: LotterySequenceSummary;

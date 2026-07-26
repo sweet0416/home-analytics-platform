@@ -320,6 +320,8 @@ def test_randomness_diagnostics_return_frequency_metrics(db_session: Session) ->
     result = LotteryService(db_session).get_randomness_diagnostics(limit=50)
 
     assert result["sample_size"] >= 8
+    assert result["sample_quality"]["level"] == "small"
+    assert result["sample_quality"]["label"] == "样本很少"
     assert result["front_frequency"]["degrees_of_freedom"] == 34
     assert result["back_frequency"]["degrees_of_freedom"] == 11
     assert result["front_frequency"]["entropy"]["normalized"] > 0

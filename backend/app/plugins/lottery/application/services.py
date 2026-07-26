@@ -322,6 +322,7 @@ class LotteryService:
             "requested_limit": limit,
             "latest_issue_no": str(draws[0]["issue_no"]) if draws else None,
             "earliest_issue_no": str(draws[-1]["issue_no"]) if draws else None,
+            "sample_quality": self._build_randomness_sample_quality(len(draws)),
             "front_frequency": front_frequency,
             "back_frequency": back_frequency,
             "front_sum": self._build_sequence_summary(front_sums),
@@ -335,6 +336,32 @@ class LotteryService:
             ),
             "front_gap_summary": self._build_gap_summary(front_rows),
             "notes": notes,
+        }
+
+    @staticmethod
+    def _build_randomness_sample_quality(sample_size: int) -> dict[str, object]:
+        if sample_size >= 1000:
+            return {
+                "level": "strong",
+                "label": "样本较稳",
+                "description": "样本量较大，频率类指标相对稳定，但仍不能用于预测下一期。",
+            }
+        if sample_size >= 300:
+            return {
+                "level": "usable",
+                "label": "样本可用",
+                "description": "样本量适合做随机性观察，个别号码偏差仍可能只是自然波动。",
+            }
+        if sample_size >= 100:
+            return {
+                "level": "limited",
+                "label": "样本偏少",
+                "description": "样本量偏少，p 值、Z 值和区间判断都需要保守解读。",
+            }
+        return {
+            "level": "small",
+            "label": "样本很少",
+            "description": "样本量很少，当前结果只适合做页面检查，不适合下统计结论。",
         }
 
     def get_co_occurrence_analysis(

@@ -10,6 +10,8 @@ GET /api/v1/lottery/dlt/draws/latest
 GET /api/v1/lottery/dlt/statistics/basic
 GET /api/v1/lottery/dlt/statistics/omissions
 GET /api/v1/lottery/dlt/statistics/randomness
+  response: sample_quality
+    fields: level, label, description
   response: front_frequency/back_frequency
     fields: multiple_testing_tests, adjusted_alpha, significant_after_correction
   response: front_frequency/back_frequency.top_deviations[]

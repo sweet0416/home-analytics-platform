@@ -30,6 +30,7 @@
       <MetricCard label="前区熵" :value="frontEntropy" :meta="frontEntropyMeta" />
       <MetricCard label="后区熵" :value="backEntropy" :meta="backEntropyMeta" />
       <MetricCard label="和值自相关" :value="sumCorrelation" meta="lag 1" />
+      <MetricCard label="样本可靠性" :value="sampleQualityLabel" :meta="sampleQualityMeta" />
     </div>
 
     <section v-if="diagnostics" class="panel randomness-panel">
@@ -38,6 +39,10 @@
         <span class="panel-meta">先判断是否仍在随机波动范围，再看是否值得继续追踪</span>
       </div>
       <div class="reading-grid">
+        <article class="reading-card">
+          <strong>样本量</strong>
+          <span>先看样本可靠性；样本偏少时，任何偏差都更容易被偶然波动放大。</span>
+        </article>
         <article class="reading-card">
           <strong>95% CI</strong>
           <span>可以理解为正常随机波动区间；实际次数落在区间内，一般不用过度解读。</span>
@@ -208,6 +213,10 @@ const sumCorrelation = computed(() =>
     ? '--'
     : String(diagnostics.value.front_sum_autocorrelation.value),
 );
+const sampleQualityLabel = computed(() => diagnostics.value?.sample_quality.label ?? '--');
+const sampleQualityMeta = computed(() =>
+  diagnostics.value?.sample_quality.description ?? '等待体检',
+);
 const frequencyMetrics = computed(() =>
   diagnostics.value ? [diagnostics.value.front_frequency, diagnostics.value.back_frequency] : [],
 );
@@ -324,7 +333,7 @@ function correctionClass(value: boolean): string {
 }
 
 .reading-grid {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .frequency-grid,

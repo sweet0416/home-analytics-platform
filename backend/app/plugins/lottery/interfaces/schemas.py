@@ -828,11 +828,18 @@ class LotteryAutocorrelationRead(BaseModel):
     interpretation: str
 
 
+class LotteryRandomnessSampleQualityRead(BaseModel):
+    level: str
+    label: str
+    description: str
+
+
 class LotteryRandomnessDiagnosticsRead(BaseModel):
     sample_size: int
     requested_limit: int
     latest_issue_no: str | None
     earliest_issue_no: str | None
+    sample_quality: LotteryRandomnessSampleQualityRead
     front_frequency: LotteryRandomnessFrequencyRead
     back_frequency: LotteryRandomnessFrequencyRead
     front_sum: LotterySequenceSummaryRead
