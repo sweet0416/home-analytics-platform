@@ -56,7 +56,7 @@
             :loading="repairingStages"
             @click="handleRepairRuleBindings"
           >
-            修复规则绑定
+            修复 {{ unboundRuleCount }} 期规则绑定
           </el-button>
         </div>
       </div>
@@ -254,7 +254,7 @@
 
 <script setup lang="ts">
 import { Refresh } from '@element-plus/icons-vue';
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import { computed, defineComponent, h, onBeforeUnmount, onMounted, ref } from 'vue';
 
 import EmptyState from '@/components/common/EmptyState.vue';
@@ -300,6 +300,14 @@ const stageWarnings = computed(() => lottery.dataStageReport?.warnings ?? []);
 const canRepairRuleBindings = computed(
   () => (lottery.dataStageReport?.quality.rule_bound_rate ?? 1) < 1,
 );
+const unboundRuleCount = computed(() => {
+  const report = lottery.dataStageReport;
+  if (!report) return 0;
+  return Math.max(
+    0,
+    Math.round(report.sample_size * (1 - report.quality.rule_bound_rate)),
+  );
+});
 const qualityBars = computed(() => {
   const quality = lottery.dataStageReport?.quality;
   return [
@@ -383,6 +391,19 @@ async function handleBackfill(): Promise<void> {
 }
 
 async function handleRepairRuleBindings(): Promise<void> {
+  try {
+    await ElMessageBox.confirm(
+      `将把 ${unboundRuleCount.value} 期未绑定规则版本的开奖记录标记为当前官方规则。这个操作不会修改号码、开奖日期、销量、奖池或来源。`,
+      '确认修复规则绑定',
+      {
+        confirmButtonText: '确认修复',
+        cancelButtonText: '取消',
+        type: 'warning',
+      },
+    );
+  } catch {
+    return;
+  }
   repairingStages.value = true;
   try {
     const repairedCount = await lottery.repairDataStageBindings();
