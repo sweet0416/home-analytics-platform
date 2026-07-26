@@ -250,9 +250,9 @@ function rankDeltaClass(value: number): string {
   align-items: center;
   border-bottom: 1px solid rgba(148, 163, 184, 0.1);
   display: grid;
-  gap: 10px;
-  grid-template-columns: 54px repeat(5, minmax(56px, 1fr));
-  min-width: 520px;
+  gap: 16px;
+  grid-template-columns: 64px 92px 92px 78px 78px 76px;
+  min-width: 620px;
   padding: 8px 0;
 }
 
@@ -260,6 +260,16 @@ function rankDeltaClass(value: number): string {
 .decay-row strong {
   color: var(--color-muted);
   font-size: 13px;
+}
+
+.decay-row > span,
+.decay-row > strong {
+  display: block;
+  min-width: 0;
+}
+
+.decay-row > .lottery-ball {
+  justify-self: start;
 }
 
 .decay-row-head span {
