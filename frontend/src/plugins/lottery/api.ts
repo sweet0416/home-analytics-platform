@@ -774,6 +774,9 @@ export interface LotteryRandomnessFrequency {
   degrees_of_freedom: number;
   p_value: number;
   p_value_method: string;
+  multiple_testing_tests: number;
+  adjusted_alpha: number;
+  significant_after_correction: boolean;
   entropy: LotteryEntropy;
   top_deviations: LotteryRandomnessDeviation[];
   interpretation: string;

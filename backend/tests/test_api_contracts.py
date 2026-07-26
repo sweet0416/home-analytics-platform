@@ -80,6 +80,9 @@ def test_randomness_endpoint_includes_deviation_diagnostics(client: TestClient) 
 
     assert response.status_code == 200
     body = response.json()["data"]
+    assert body["front_frequency"]["multiple_testing_tests"] == 35
+    assert "adjusted_alpha" in body["front_frequency"]
+    assert "significant_after_correction" in body["front_frequency"]
     front_deviation = body["front_frequency"]["top_deviations"][0]
     assert {
         "number",

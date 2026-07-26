@@ -2239,6 +2239,7 @@ class LotteryService:
         )
         degrees = number_count - 1
         p_value = LotteryService._chi_square_survival_approx(chi_square, degrees)
+        adjusted_alpha = round(0.05 / number_count, 6) if number_count else 0
         deviations = [
             {
                 "number": number,
@@ -2262,6 +2263,9 @@ class LotteryService:
             "degrees_of_freedom": degrees,
             "p_value": p_value,
             "p_value_method": "Wilson-Hilferty normal approximation",
+            "multiple_testing_tests": number_count,
+            "adjusted_alpha": adjusted_alpha,
+            "significant_after_correction": p_value < adjusted_alpha,
             "entropy": LotteryService._frequency_entropy(counts, min_number, max_number),
             "top_deviations": sorted(
                 deviations,

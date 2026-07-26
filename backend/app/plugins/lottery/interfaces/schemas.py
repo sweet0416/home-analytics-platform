@@ -803,6 +803,9 @@ class LotteryRandomnessFrequencyRead(BaseModel):
     degrees_of_freedom: int
     p_value: float
     p_value_method: str
+    multiple_testing_tests: int
+    adjusted_alpha: float
+    significant_after_correction: bool
     entropy: LotteryEntropyRead
     top_deviations: list[LotteryRandomnessDeviationRead]
     interpretation: str

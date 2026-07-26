@@ -80,6 +80,16 @@
             <span>自由度</span>
             <strong>{{ metric.degrees_of_freedom }}</strong>
           </div>
+          <div class="metric-line">
+            <span>校正阈值</span>
+            <strong>{{ metric.adjusted_alpha }}</strong>
+          </div>
+          <div class="metric-line">
+            <span>多重校正</span>
+            <strong :class="correctionClass(metric.significant_after_correction)">
+              {{ correctionLabel(metric) }}
+            </strong>
+          </div>
           <p>{{ metric.interpretation }}</p>
         </article>
       </div>
@@ -235,6 +245,12 @@ function pValueLabel(value: number): string {
   return '未见强偏离';
 }
 
+function correctionLabel(metric: { multiple_testing_tests: number; significant_after_correction: boolean }): string {
+  return metric.significant_after_correction
+    ? `仍需关注 / ${metric.multiple_testing_tests} 次比较`
+    : `未通过 / ${metric.multiple_testing_tests} 次比较`;
+}
+
 function formatNumber(value: number): string {
   return String(value).padStart(2, '0');
 }
@@ -257,6 +273,10 @@ function deltaClass(value: number): string {
 function zScoreClass(value: number): string {
   if (Math.abs(value) >= 1.96) return 'is-warning';
   return '';
+}
+
+function correctionClass(value: boolean): string {
+  return value ? 'is-warning' : 'is-muted';
 }
 </script>
 
@@ -405,6 +425,10 @@ function zScoreClass(value: number): string {
 
 .is-warning {
   color: #facc15 !important;
+}
+
+.is-muted {
+  color: var(--color-muted) !important;
 }
 
 @media (max-width: 960px) {
