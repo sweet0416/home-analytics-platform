@@ -640,29 +640,29 @@ class LotteryRepository:
 
         self._ensure_dlt_rule_version(
             rule_code="dlt-before-2019-official",
-            rule_name="DLT official rule stage before 2019",
+            rule_name="超级大乐透 2019 前规则阶段",
             effective_from=None,
             effective_to=date(2019, 2, 17),
             official_url="https://zhs.mof.gov.cn/zhengcefabu/201811/t20181122_3073538.htm",
-            description="Covers issue 19018 and earlier in the current local dataset.",
+            description="覆盖当前库中第 19018 期及以前的历史开奖，用于阶段内统计和长期样本对比。",
             reset_prize_tiers=False,
         )
         self._ensure_dlt_rule_version(
             rule_code="dlt-2019-official",
-            rule_name="DLT official rule stage from 2019",
+            rule_name="超级大乐透 2019 规则阶段",
             effective_from=date(2019, 2, 18),
             effective_to=date(2026, 1, 30),
             official_url="https://www.sporttery.cn/szcp/cjdlt/2019/0222/498984.html",
-            description="Official rule stage starting from issue 19019.",
+            description="官方公告自第 19019 期起变更游戏规则；覆盖第 19019 期至第 26013 期。",
             reset_prize_tiers=False,
         )
         self._ensure_dlt_rule_version(
             rule_code="dlt-2026-official",
-            rule_name="DLT current official rule stage from 2026",
+            rule_name="超级大乐透 2026 当前规则阶段",
             effective_from=date(2026, 1, 31),
             effective_to=None,
             official_url="https://www.mof.gov.cn/gp/xxgkml/zhs/202601/t20260116_3982042.htm",
-            description="Current official rule stage starting from issue 26014.",
+            description="官方公告自第 26014 期起变更游戏规则；用于当前阶段分析和当前中奖规则展示。",
             reset_prize_tiers=True,
         )
         self.db.commit()
