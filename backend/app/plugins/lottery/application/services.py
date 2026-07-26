@@ -338,6 +338,50 @@ class LotteryService:
             "notes": notes,
         }
 
+    def get_decay_analysis(
+        self,
+        *,
+        limit: int = 500,
+        half_life: int = 50,
+        top: int = 10,
+    ) -> dict[str, object]:
+        draws = [
+            self._serialize_draw(draw)
+            for draw in self.repository.list_recent_draws(limit=limit)
+        ]
+        front_rows = [list(item["front_numbers"]) for item in draws]
+        back_rows = [list(item["back_numbers"]) for item in draws]
+        notes = [
+            "指数衰减会让越近的开奖期权重越高，但它只描述历史样本，不代表未来会延续。",
+            "半衰期越小越偏近期，结果越容易被短期随机波动影响。",
+            "rank_delta 为正，表示该号码在衰减权重下比普通固定窗口排行更靠前。",
+        ]
+
+        return {
+            "sample_size": len(draws),
+            "requested_limit": limit,
+            "half_life": half_life,
+            "top": top,
+            "latest_issue_no": str(draws[0]["issue_no"]) if draws else None,
+            "earliest_issue_no": str(draws[-1]["issue_no"]) if draws else None,
+            "weight_formula": "weight = 0.5 ** (distance / half_life)",
+            "front": self._build_decay_area(
+                rows=front_rows,
+                min_number=1,
+                max_number=35,
+                half_life=half_life,
+                top=top,
+            ),
+            "back": self._build_decay_area(
+                rows=back_rows,
+                min_number=1,
+                max_number=12,
+                half_life=half_life,
+                top=top,
+            ),
+            "notes": notes,
+        }
+
     @staticmethod
     def _build_randomness_sample_quality(sample_size: int) -> dict[str, object]:
         if sample_size >= 1000:
@@ -363,6 +407,71 @@ class LotteryService:
             "label": "样本很少",
             "description": "样本量很少，当前结果只适合做页面检查，不适合下统计结论。",
         }
+
+    @staticmethod
+    def _build_decay_area(
+        *,
+        rows: list[list[int]],
+        min_number: int,
+        max_number: int,
+        half_life: int,
+        top: int,
+    ) -> dict[str, object]:
+        raw_counts = Counter(number for row in rows for number in row)
+        weighted_counts = {number: 0.0 for number in range(min_number, max_number + 1)}
+        total_weight = 0.0
+        for distance, row in enumerate(rows):
+            weight = 0.5 ** (distance / half_life)
+            total_weight += weight * len(row)
+            for number in row:
+                weighted_counts[number] += weight
+
+        raw_ranks = LotteryService._rank_numbers(
+            [
+                {"number": number, "value": float(raw_counts[number])}
+                for number in range(min_number, max_number + 1)
+            ]
+        )
+        weighted_ranks = LotteryService._rank_numbers(
+            [
+                {"number": number, "value": weighted_counts[number]}
+                for number in range(min_number, max_number + 1)
+            ]
+        )
+        numbers = [
+            {
+                "number": number,
+                "raw_count": raw_counts[number],
+                "weighted_count": round(weighted_counts[number], 4),
+                "weighted_share": round(
+                    weighted_counts[number] / total_weight if total_weight else 0,
+                    6,
+                ),
+                "raw_rank": raw_ranks[number],
+                "weighted_rank": weighted_ranks[number],
+                "rank_delta": raw_ranks[number] - weighted_ranks[number],
+            }
+            for number in range(min_number, max_number + 1)
+        ]
+        return {
+            "total_weight": round(total_weight, 4),
+            "numbers": sorted(
+                numbers,
+                key=lambda item: (int(item["weighted_rank"]), int(item["number"])),
+            )[:top],
+            "rising_numbers": sorted(
+                numbers,
+                key=lambda item: (-int(item["rank_delta"]), int(item["weighted_rank"])),
+            )[:top],
+        }
+
+    @staticmethod
+    def _rank_numbers(items: list[dict[str, object]]) -> dict[int, int]:
+        sorted_items = sorted(
+            items,
+            key=lambda item: (-float(item["value"]), int(item["number"])),
+        )
+        return {int(item["number"]): index + 1 for index, item in enumerate(sorted_items)}
 
     def get_co_occurrence_analysis(
         self,

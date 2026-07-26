@@ -20,6 +20,12 @@ GET /api/v1/lottery/dlt/statistics/randomness
 GET /api/v1/lottery/dlt/numbers/{area}/{number}/omission
 GET /api/v1/lottery/dlt/analysis/same-period
 GET /api/v1/lottery/dlt/analysis/co-occurrence?area&limit&top
+GET /api/v1/lottery/dlt/analysis/decay?limit&half_life&top
+  response: front/back
+    fields: total_weight, numbers[], rising_numbers[]
+  response: front/back.numbers[]
+    fields: number, raw_count, weighted_count, weighted_share, raw_rank, weighted_rank, rank_delta
+  note: exponential decay weights recent historical draws more heavily; it is a sample diagnostic, not a prediction signal
 GET /api/v1/lottery/dlt/analysis/recommendations?sets&same_period_count&sample_limit&same_period_weight&frequency_weight&missing_weight&structure_weight&co_occurrence_weight&coverage_weight
 GET /api/v1/lottery/dlt/analysis/simulation
 POST /api/v1/lottery/dlt/analysis/coverage

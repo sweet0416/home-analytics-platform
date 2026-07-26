@@ -5,6 +5,7 @@ import CoOccurrenceView from './views/CoOccurrenceView.vue';
 import CombinationCoverageView from './views/CombinationCoverageView.vue';
 import DataHealthView from './views/DataHealthView.vue';
 import DantuoView from './views/DantuoView.vue';
+import DecayAnalysisView from './views/DecayAnalysisView.vue';
 import DrawHistory from './views/DrawHistory.vue';
 import HeatmapView from './views/HeatmapView.vue';
 import LotteryOverview from './views/LotteryOverview.vue';
@@ -52,6 +53,11 @@ export const lotteryRoutes: RouteRecordRaw[] = [
     path: 'lottery/dlt/co-occurrence',
     name: 'lottery-dlt-co-occurrence',
     component: CoOccurrenceView,
+  },
+  {
+    path: 'lottery/dlt/decay',
+    name: 'lottery-dlt-decay',
+    component: DecayAnalysisView,
   },
   {
     path: 'lottery/dlt/recommendations',

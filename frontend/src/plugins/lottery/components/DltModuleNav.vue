@@ -23,6 +23,7 @@ const moduleNavItems = [
   { label: '热力图', path: '/lottery/dlt/heatmap' },
   { label: '历史同期', path: '/lottery/dlt/same-period' },
   { label: '共现网络', path: '/lottery/dlt/co-occurrence' },
+  { label: '衰减分析', path: '/lottery/dlt/decay' },
   { label: '选号推荐', path: '/lottery/dlt/recommendations' },
   { label: '模拟选号', path: '/lottery/dlt/simulation' },
   { label: '组合覆盖', path: '/lottery/dlt/coverage' },

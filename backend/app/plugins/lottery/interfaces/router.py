@@ -23,6 +23,7 @@ from app.plugins.lottery.interfaces.schemas import (
     LotteryCoOccurrenceRead,
     LotteryCombinationCoverageRead,
     LotteryCoverageRequest,
+    LotteryDecayAnalysisRead,
     LotteryDantuoAnalysisRead,
     LotteryDantuoRequest,
     LotteryDrawCoverageRead,
@@ -299,6 +300,17 @@ def get_co_occurrence_analysis(
 ) -> ApiResponse[LotteryCoOccurrenceRead]:
     service = LotteryService(db)
     return ok(service.get_co_occurrence_analysis(area=area, limit=limit, top=top))
+
+
+@router.get("/analysis/decay", response_model=ApiResponse[LotteryDecayAnalysisRead])
+def get_decay_analysis(
+    limit: int = Query(default=500, ge=50, le=2000),
+    half_life: int = Query(default=50, ge=5, le=500),
+    top: int = Query(default=10, ge=5, le=20),
+    db: Session = Depends(get_db),
+) -> ApiResponse[LotteryDecayAnalysisRead]:
+    service = LotteryService(db)
+    return ok(service.get_decay_analysis(limit=limit, half_life=half_life, top=top))
 
 
 @router.get("/analysis/recommendations", response_model=ApiResponse[LotteryRecommendationRead])

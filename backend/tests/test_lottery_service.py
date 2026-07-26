@@ -69,6 +69,42 @@ def test_lottery_service_returns_basic_statistics(db_session: Session) -> None:
     assert front_five["missing"] == 1
 
 
+def test_lottery_service_returns_decay_analysis(db_session: Session) -> None:
+    repository = LotteryRepository(db_session)
+    repository.ensure_dlt_seed_data()
+    fixtures = [
+        ("25001", date(2026, 1, 1), [1, 2, 3, 4, 5], [1, 2]),
+        ("25002", date(2026, 1, 3), [6, 7, 8, 9, 10], [3, 4]),
+        ("25003", date(2026, 1, 5), [6, 11, 12, 13, 14], [3, 5]),
+    ]
+    for issue_no, draw_date, front_numbers, back_numbers in fixtures:
+        repository.upsert_draw(
+            DrawRecord(
+                game_code=DLT_GAME_CODE,
+                issue_no=issue_no,
+                draw_date=draw_date,
+                front_numbers=front_numbers,
+                back_numbers=back_numbers,
+                sales_amount=Decimal("100.00"),
+                pool_amount=Decimal("200.00"),
+                source_url=f"https://example.test/{issue_no}",
+                raw_data={"fixture": issue_no},
+            )
+        )
+    db_session.commit()
+
+    analysis = LotteryService(db_session).get_decay_analysis(limit=50, half_life=1, top=5)
+
+    assert analysis["sample_size"] == 3
+    assert analysis["latest_issue_no"] == "25003"
+    assert analysis["weight_formula"] == "weight = 0.5 ** (distance / half_life)"
+    assert analysis["front"]["numbers"][0]["number"] == 6
+    assert analysis["front"]["numbers"][0]["raw_count"] == 2
+    assert analysis["front"]["numbers"][0]["weighted_rank"] == 1
+    assert analysis["front"]["rising_numbers"][0]["rank_delta"] > 0
+    assert analysis["back"]["numbers"][0]["number"] == 3
+
+
 def test_lottery_service_returns_omission_statistics(db_session: Session) -> None:
     repository = LotteryRepository(db_session)
     repository.ensure_dlt_seed_data()

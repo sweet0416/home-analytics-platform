@@ -8,6 +8,7 @@ import {
   fetchBasicStatistics,
   fetchCoOccurrenceAnalysis,
   fetchCurrentRule,
+  fetchDecayAnalysis,
   fetchDisclaimer,
   fetchDrawCoverage,
   fetchDraws,
@@ -32,6 +33,7 @@ import {
   type LotteryBacktestAnalysis,
   type LotteryBacktestRequest,
   type LotteryCoOccurrenceAnalysis,
+  type LotteryDecayAnalysis,
   type LotteryDantuoAnalysis,
   type LotteryDantuoRequest,
   type LotteryBackfillJob,
@@ -71,6 +73,7 @@ export const useLotteryStore = defineStore('lottery', {
     syncRuns: null as SyncRunPage | null,
     statistics: null as LotteryBasicStatistics | null,
     coOccurrence: null as LotteryCoOccurrenceAnalysis | null,
+    decayAnalysis: null as LotteryDecayAnalysis | null,
     omissionStatistics: null as LotteryOmissionStatistics | null,
     randomnessDiagnostics: null as LotteryRandomnessDiagnostics | null,
     omissionDetail: null as LotteryNumberOmissionDetail | null,
@@ -152,6 +155,9 @@ export const useLotteryStore = defineStore('lottery', {
       top = 30,
     ): Promise<void> {
       this.coOccurrence = await fetchCoOccurrenceAnalysis(area, limit, top);
+    },
+    async loadDecayAnalysis(limit = 500, halfLife = 50, top = 10): Promise<void> {
+      this.decayAnalysis = await fetchDecayAnalysis(limit, halfLife, top);
     },
     async loadOmissionStatistics(limit = 100): Promise<void> {
       this.omissionStatistics = await fetchOmissionStatistics(limit);

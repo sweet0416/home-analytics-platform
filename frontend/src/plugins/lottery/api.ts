@@ -848,6 +848,35 @@ export interface LotteryCoOccurrenceAnalysis {
   notes: string[];
 }
 
+export interface LotteryDecayNumber {
+  number: number;
+  raw_count: number;
+  weighted_count: number;
+  weighted_share: number;
+  raw_rank: number;
+  weighted_rank: number;
+  rank_delta: number;
+}
+
+export interface LotteryDecayArea {
+  total_weight: number;
+  numbers: LotteryDecayNumber[];
+  rising_numbers: LotteryDecayNumber[];
+}
+
+export interface LotteryDecayAnalysis {
+  sample_size: number;
+  requested_limit: number;
+  half_life: number;
+  top: number;
+  latest_issue_no: string | null;
+  earliest_issue_no: string | null;
+  weight_formula: string;
+  front: LotteryDecayArea;
+  back: LotteryDecayArea;
+  notes: string[];
+}
+
 export function fetchCurrentRule(): Promise<LotteryRule> {
   return getApiData<LotteryRule>('/lottery/dlt/rules/current');
 }
@@ -903,6 +932,19 @@ export function fetchCoOccurrenceAnalysis(
   return getApiData<LotteryCoOccurrenceAnalysis>(
     `/lottery/dlt/analysis/co-occurrence?${params.toString()}`,
   );
+}
+
+export function fetchDecayAnalysis(
+  limit = 500,
+  halfLife = 50,
+  top = 10,
+): Promise<LotteryDecayAnalysis> {
+  const params = new URLSearchParams({
+    limit: String(limit),
+    half_life: String(halfLife),
+    top: String(top),
+  });
+  return getApiData<LotteryDecayAnalysis>(`/lottery/dlt/analysis/decay?${params.toString()}`);
 }
 
 export function fetchNumberOmissionDetail(

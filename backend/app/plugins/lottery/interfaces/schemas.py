@@ -849,6 +849,35 @@ class LotteryRandomnessDiagnosticsRead(BaseModel):
     notes: list[str]
 
 
+class LotteryDecayNumberRead(BaseModel):
+    number: int
+    raw_count: int
+    weighted_count: float
+    weighted_share: float
+    raw_rank: int
+    weighted_rank: int
+    rank_delta: int
+
+
+class LotteryDecayAreaRead(BaseModel):
+    total_weight: float
+    numbers: list[LotteryDecayNumberRead]
+    rising_numbers: list[LotteryDecayNumberRead]
+
+
+class LotteryDecayAnalysisRead(BaseModel):
+    sample_size: int
+    requested_limit: int
+    half_life: int
+    top: int
+    latest_issue_no: str | None
+    earliest_issue_no: str | None
+    weight_formula: str
+    front: LotteryDecayAreaRead
+    back: LotteryDecayAreaRead
+    notes: list[str]
+
+
 class LotteryCoOccurrenceNodeRead(BaseModel):
     id: str
     area: str

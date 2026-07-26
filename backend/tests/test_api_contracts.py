@@ -97,6 +97,27 @@ def test_randomness_endpoint_includes_deviation_diagnostics(client: TestClient) 
     assert front_deviation["confidence_low"] <= front_deviation["confidence_high"]
 
 
+def test_decay_endpoint_returns_empty_contract(client: TestClient) -> None:
+    response = client.get("/api/v1/lottery/dlt/analysis/decay")
+
+    assert response.status_code == 200
+    body = response.json()["data"]
+    assert body["sample_size"] == 0
+    assert body["half_life"] == 50
+    assert body["top"] == 10
+    assert len(body["front"]["numbers"]) == 10
+    assert len(body["back"]["numbers"]) == 10
+    assert {
+        "number",
+        "raw_count",
+        "weighted_count",
+        "weighted_share",
+        "raw_rank",
+        "weighted_rank",
+        "rank_delta",
+    }.issubset(body["front"]["numbers"][0])
+
+
 def test_saved_combination_can_be_created_and_listed(client: TestClient) -> None:
     payload = {
         "label": "回测池 1",
