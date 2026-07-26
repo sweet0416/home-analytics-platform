@@ -58,8 +58,20 @@ from app.shared.responses.schemas import ApiResponse, ok
 
 router = APIRouter(prefix="/dlt")
 
+_SENSITIVITY_JOB_LIMIT = 20
 _SENSITIVITY_JOBS: dict[str, dict[str, object]] = {}
 _SENSITIVITY_JOBS_LOCK = Lock()
+
+
+def _prune_sensitivity_jobs() -> None:
+    removable_job_ids = [
+        job_id
+        for job_id, job in _SENSITIVITY_JOBS.items()
+        if job.get("status") in {"success", "failed"}
+    ]
+    overflow = len(_SENSITIVITY_JOBS) - _SENSITIVITY_JOB_LIMIT
+    for job_id in removable_job_ids[: max(0, overflow)]:
+        _SENSITIVITY_JOBS.pop(job_id, None)
 
 
 def _update_sensitivity_job(job_id: str, **updates: object) -> None:
@@ -489,6 +501,7 @@ def start_replay_sensitivity(
     }
     with _SENSITIVITY_JOBS_LOCK:
         _SENSITIVITY_JOBS[job_id] = job
+        _prune_sensitivity_jobs()
     background_tasks.add_task(_run_sensitivity_task, job_id, payload)
     return ok(job)
 

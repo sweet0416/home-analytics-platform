@@ -1,9 +1,10 @@
 from datetime import date
 from decimal import Decimal
 
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, sessionmaker
 
 from app.plugins.lottery.application.replay_service import LotteryReplayService
 from app.plugins.lottery.application.services import LotteryService
@@ -14,6 +15,7 @@ from app.plugins.lottery.infrastructure.persistence.models import (
     LotteryReplayRunModel,
 )
 from app.plugins.lottery.infrastructure.persistence.repositories import LotteryRepository
+from app.plugins.lottery.interfaces import router as lottery_router
 
 
 def seed_replay_draws(db_session: Session) -> None:
@@ -223,6 +225,74 @@ def test_sensitivity_endpoint_returns_ranked_results(
     assert data["combination_count"] == 8
     assert data["results"][0]["profile_name"]
     assert data["baseline"]["simulations"] == 500
+
+
+def test_sensitivity_background_job_returns_result(
+    client: TestClient,
+    db_session: Session,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    seed_replay_draws(db_session)
+    testing_session_local = sessionmaker(
+        autocommit=False,
+        autoflush=False,
+        bind=db_session.get_bind(),
+    )
+    monkeypatch.setattr(lottery_router, "SessionLocal", testing_session_local)
+    lottery_router._SENSITIVITY_JOBS.clear()
+
+    start_response = client.post(
+        "/api/v1/lottery/dlt/analysis/replay/sensitivity/start",
+        json={
+            "target_issue_no": "26080",
+            "sets": 2,
+            "sample_windows": [20],
+            "baseline_simulations": 500,
+            "seed": 42,
+        },
+    )
+
+    assert start_response.status_code == 200
+    job = start_response.json()["data"]
+    assert job["job_id"]
+    assert job["status"] in {"queued", "running", "success"}
+
+    job_response = client.get(
+        f"/api/v1/lottery/dlt/analysis/replay/sensitivity/jobs/{job['job_id']}"
+    )
+    assert job_response.status_code == 200
+    job_data = job_response.json()["data"]
+    assert job_data["status"] == "success"
+    assert job_data["duration_ms"] >= 0
+    assert job_data["result"]["combination_count"] == 4
+    assert job_data["result"]["leakage_check"]["passed"] is True
+
+    run_count = db_session.scalar(select(func.count()).select_from(LotteryReplayRunModel))
+    assert run_count == 0
+    lottery_router._SENSITIVITY_JOBS.clear()
+
+
+def test_sensitivity_job_endpoint_returns_404_for_missing_job(
+    client: TestClient,
+) -> None:
+    lottery_router._SENSITIVITY_JOBS.clear()
+
+    response = client.get("/api/v1/lottery/dlt/analysis/replay/sensitivity/jobs/missing")
+
+    assert response.status_code == 404
+
+
+def test_sensitivity_job_pruning_keeps_active_jobs() -> None:
+    lottery_router._SENSITIVITY_JOBS.clear()
+    for index in range(25):
+        lottery_router._SENSITIVITY_JOBS[f"finished-{index}"] = {"status": "success"}
+    lottery_router._SENSITIVITY_JOBS["active"] = {"status": "running"}
+
+    lottery_router._prune_sensitivity_jobs()
+
+    assert "active" in lottery_router._SENSITIVITY_JOBS
+    assert len(lottery_router._SENSITIVITY_JOBS) == lottery_router._SENSITIVITY_JOB_LIMIT
+    lottery_router._SENSITIVITY_JOBS.clear()
 
 
 def test_sensitivity_analysis_can_roll_over_multiple_targets(db_session: Session) -> None:
