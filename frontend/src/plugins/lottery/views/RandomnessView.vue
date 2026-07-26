@@ -34,6 +34,27 @@
 
     <section v-if="diagnostics" class="panel randomness-panel">
       <div class="panel-header">
+        <h2 class="panel-title">快速读法</h2>
+        <span class="panel-meta">先判断是否仍在随机波动范围，再看是否值得继续追踪</span>
+      </div>
+      <div class="reading-grid">
+        <article class="reading-card">
+          <strong>95% CI</strong>
+          <span>可以理解为正常随机波动区间；实际次数落在区间内，一般不用过度解读。</span>
+        </article>
+        <article class="reading-card">
+          <strong>Z 值</strong>
+          <span>|Z| 接近或超过 1.96 会标黄，表示这批样本里的偏差已经偏大。</span>
+        </article>
+        <article class="reading-card">
+          <strong>p 值</strong>
+          <span>低 p 值只说明频率分布偏离较明显，不代表下一期会按这个方向修正。</span>
+        </article>
+      </div>
+    </section>
+
+    <section v-if="diagnostics" class="panel randomness-panel">
+      <div class="panel-header">
         <h2 class="panel-title">频率卡方体检</h2>
         <span class="panel-meta">p 值为近似计算，低 p 值只代表样本频率偏离较大</span>
       </div>
@@ -276,9 +297,14 @@ function zScoreClass(value: number): string {
 
 .frequency-grid,
 .deviation-grid,
+.reading-grid,
 .structure-grid {
   display: grid;
   gap: 12px;
+}
+
+.reading-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .frequency-grid,
@@ -292,6 +318,7 @@ function zScoreClass(value: number): string {
 
 .frequency-card,
 .deviation-block,
+.reading-card,
 .structure-card {
   border: 1px solid rgba(148, 163, 184, 0.14);
   border-radius: 8px;
@@ -347,6 +374,20 @@ function zScoreClass(value: number): string {
   color: var(--color-text);
 }
 
+.reading-card {
+  background: rgba(15, 23, 42, 0.22);
+}
+
+.reading-card strong {
+  color: var(--color-text);
+}
+
+.reading-card span {
+  color: var(--color-muted);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
 .note-list {
   display: grid;
   gap: 8px;
@@ -369,6 +410,7 @@ function zScoreClass(value: number): string {
 @media (max-width: 960px) {
   .frequency-grid,
   .deviation-grid,
+  .reading-grid,
   .structure-grid {
     grid-template-columns: 1fr;
   }
