@@ -755,6 +755,9 @@ export interface LotteryRandomnessDeviation {
   count: number;
   expected: number;
   deviation: number;
+  confidence_low: number;
+  confidence_high: number;
+  z_score: number;
 }
 
 export interface LotteryEntropy {

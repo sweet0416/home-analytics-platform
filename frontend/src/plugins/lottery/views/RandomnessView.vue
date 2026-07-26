@@ -77,6 +77,8 @@
             <span>实际</span>
             <span>理论</span>
             <span>偏差</span>
+            <span>95% CI</span>
+            <span>Z</span>
           </div>
           <div
             v-for="item in group.items"
@@ -87,6 +89,8 @@
             <span>{{ item.count }}</span>
             <span>{{ item.expected }}</span>
             <span :class="deltaClass(item.deviation)">{{ formatSigned(item.deviation) }}</span>
+            <span>{{ formatInterval(item.confidence_low, item.confidence_high) }}</span>
+            <span :class="zScoreClass(item.z_score)">{{ formatSigned(item.z_score) }}</span>
           </div>
         </article>
       </div>
@@ -219,9 +223,18 @@ function formatSigned(value: number): string {
   return String(value);
 }
 
+function formatInterval(low: number, high: number): string {
+  return `${low}-${high}`;
+}
+
 function deltaClass(value: number): string {
   if (value > 0) return 'is-positive';
   if (value < 0) return 'is-negative';
+  return '';
+}
+
+function zScoreClass(value: number): string {
+  if (Math.abs(value) >= 1.96) return 'is-warning';
   return '';
 }
 </script>
@@ -296,6 +309,11 @@ function deltaClass(value: number): string {
   gap: 10px;
 }
 
+.deviation-row {
+  display: grid;
+  grid-template-columns: 48px repeat(5, minmax(0, 1fr));
+}
+
 .frequency-head span {
   color: var(--color-primary);
   font-size: 13px;
@@ -314,6 +332,10 @@ function deltaClass(value: number): string {
 .deviation-block h3 {
   font-size: 15px;
   margin: 0;
+}
+
+.deviation-block {
+  overflow-x: auto;
 }
 
 .deviation-head {
@@ -338,6 +360,10 @@ function deltaClass(value: number): string {
 
 .is-negative {
   color: #fca5a5 !important;
+}
+
+.is-warning {
+  color: #facc15 !important;
 }
 
 @media (max-width: 960px) {

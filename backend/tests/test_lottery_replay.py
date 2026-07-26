@@ -323,6 +323,9 @@ def test_randomness_diagnostics_return_frequency_metrics(db_session: Session) ->
     assert result["front_frequency"]["degrees_of_freedom"] == 34
     assert result["back_frequency"]["degrees_of_freedom"] == 11
     assert result["front_frequency"]["entropy"]["normalized"] > 0
+    top_front_deviation = result["front_frequency"]["top_deviations"][0]
+    assert top_front_deviation["confidence_low"] <= top_front_deviation["confidence_high"]
+    assert "z_score" in top_front_deviation
 
 
 def test_co_occurrence_analysis_compares_random_expectation(

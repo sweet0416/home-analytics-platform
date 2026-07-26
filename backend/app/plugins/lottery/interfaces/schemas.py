@@ -784,6 +784,9 @@ class LotteryRandomnessDeviationRead(BaseModel):
     count: int
     expected: float
     deviation: float
+    confidence_low: float
+    confidence_high: float
+    z_score: float
 
 
 class LotteryEntropyRead(BaseModel):

@@ -2245,6 +2245,12 @@ class LotteryService:
                 "count": counts[number],
                 "expected": round(expected, 2),
                 "deviation": round(counts[number] - expected, 2),
+                **LotteryService._build_randomness_deviation_interval(
+                    count=counts[number],
+                    sample_size=sample_size,
+                    picks_per_draw=picks_per_draw,
+                    number_count=number_count,
+                ),
             }
             for number in range(min_number, max_number + 1)
         ]
@@ -2263,6 +2269,30 @@ class LotteryService:
                 reverse=True,
             )[:8],
             "interpretation": "卡方统计量越大，号码频率与均匀分布差异越大。",
+        }
+
+    @staticmethod
+    def _build_randomness_deviation_interval(
+        *,
+        count: int,
+        sample_size: int,
+        picks_per_draw: int,
+        number_count: int,
+    ) -> dict[str, float]:
+        if sample_size <= 0 or picks_per_draw <= 0 or number_count <= 0:
+            return {
+                "confidence_low": 0,
+                "confidence_high": 0,
+                "z_score": 0,
+            }
+        probability = picks_per_draw / number_count
+        expected = sample_size * probability
+        stddev = sqrt(sample_size * probability * (1 - probability))
+        z_score = (count - expected) / stddev if stddev > 0 else 0
+        return {
+            "confidence_low": round(max(0, expected - 1.96 * stddev), 2),
+            "confidence_high": round(expected + 1.96 * stddev, 2),
+            "z_score": round(z_score, 4),
         }
 
     @staticmethod
