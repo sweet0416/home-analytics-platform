@@ -297,8 +297,11 @@ const stageQualityDescription = computed(
   () => lottery.dataStageReport?.quality.description ?? '正在检查规则版本、来源和字段完整度。',
 );
 const stageWarnings = computed(() => lottery.dataStageReport?.warnings ?? []);
+const hasLegacyRuleBinding = computed(() =>
+  lottery.dataStageReport?.stages.some((stage) => stage.rule_code === 'dlt-current-official') ?? false,
+);
 const canRepairRuleBindings = computed(
-  () => (lottery.dataStageReport?.quality.rule_bound_rate ?? 1) < 1,
+  () => (lottery.dataStageReport?.quality.rule_bound_rate ?? 1) < 1 || hasLegacyRuleBinding.value,
 );
 const unboundRuleCount = computed(() => {
   const report = lottery.dataStageReport;
@@ -393,10 +396,12 @@ async function handleBackfill(): Promise<void> {
 async function handleRepairRuleBindings(): Promise<void> {
   try {
     await ElMessageBox.confirm(
-      `将把 ${unboundRuleCount.value} 期未绑定规则版本的开奖记录标记为当前官方规则。这个操作不会修改号码、开奖日期、销量、奖池或来源。`,
-      '确认修复规则绑定',
+      hasLegacyRuleBinding.value
+        ? '将重新按官方规则阶段绑定历史开奖。这个操作只修正 rule_version_id，不会修改号码、开奖日期、销量、奖池或来源。'
+        : `将把 ${unboundRuleCount.value} 期未绑定开奖记录按官方规则阶段补齐 rule_version_id。这个操作不会修改号码、开奖日期、销量、奖池或来源。`,
+      '确认分阶段绑定',
       {
-        confirmButtonText: '确认修复',
+        confirmButtonText: '确认绑定',
         cancelButtonText: '取消',
         type: 'warning',
       },
@@ -407,9 +412,10 @@ async function handleRepairRuleBindings(): Promise<void> {
   repairingStages.value = true;
   try {
     const repairedCount = await lottery.repairDataStageBindings();
-    ElMessage.success(`已修复 ${repairedCount} 期规则绑定`);
-  } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : '规则绑定修复失败');
+    ElMessage.success(`已修正 ${repairedCount} 期规则阶段绑定`);
+    await refreshProgress();
+  } catch (error: unknown) {
+    ElMessage.error('rule stage binding repair failed');
   } finally {
     repairingStages.value = false;
   }

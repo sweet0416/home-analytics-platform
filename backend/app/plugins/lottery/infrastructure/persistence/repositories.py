@@ -1,5 +1,5 @@
 import json
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 
 from sqlalchemy import Select, func, select
@@ -16,6 +16,12 @@ from app.plugins.lottery.infrastructure.persistence.models import (
     LotteryRuleVersionModel,
     LotterySavedCombinationModel,
     LotterySyncRunModel,
+)
+
+DLT_RULE_ISSUE_RANGES: tuple[tuple[str, str | None, str | None], ...] = (
+    ("dlt-before-2019-official", None, "19018"),
+    ("dlt-2019-official", "19019", "26013"),
+    ("dlt-2026-official", "26014", None),
 )
 
 
@@ -35,6 +41,15 @@ class LotteryRepository:
         )
         return self.db.scalar(statement)
 
+    def list_rules(self, game_code: str = DLT_GAME_CODE) -> list[LotteryRuleVersionModel]:
+        statement = (
+            select(LotteryRuleVersionModel)
+            .options(selectinload(LotteryRuleVersionModel.prize_tiers))
+            .where(LotteryRuleVersionModel.game_code == game_code)
+            .order_by(LotteryRuleVersionModel.effective_from.asc().nullsfirst())
+        )
+        return list(self.db.scalars(statement))
+
     def get_rule_by_code(self, rule_code: str) -> LotteryRuleVersionModel | None:
         statement = (
             select(LotteryRuleVersionModel)
@@ -42,6 +57,15 @@ class LotteryRepository:
             .where(LotteryRuleVersionModel.rule_code == rule_code)
         )
         return self.db.scalar(statement)
+
+    def get_rule_for_issue_no(self, issue_no: str) -> LotteryRuleVersionModel | None:
+        for rule_code, start_issue, end_issue in DLT_RULE_ISSUE_RANGES:
+            if start_issue is not None and issue_no < start_issue:
+                continue
+            if end_issue is not None and issue_no > end_issue:
+                continue
+            return self.get_rule_by_code(rule_code)
+        return self.get_current_rule()
 
     def list_draws(
         self,
@@ -580,6 +604,24 @@ class LotteryRepository:
         self.db.flush()
         return len(draws)
 
+    def bind_draws_to_rule_stages(
+        self,
+        *,
+        game_code: str = DLT_GAME_CODE,
+    ) -> int:
+        draws = self.list_all_draws(game_code=game_code)
+        now = datetime.utcnow()
+        changed_count = 0
+        for draw in draws:
+            rule = self.get_rule_for_issue_no(draw.issue_no)
+            if rule is None or draw.rule_version_id == rule.id:
+                continue
+            draw.rule_version_id = rule.id
+            draw.updated_at = now
+            changed_count += 1
+        self.db.flush()
+        return changed_count
+
     def ensure_dlt_seed_data(self) -> None:
         game = self.get_game(DLT_GAME_CODE)
         if game is None:
@@ -595,6 +637,36 @@ class LotteryRepository:
             game.name = "超级大乐透"
             game.official_source = "sporttery"
             game.updated_at = datetime.utcnow()
+
+        self._ensure_dlt_rule_version(
+            rule_code="dlt-before-2019-official",
+            rule_name="DLT official rule stage before 2019",
+            effective_from=None,
+            effective_to=date(2019, 2, 17),
+            official_url="https://zhs.mof.gov.cn/zhengcefabu/201811/t20181122_3073538.htm",
+            description="Covers issue 19018 and earlier in the current local dataset.",
+            reset_prize_tiers=False,
+        )
+        self._ensure_dlt_rule_version(
+            rule_code="dlt-2019-official",
+            rule_name="DLT official rule stage from 2019",
+            effective_from=date(2019, 2, 18),
+            effective_to=date(2026, 1, 30),
+            official_url="https://www.sporttery.cn/szcp/cjdlt/2019/0222/498984.html",
+            description="Official rule stage starting from issue 19019.",
+            reset_prize_tiers=False,
+        )
+        self._ensure_dlt_rule_version(
+            rule_code="dlt-2026-official",
+            rule_name="DLT current official rule stage from 2026",
+            effective_from=date(2026, 1, 31),
+            effective_to=None,
+            official_url="https://www.mof.gov.cn/gp/xxgkml/zhs/202601/t20260116_3982042.htm",
+            description="Current official rule stage starting from issue 26014.",
+            reset_prize_tiers=True,
+        )
+        self.db.commit()
+        return
 
         rule = self.get_rule_by_code("dlt-current-official")
         if rule is None:
@@ -626,6 +698,52 @@ class LotteryRepository:
 
         rule.prize_tiers = _build_current_dlt_prize_tiers()
         self.db.commit()
+
+    def _ensure_dlt_rule_version(
+        self,
+        *,
+        rule_code: str,
+        rule_name: str,
+        effective_from: date | None,
+        effective_to: date | None,
+        official_url: str,
+        description: str,
+        reset_prize_tiers: bool,
+    ) -> LotteryRuleVersionModel:
+        rule = self.get_rule_by_code(rule_code)
+        if rule is None:
+            rule = LotteryRuleVersionModel(
+                game_code=DLT_GAME_CODE,
+                rule_code=rule_code,
+                rule_name=rule_name,
+                effective_from=effective_from,
+                effective_to=effective_to,
+                front_count=5,
+                front_min=1,
+                front_max=35,
+                back_count=2,
+                back_min=1,
+                back_max=12,
+                base_price=Decimal("2.00"),
+                addon_price=Decimal("1.00"),
+                addon_supported=True,
+                official_url=official_url,
+                description=description,
+            )
+            self.db.add(rule)
+        else:
+            rule.rule_name = rule_name
+            rule.effective_from = effective_from
+            rule.effective_to = effective_to
+            rule.official_url = official_url
+            rule.description = description
+            rule.updated_at = datetime.utcnow()
+            if reset_prize_tiers:
+                rule.prize_tiers.clear()
+
+        if reset_prize_tiers:
+            rule.prize_tiers = _build_current_dlt_prize_tiers()
+        return rule
 
 
 def _build_current_dlt_prize_tiers() -> list[LotteryPrizeTierModel]:

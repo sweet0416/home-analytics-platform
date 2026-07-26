@@ -155,12 +155,51 @@ def test_lottery_service_repairs_data_stage_rule_bindings(db_session: Session) -
 
     result = LotteryService(db_session).repair_data_stage_bindings()
     draw = repository.get_draw_by_issue("25001")
+    rule = repository.get_rule_for_issue_no("25001")
 
     assert result["repaired_count"] == 1
-    assert result["rule_code"] == "dlt-current-official"
+    assert result["rule_code"] == "staged-rule-binding"
     assert result["stage_report"]["quality"]["rule_bound_rate"] == 1
+    assert result["stage_report"]["stages"][0]["stage_code"] == "dlt-2019-official"
     assert draw is not None
-    assert draw.rule_version_id is not None
+    assert rule is not None
+    assert draw.rule_version_id == rule.id
+
+
+def test_lottery_service_binds_rule_stage_boundaries(db_session: Session) -> None:
+    repository = LotteryRepository(db_session)
+    repository.ensure_dlt_seed_data()
+    fixtures = [
+        ("19018", date(2019, 2, 17), "dlt-before-2019-official"),
+        ("19019", date(2019, 2, 18), "dlt-2019-official"),
+        ("26013", date(2026, 1, 30), "dlt-2019-official"),
+        ("26014", date(2026, 1, 31), "dlt-2026-official"),
+    ]
+    for issue_no, draw_date, _rule_code in fixtures:
+        repository.upsert_draw(
+            DrawRecord(
+                game_code=DLT_GAME_CODE,
+                issue_no=issue_no,
+                draw_date=draw_date,
+                front_numbers=[1, 2, 3, 4, 5],
+                back_numbers=[1, 2],
+                sales_amount=Decimal("100.00"),
+                pool_amount=Decimal("200.00"),
+                source_url="https://datachart.500.com/dlt/history/history.shtml",
+                raw_data={"fixture": issue_no},
+            )
+        )
+    db_session.commit()
+
+    result = LotteryService(db_session).repair_data_stage_bindings()
+
+    assert result["repaired_count"] == 4
+    for issue_no, _draw_date, rule_code in fixtures:
+        draw = repository.get_draw_by_issue(issue_no)
+        rule = repository.get_rule_by_code(rule_code)
+        assert draw is not None
+        assert rule is not None
+        assert draw.rule_version_id == rule.id
 
 
 def test_lottery_service_returns_omission_statistics(db_session: Session) -> None:

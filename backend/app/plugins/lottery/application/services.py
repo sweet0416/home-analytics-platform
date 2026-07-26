@@ -198,11 +198,58 @@ class LotteryService:
             pool_present=pool_present,
             rule_bound=rule_bound,
         )
+        rules_by_id = {rule.id: rule for rule in self.repository.list_rules()}
+        stage_groups: dict[int | None, list[LotteryDrawModel]] = {}
+        for draw in draws:
+            stage_groups.setdefault(draw.rule_version_id, []).append(draw)
+        stages = []
+        for rule_version_id, stage_draws in sorted(
+            stage_groups.items(),
+            key=lambda item: item[1][-1].issue_no,
+        ):
+            rule = rules_by_id.get(rule_version_id) if rule_version_id is not None else None
+            stage_latest = stage_draws[0]
+            stage_earliest = stage_draws[-1]
+            stage_source_counts = Counter(
+                self._source_domain(draw.source_url) for draw in stage_draws
+            )
+            stage_source = (
+                stage_source_counts.most_common(1)[0][0] if stage_source_counts else "unknown"
+            )
+            stages.append(
+                {
+                    "stage_code": rule.rule_code if rule else "unbound-rule",
+                    "stage_name": rule.rule_name if rule else "Unbound rule stage",
+                    "rule_code": rule.rule_code if rule else None,
+                    "effective_start_date": (
+                        rule.effective_from.isoformat()
+                        if rule and rule.effective_from
+                        else None
+                    ),
+                    "effective_end_date": (
+                        rule.effective_to.isoformat()
+                        if rule and rule.effective_to
+                        else None
+                    ),
+                    "earliest_issue_no": stage_earliest.issue_no,
+                    "latest_issue_no": stage_latest.issue_no,
+                    "earliest_draw_date": stage_earliest.draw_date.isoformat(),
+                    "latest_draw_date": stage_latest.draw_date.isoformat(),
+                    "draw_count": len(stage_draws),
+                    "data_source": stage_source,
+                    "data_quality_level": quality["level"],
+                    "description": (
+                        rule.description
+                        if rule
+                        else "Draws in this stage have not been bound to a rule version."
+                    ),
+                }
+            )
         return {
             "sample_size": total,
             "latest_issue_no": latest_draw.issue_no,
             "earliest_issue_no": earliest_draw.issue_no,
-            "stages": [
+            "stages": stages or [
                 {
                     "stage_code": current_rule.rule_code if current_rule else "unknown-rule",
                     "stage_name": current_rule.rule_name if current_rule else "未知规则阶段",
@@ -245,13 +292,11 @@ class LotteryService:
                 message="Current DLT rule version was not found.",
                 status_code=404,
             )
-        repaired_count = self.repository.bind_unassigned_draws_to_rule(
-            rule_version_id=current_rule.id,
-        )
+        repaired_count = self.repository.bind_draws_to_rule_stages()
         self.repository.db.commit()
         return {
             "repaired_count": repaired_count,
-            "rule_code": current_rule.rule_code,
+            "rule_code": "staged-rule-binding",
             "stage_report": self.get_data_stage_report(),
         }
 
@@ -1630,8 +1675,6 @@ class LotteryService:
         sync_details: list[dict[str, str]] = []
         latest_issue_no: str | None = None
         try:
-            current_rule = self.repository.get_current_rule()
-            current_rule_id = current_rule.id if current_rule else None
             source_page = self._fetch_source_page(
                 sources=sources,
                 page=command.page,
@@ -1639,10 +1682,11 @@ class LotteryService:
             )
             for record in source_page.records:
                 fetched_count += 1
+                rule = self.repository.get_rule_for_issue_no(record.issue_no)
                 action = self.repository.upsert_draw(
                     record,
                     force=command.force,
-                    rule_version_id=current_rule_id,
+                    rule_version_id=rule.id if rule else None,
                 )
                 sync_details.append(
                     {

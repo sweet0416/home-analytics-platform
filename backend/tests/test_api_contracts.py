@@ -92,7 +92,7 @@ def test_data_stage_repair_endpoint_returns_contract(client: TestClient) -> None
     assert response.status_code == 200
     body = response.json()["data"]
     assert body["repaired_count"] == 0
-    assert body["rule_code"] == "dlt-current-official"
+    assert body["rule_code"] == "staged-rule-binding"
     assert body["stage_report"]["sample_size"] == 0
 
 
