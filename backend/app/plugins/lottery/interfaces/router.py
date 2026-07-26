@@ -1,3 +1,7 @@
+from datetime import datetime
+from threading import Lock
+from uuid import uuid4
+
 from fastapi import APIRouter, BackgroundTasks, Depends, Query
 from sqlalchemy.orm import Session
 
@@ -40,6 +44,7 @@ from app.plugins.lottery.interfaces.schemas import (
     LotterySamePeriodAnalysisRead,
     LotterySensitivityRead,
     LotterySensitivityRequest,
+    LotterySensitivityJobRead,
     LotterySimulationRead,
     LotterySyncRequest,
     LotterySyncRunPageRead,
@@ -53,6 +58,16 @@ from app.shared.responses.schemas import ApiResponse, ok
 
 router = APIRouter(prefix="/dlt")
 
+_SENSITIVITY_JOBS: dict[str, dict[str, object]] = {}
+_SENSITIVITY_JOBS_LOCK = Lock()
+
+
+def _update_sensitivity_job(job_id: str, **updates: object) -> None:
+    with _SENSITIVITY_JOBS_LOCK:
+        current = _SENSITIVITY_JOBS.get(job_id, {})
+        current.update(updates)
+        _SENSITIVITY_JOBS[job_id] = current
+
 
 def _run_backfill_task(payload: LotteryBackfillRequest) -> None:
     db = SessionLocal()
@@ -62,6 +77,61 @@ def _run_backfill_task(payload: LotteryBackfillRequest) -> None:
             page_count=payload.page_count,
             page_size=payload.page_size,
             force=payload.force,
+        )
+    finally:
+        db.close()
+
+
+def _run_sensitivity_task(job_id: str, payload: LotterySensitivityRequest) -> None:
+    started_at = datetime.now()
+    _update_sensitivity_job(
+        job_id,
+        status="running",
+        message="参数敏感度分析正在后台运行。",
+        started_at=started_at.isoformat(),
+    )
+    db = SessionLocal()
+    try:
+        result = LotteryReplayService(db).analyze_parameter_sensitivity(
+            target_issue_no=payload.target_issue_no,
+            target_count=payload.target_count,
+            sets=payload.sets,
+            same_period_count=payload.same_period_count,
+            sample_windows=payload.sample_windows,
+            weight_profiles=[item.model_dump() for item in payload.weight_profiles],
+            baseline_simulations=payload.baseline_simulations,
+            seed=payload.seed,
+        )
+        finished_at = datetime.now()
+        _update_sensitivity_job(
+            job_id,
+            status="success",
+            message="参数敏感度分析完成。",
+            finished_at=finished_at.isoformat(),
+            duration_ms=int((finished_at - started_at).total_seconds() * 1000),
+            result=result,
+        )
+    except AppError as exc:
+        finished_at = datetime.now()
+        _update_sensitivity_job(
+            job_id,
+            status="failed",
+            message=exc.message,
+            finished_at=finished_at.isoformat(),
+            duration_ms=int((finished_at - started_at).total_seconds() * 1000),
+            error_code=str(exc.code),
+            error_message=exc.message,
+        )
+    except Exception as exc:  # noqa: BLE001
+        finished_at = datetime.now()
+        _update_sensitivity_job(
+            job_id,
+            status="failed",
+            message="参数敏感度分析失败。",
+            finished_at=finished_at.isoformat(),
+            duration_ms=int((finished_at - started_at).total_seconds() * 1000),
+            error_code=ErrorCode.internal_error.value,
+            error_message=str(exc),
         )
     finally:
         db.close()
@@ -393,6 +463,50 @@ def analyze_replay_sensitivity(
             seed=payload.seed,
         )
     )
+
+
+@router.post(
+    "/analysis/replay/sensitivity/start",
+    response_model=ApiResponse[LotterySensitivityJobRead],
+)
+def start_replay_sensitivity(
+    payload: LotterySensitivityRequest,
+    background_tasks: BackgroundTasks,
+) -> ApiResponse[LotterySensitivityJobRead]:
+    job_id = uuid4().hex
+    created_at = datetime.now().isoformat()
+    job = {
+        "job_id": job_id,
+        "status": "queued",
+        "message": "参数敏感度分析已排队，页面会自动刷新进度。",
+        "started_at": created_at,
+        "finished_at": None,
+        "duration_ms": None,
+        "payload": payload,
+        "result": None,
+        "error_code": None,
+        "error_message": None,
+    }
+    with _SENSITIVITY_JOBS_LOCK:
+        _SENSITIVITY_JOBS[job_id] = job
+    background_tasks.add_task(_run_sensitivity_task, job_id, payload)
+    return ok(job)
+
+
+@router.get(
+    "/analysis/replay/sensitivity/jobs/{job_id}",
+    response_model=ApiResponse[LotterySensitivityJobRead],
+)
+def get_replay_sensitivity_job(job_id: str) -> ApiResponse[LotterySensitivityJobRead]:
+    with _SENSITIVITY_JOBS_LOCK:
+        job = _SENSITIVITY_JOBS.get(job_id)
+    if job is None:
+        raise AppError(
+            code=ErrorCode.not_found,
+            message="Sensitivity analysis job was not found.",
+            status_code=404,
+        )
+    return ok(job)
 
 
 @router.post("/sync", response_model=ApiResponse[LotterySyncRunRead])

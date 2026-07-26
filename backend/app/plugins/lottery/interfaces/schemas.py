@@ -704,6 +704,19 @@ class LotterySensitivityRead(BaseModel):
     disclaimer: str
 
 
+class LotterySensitivityJobRead(BaseModel):
+    job_id: str
+    status: str
+    message: str
+    started_at: str | None = None
+    finished_at: str | None = None
+    duration_ms: int | None = None
+    payload: LotterySensitivityRequest | None = None
+    result: LotterySensitivityRead | None = None
+    error_code: str | None = None
+    error_message: str | None = None
+
+
 class LotterySavedCombinationCreate(BaseModel):
     label: str = Field(min_length=1, max_length=64)
     source: str = Field(default="manual", min_length=1, max_length=64)

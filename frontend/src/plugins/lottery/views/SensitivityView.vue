@@ -14,6 +14,25 @@
 
     <DisclaimerAlert :text="lottery.sensitivity?.disclaimer ?? fallbackDisclaimer" />
 
+    <section v-if="lottery.sensitivityJob" class="panel sensitivity-panel job-panel">
+      <div class="panel-header">
+        <h2 class="panel-title">后台任务</h2>
+        <span class="panel-meta">{{ sensitivityJobMeta }}</span>
+      </div>
+      <div class="job-status-line">
+        <el-tag :type="sensitivityJobTagType" effect="dark">
+          {{ sensitivityJobStatus }}
+        </el-tag>
+        <span>{{ lottery.sensitivityJob.message }}</span>
+      </div>
+      <el-progress
+        v-if="loading"
+        :percentage="100"
+        :indeterminate="true"
+        :duration="2"
+      />
+    </section>
+
     <section class="panel sensitivity-panel">
       <div class="panel-header">
         <h2 class="panel-title">分析参数</h2>
@@ -191,6 +210,28 @@ const form = reactive({
 
 const topResult = computed(() => lottery.sensitivity?.results[0] ?? null);
 const combinationCount = computed(() => String(lottery.sensitivity?.combination_count ?? 0));
+const sensitivityJobStatus = computed(() => {
+  const status = lottery.sensitivityJob?.status;
+  if (status === 'queued') return '已排队';
+  if (status === 'running') return '运行中';
+  if (status === 'success') return '已完成';
+  if (status === 'failed') return '失败';
+  return '未开始';
+});
+const sensitivityJobTagType = computed(() => {
+  const status = lottery.sensitivityJob?.status;
+  if (status === 'success') return 'success';
+  if (status === 'failed') return 'danger';
+  if (status === 'running') return 'warning';
+  return 'info';
+});
+const sensitivityJobMeta = computed(() => {
+  const duration = lottery.sensitivityJob?.duration_ms;
+  if (duration !== null && duration !== undefined) {
+    return `耗时 ${(duration / 1000).toFixed(1)} 秒`;
+  }
+  return '后台计算中，页面会自动刷新';
+});
 const profileMeta = computed(() =>
   lottery.sensitivity ? `${lottery.sensitivity.profile_count} 个权重画像` : '等待运行',
 );
@@ -291,7 +332,7 @@ async function runAnalysis(): Promise<void> {
   }
   loading.value = true;
   try {
-    await lottery.analyzeSensitivity({
+    await lottery.analyzeSensitivityInBackground({
       target_issue_no: form.targetIssueNo.trim(),
       target_count: form.targetCount,
       sets: form.sets,
@@ -371,6 +412,20 @@ function heatmapCellClass(value: number): string {
 
 .panel-meta {
   color: var(--color-muted);
+  font-size: 13px;
+}
+
+.job-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.job-status-line {
+  align-items: center;
+  color: var(--color-muted);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
   font-size: 13px;
 }
 

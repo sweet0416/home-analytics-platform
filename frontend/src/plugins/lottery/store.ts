@@ -20,11 +20,13 @@ import {
   fetchReplayRun,
   fetchReplayRuns,
   fetchSamePeriodAnalysis,
+  fetchSensitivityJob,
   fetchSimulationAnalysis,
   fetchSyncRuns,
   fetchSyncStatus,
   runReplay as runReplayRequest,
   startBackfill,
+  startSensitivityAnalysis,
   triggerDrawSync,
   type DrawPage,
   type LotteryBacktestAnalysis,
@@ -51,6 +53,7 @@ import {
   type LotteryRule,
   type LotterySamePeriodAnalysis,
   type LotterySensitivityAnalysis,
+  type LotterySensitivityJob,
   type LotterySensitivityRequest,
   type LotterySimulationAnalysis,
   type LotterySyncRun,
@@ -77,6 +80,7 @@ export const useLotteryStore = defineStore('lottery', {
     replayRun: null as LotteryReplayRun | null,
     replayRuns: [] as LotteryReplayRunSummary[],
     sensitivity: null as LotterySensitivityAnalysis | null,
+    sensitivityJob: null as LotterySensitivityJob | null,
     simulation: null as LotterySimulationAnalysis | null,
     combinationCoverage: null as LotteryCombinationCoverageAnalysis | null,
     dantuo: null as LotteryDantuoAnalysis | null,
@@ -220,6 +224,24 @@ export const useLotteryStore = defineStore('lottery', {
     },
     async analyzeSensitivity(payload: LotterySensitivityRequest): Promise<void> {
       this.sensitivity = await analyzeSensitivityRequest(payload);
+    },
+    async analyzeSensitivityInBackground(payload: LotterySensitivityRequest): Promise<void> {
+      this.sensitivity = null;
+      this.sensitivityJob = await startSensitivityAnalysis(payload);
+      for (let attempt = 0; attempt < 90; attempt += 1) {
+        await new Promise((resolve) => {
+          window.setTimeout(resolve, 1000);
+        });
+        this.sensitivityJob = await fetchSensitivityJob(this.sensitivityJob.job_id);
+        if (this.sensitivityJob.status === 'success' && this.sensitivityJob.result) {
+          this.sensitivity = this.sensitivityJob.result;
+          return;
+        }
+        if (this.sensitivityJob.status === 'failed') {
+          throw new Error(this.sensitivityJob.error_message ?? this.sensitivityJob.message);
+        }
+      }
+      throw new Error('参数敏感度分析仍在后台运行，请稍后刷新状态。');
     },
     async loadSimulation(simulations = 10000, sets = 5, seed?: number): Promise<void> {
       this.simulation = await fetchSimulationAnalysis(simulations, sets, seed);

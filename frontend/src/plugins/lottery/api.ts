@@ -676,6 +676,19 @@ export interface LotterySensitivityAnalysis {
   disclaimer: string;
 }
 
+export interface LotterySensitivityJob {
+  job_id: string;
+  status: 'queued' | 'running' | 'success' | 'failed';
+  message: string;
+  started_at: string | null;
+  finished_at: string | null;
+  duration_ms: number | null;
+  payload: LotterySensitivityRequest | null;
+  result: LotterySensitivityAnalysis | null;
+  error_code: string | null;
+  error_message: string | null;
+}
+
 export interface LotterySavedCombination {
   id: number;
   game_code: string;
@@ -1005,6 +1018,21 @@ export function analyzeSensitivity(
     '/lottery/dlt/analysis/replay/sensitivity',
     payload,
     { timeout: 60000 },
+  );
+}
+
+export function startSensitivityAnalysis(
+  payload: LotterySensitivityRequest,
+): Promise<LotterySensitivityJob> {
+  return postApiData<LotterySensitivityJob, LotterySensitivityRequest>(
+    '/lottery/dlt/analysis/replay/sensitivity/start',
+    payload,
+  );
+}
+
+export function fetchSensitivityJob(jobId: string): Promise<LotterySensitivityJob> {
+  return getApiData<LotterySensitivityJob>(
+    `/lottery/dlt/analysis/replay/sensitivity/jobs/${jobId}`,
   );
 }
 
