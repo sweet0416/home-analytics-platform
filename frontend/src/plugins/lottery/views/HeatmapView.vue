@@ -344,15 +344,16 @@ onBeforeUnmount(() => {
 
 .heatmap-grid {
   display: grid;
-  gap: 8px;
+  gap: 6px;
+  justify-content: start;
 }
 
 .heatmap-grid.front {
-  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-template-columns: repeat(7, minmax(58px, 78px));
 }
 
 .heatmap-grid.back {
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(58px, 78px));
 }
 
 .heatmap-cell {
@@ -365,9 +366,9 @@ onBeforeUnmount(() => {
   color: var(--color-text);
   cursor: pointer;
   display: grid;
-  gap: 4px;
+  gap: 3px;
   min-width: 0;
-  padding: 10px;
+  padding: 8px;
   text-align: left;
   transition: border-color 0.18s ease, transform 0.18s ease;
 }
@@ -380,12 +381,12 @@ onBeforeUnmount(() => {
 
 .cell-number {
   color: #e2e8f0;
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 780;
 }
 
 .heatmap-cell strong {
-  font-size: 24px;
+  font-size: 21px;
   line-height: 1;
 }
 

@@ -262,14 +262,19 @@ function rankDeltaClass(value: number): string {
   font-size: 13px;
 }
 
-:deep(.decay-row > span),
+:deep(.decay-row > span:not(.lottery-ball)),
 :deep(.decay-row > strong) {
   display: block;
   min-width: 0;
 }
 
 :deep(.decay-row > .lottery-ball) {
-  justify-self: start;
+  display: inline-grid;
+  height: 30px;
+  justify-self: center;
+  line-height: 1;
+  place-items: center;
+  width: 30px;
 }
 
 :deep(.decay-row-head span) {
