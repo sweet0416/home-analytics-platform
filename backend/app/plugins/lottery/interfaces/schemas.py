@@ -60,6 +60,48 @@ class LotteryDrawCoverageRead(BaseModel):
     description: str
 
 
+class LotteryDataStageRead(BaseModel):
+    stage_code: str
+    stage_name: str
+    rule_code: str | None
+    effective_start_date: str | None
+    effective_end_date: str | None
+    earliest_issue_no: str
+    latest_issue_no: str
+    earliest_draw_date: str
+    latest_draw_date: str
+    draw_count: int
+    data_source: str
+    data_quality_level: str
+    description: str
+
+
+class LotteryDataSourceSummaryRead(BaseModel):
+    source: str
+    count: int
+    share: float
+
+
+class LotteryDataQualityRead(BaseModel):
+    level: str
+    label: str
+    description: str
+    sales_present_rate: float
+    pool_present_rate: float
+    rule_bound_rate: float
+
+
+class LotteryDataStageReportRead(BaseModel):
+    sample_size: int
+    latest_issue_no: str | None
+    earliest_issue_no: str | None
+    stages: list[LotteryDataStageRead]
+    source_summary: list[LotteryDataSourceSummaryRead]
+    quality: LotteryDataQualityRead
+    warnings: list[str]
+    notes: list[str]
+
+
 class DisclaimerRead(BaseModel):
     disclaimer: str
 

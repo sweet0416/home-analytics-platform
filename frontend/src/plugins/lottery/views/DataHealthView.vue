@@ -45,6 +45,64 @@
 
     <section class="panel health-panel">
       <div class="panel-header">
+        <h2 class="panel-title">制度与数据阶段</h2>
+        <span class="panel-meta">{{ stageQualityDescription }}</span>
+      </div>
+      <div class="stage-layout">
+        <article
+          v-for="stage in lottery.dataStageReport?.stages ?? []"
+          :key="stage.stage_code"
+          class="stage-card"
+        >
+          <div class="stage-card-head">
+            <strong>{{ stage.stage_name }}</strong>
+            <el-tag effect="dark" :type="stageQualityTagType(stage.data_quality_level)">
+              {{ stageQualityLabel }}
+            </el-tag>
+          </div>
+          <div class="stage-meta">
+            <span>{{ stage.earliest_issue_no }} - {{ stage.latest_issue_no }}</span>
+            <span>{{ stage.earliest_draw_date }} / {{ stage.latest_draw_date }}</span>
+            <span>{{ stage.draw_count }} 期 · {{ stage.data_source }}</span>
+          </div>
+          <p>{{ stage.description }}</p>
+        </article>
+        <div class="stage-side">
+          <div class="stage-quality">
+            <strong>{{ stageQualityLabel }}</strong>
+            <span>{{ stageQualityDescription }}</span>
+            <div class="quality-bars">
+              <div v-for="item in qualityBars" :key="item.label" class="quality-row">
+                <span>{{ item.label }}</span>
+                <strong>{{ item.value }}</strong>
+              </div>
+            </div>
+          </div>
+          <div class="source-list">
+            <strong>来源占比</strong>
+            <span
+              v-for="source in lottery.dataStageReport?.source_summary ?? []"
+              :key="source.source"
+            >
+              {{ source.source }} · {{ source.count }} 期 · {{ formatPercent(source.share) }}
+            </span>
+          </div>
+        </div>
+      </div>
+      <div v-if="stageWarnings.length" class="stage-warnings">
+        <el-tag
+          v-for="warning in stageWarnings"
+          :key="warning"
+          effect="plain"
+          type="warning"
+        >
+          {{ warning }}
+        </el-tag>
+      </div>
+    </section>
+
+    <section class="panel health-panel">
+      <div class="panel-header">
         <h2 class="panel-title">同步与回填</h2>
         <span class="panel-meta">{{ schedulerSummary }}</span>
       </div>
@@ -220,6 +278,19 @@ const coverageYearSpan = computed(() => {
   const span = lottery.drawCoverage?.year_span ?? 0;
   return span > 0 ? `约 ${span} 年数据` : '暂无覆盖年份';
 });
+const stageQualityLabel = computed(() => lottery.dataStageReport?.quality.label ?? '读取中');
+const stageQualityDescription = computed(
+  () => lottery.dataStageReport?.quality.description ?? '正在检查规则版本、来源和字段完整度。',
+);
+const stageWarnings = computed(() => lottery.dataStageReport?.warnings ?? []);
+const qualityBars = computed(() => {
+  const quality = lottery.dataStageReport?.quality;
+  return [
+    { label: '销量字段', value: formatPercent(quality?.sales_present_rate ?? 0) },
+    { label: '奖池字段', value: formatPercent(quality?.pool_present_rate ?? 0) },
+    { label: '规则绑定', value: formatPercent(quality?.rule_bound_rate ?? 0) },
+  ];
+});
 const syncStatusText = computed(() => syncStatusLabel(lottery.latestSyncRun?.status ?? 'none'));
 const syncMeta = computed(() =>
   lottery.latestSyncRun?.finished_at ? formatDateTime(lottery.latestSyncRun.finished_at) : '等待首次同步',
@@ -310,7 +381,12 @@ function stopPolling(): void {
 }
 
 async function refreshProgress(): Promise<void> {
-  await Promise.all([lottery.loadSyncState(), lottery.loadDraws(), lottery.loadDrawCoverage()]);
+  await Promise.all([
+    lottery.loadSyncState(),
+    lottery.loadDraws(),
+    lottery.loadDrawCoverage(),
+    lottery.loadDataStageReport(),
+  ]);
   const running = lottery.syncRuns?.items.some(
     (run) => run.sync_type === 'backfill' && run.status === 'running',
   );
@@ -341,6 +417,17 @@ function syncTagType(status: string): 'success' | 'warning' | 'danger' | 'info' 
   if (status === 'failed') return 'danger';
   if (status === 'queued') return 'info';
   return status ? 'info' : '';
+}
+
+function stageQualityTagType(level: string): 'success' | 'warning' | 'danger' | 'info' {
+  if (level === 'good') return 'success';
+  if (level === 'partial' || level === 'limited') return 'warning';
+  if (level === 'empty') return 'info';
+  return 'info';
+}
+
+function formatPercent(value: number): string {
+  return `${(value * 100).toFixed(1)}%`;
 }
 
 function syncActionLabel(action: string): string {
@@ -479,6 +566,73 @@ const InfoBlock = defineComponent({
   line-height: 1.45;
   margin-top: 6px;
   overflow-wrap: anywhere;
+}
+
+.stage-layout {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1.4fr) minmax(280px, 0.6fr);
+}
+
+.stage-card,
+.stage-quality,
+.source-list {
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 8px;
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+}
+
+.stage-card-head {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.stage-card p,
+.stage-meta,
+.stage-quality span,
+.source-list span {
+  color: var(--color-muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.stage-card p {
+  margin: 0;
+}
+
+.stage-meta,
+.stage-side,
+.source-list,
+.quality-bars {
+  display: grid;
+  gap: 8px;
+}
+
+.quality-row {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+}
+
+.quality-row span {
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
+.quality-row strong {
+  color: var(--color-text);
+  font-size: 13px;
+}
+
+.stage-warnings {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
 }
 
 .backfill-box {
@@ -637,7 +791,8 @@ const InfoBlock = defineComponent({
 
   .health-grid,
   .sync-grid,
-  .sync-detail-grid {
+  .sync-detail-grid,
+  .stage-layout {
     grid-template-columns: 1fr;
   }
 }

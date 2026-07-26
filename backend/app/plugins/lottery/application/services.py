@@ -5,6 +5,7 @@ from dataclasses import replace
 from itertools import combinations
 from math import ceil, comb, erf, log2, sqrt
 from statistics import mean
+from urllib.parse import urlparse
 
 from loguru import logger
 from sqlalchemy.orm import Session
@@ -137,6 +138,103 @@ class LotteryService:
             "status": status,
             "status_label": status_label,
             "description": description,
+        }
+
+    def get_data_stage_report(self) -> dict[str, object]:
+        draws = self.repository.list_all_draws()
+        current_rule = self.repository.get_current_rule()
+        total = len(draws)
+        if not draws:
+            return {
+                "sample_size": 0,
+                "latest_issue_no": None,
+                "earliest_issue_no": None,
+                "stages": [],
+                "source_summary": [],
+                "quality": {
+                    "level": "empty",
+                    "label": "暂无数据",
+                    "description": "还没有可用于阶段判断的开奖记录。",
+                    "sales_present_rate": 0,
+                    "pool_present_rate": 0,
+                    "rule_bound_rate": 0,
+                },
+                "warnings": ["当前没有开奖记录，先完成同步或历史回填。"],
+                "notes": [
+                    "阶段报告用于提醒数据口径风险，不参与选号或回测得分。",
+                    "不同规则、来源或字段完整度阶段的数据默认不要直接混合比较。",
+                ],
+            }
+
+        latest_draw = draws[0]
+        earliest_draw = draws[-1]
+        source_counts = Counter(self._source_domain(draw.source_url) for draw in draws)
+        sales_present = sum(1 for draw in draws if draw.sales_amount is not None)
+        pool_present = sum(1 for draw in draws if draw.pool_amount is not None)
+        rule_bound = sum(1 for draw in draws if draw.rule_version_id is not None)
+        source_summary = [
+            {
+                "source": source,
+                "count": count,
+                "share": round(count / total, 4) if total else 0,
+            }
+            for source, count in sorted(source_counts.items(), key=lambda item: (-item[1], item[0]))
+        ]
+        warnings = self._build_data_stage_warnings(
+            total=total,
+            rule_bound=rule_bound,
+            sales_present=sales_present,
+            pool_present=pool_present,
+            source_count=len(source_counts),
+            current_rule_effective_from=(
+                current_rule.effective_from.isoformat()
+                if current_rule and current_rule.effective_from
+                else None
+            ),
+        )
+        quality = self._build_data_quality_summary(
+            total=total,
+            sales_present=sales_present,
+            pool_present=pool_present,
+            rule_bound=rule_bound,
+        )
+        return {
+            "sample_size": total,
+            "latest_issue_no": latest_draw.issue_no,
+            "earliest_issue_no": earliest_draw.issue_no,
+            "stages": [
+                {
+                    "stage_code": current_rule.rule_code if current_rule else "unknown-rule",
+                    "stage_name": current_rule.rule_name if current_rule else "未知规则阶段",
+                    "rule_code": current_rule.rule_code if current_rule else None,
+                    "effective_start_date": (
+                        current_rule.effective_from.isoformat()
+                        if current_rule and current_rule.effective_from
+                        else None
+                    ),
+                    "effective_end_date": (
+                        current_rule.effective_to.isoformat()
+                        if current_rule and current_rule.effective_to
+                        else None
+                    ),
+                    "earliest_issue_no": earliest_draw.issue_no,
+                    "latest_issue_no": latest_draw.issue_no,
+                    "earliest_draw_date": earliest_draw.draw_date.isoformat(),
+                    "latest_draw_date": latest_draw.draw_date.isoformat(),
+                    "draw_count": total,
+                    "data_source": source_summary[0]["source"] if source_summary else "unknown",
+                    "data_quality_level": quality["level"],
+                    "description": "当前入库数据按现有规则配置归为一个阶段；后续如发现规则或来源变化，应拆分阶段。",
+                }
+            ],
+            "source_summary": source_summary,
+            "quality": quality,
+            "warnings": warnings,
+            "notes": [
+                "阶段报告用于提醒数据口径风险，不参与选号或回测得分。",
+                "如果未来补入更早历史或新增官方来源，应先确认规则版本和字段格式是否一致。",
+                "回放、敏感度和长期统计后续可按 stage_code 过滤，降低跨阶段混算风险。",
+            ],
         }
 
     def list_saved_combinations(self) -> list[dict[str, object]]:
@@ -2681,6 +2779,76 @@ class LotteryService:
             "pool_amount": str(draw.pool_amount) if draw.pool_amount is not None else None,
             "source_url": draw.source_url,
         }
+
+    @staticmethod
+    def _source_domain(source_url: str | None) -> str:
+        if not source_url:
+            return "unknown"
+        parsed = urlparse(source_url)
+        return parsed.netloc.lower() or "unknown"
+
+    @staticmethod
+    def _build_data_quality_summary(
+        *,
+        total: int,
+        sales_present: int,
+        pool_present: int,
+        rule_bound: int,
+    ) -> dict[str, object]:
+        sales_rate = round(sales_present / total, 4) if total else 0
+        pool_rate = round(pool_present / total, 4) if total else 0
+        rule_rate = round(rule_bound / total, 4) if total else 0
+        if total <= 0:
+            level = "empty"
+            label = "暂无数据"
+            description = "还没有可用于阶段判断的开奖记录。"
+        elif rule_rate < 1:
+            level = "partial"
+            label = "阶段待补"
+            description = "开奖记录尚未全部绑定规则版本，长期比较时需要保守解读。"
+        elif sales_rate < 0.8 or pool_rate < 0.8:
+            level = "limited"
+            label = "字段有限"
+            description = "核心号码字段可用，但销量或奖池字段不完整。"
+        else:
+            level = "good"
+            label = "阶段清晰"
+            description = "规则版本和主要扩展字段较完整，适合做阶段内分析。"
+        return {
+            "level": level,
+            "label": label,
+            "description": description,
+            "sales_present_rate": sales_rate,
+            "pool_present_rate": pool_rate,
+            "rule_bound_rate": rule_rate,
+        }
+
+    @staticmethod
+    def _build_data_stage_warnings(
+        *,
+        total: int,
+        rule_bound: int,
+        sales_present: int,
+        pool_present: int,
+        source_count: int,
+        current_rule_effective_from: str | None,
+    ) -> list[str]:
+        warnings: list[str] = []
+        if rule_bound < total:
+            warnings.append(
+                f"有 {total - rule_bound} 期开奖记录尚未绑定 rule_version_id，暂按当前规则阶段展示。"
+            )
+        if current_rule_effective_from is None:
+            warnings.append("当前规则版本缺少 effective_start_date，无法自动判断更早历史是否跨规则。")
+        if sales_present < total:
+            warnings.append(f"有 {total - sales_present} 期缺少销量字段，销量相关分析需要过滤样本。")
+        if pool_present < total:
+            warnings.append(f"有 {total - pool_present} 期缺少奖池字段，奖池相关分析需要过滤样本。")
+        if source_count > 1:
+            warnings.append("检测到多个数据来源，做长期比较时应关注来源格式差异。")
+        if not warnings:
+            warnings.append("未检测到明显阶段风险；仍建议在新增数据源或更早历史数据后重新检查。")
+        return warnings
 
     @staticmethod
     def _serialize_sync_run(run: LotterySyncRunModel) -> dict[str, object]:

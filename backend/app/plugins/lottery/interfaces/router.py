@@ -24,6 +24,7 @@ from app.plugins.lottery.interfaces.schemas import (
     LotteryCombinationCoverageRead,
     LotteryCoverageRequest,
     LotteryDecayAnalysisRead,
+    LotteryDataStageReportRead,
     LotteryDantuoAnalysisRead,
     LotteryDantuoRequest,
     LotteryDrawCoverageRead,
@@ -176,6 +177,14 @@ def get_latest_draw(db: Session = Depends(get_db)) -> ApiResponse[LotteryDrawRea
 def get_draw_coverage(db: Session = Depends(get_db)) -> ApiResponse[LotteryDrawCoverageRead]:
     service = LotteryService(db)
     return ok(service.get_draw_coverage())
+
+
+@router.get("/data/stages", response_model=ApiResponse[LotteryDataStageReportRead])
+def get_data_stage_report(
+    db: Session = Depends(get_db),
+) -> ApiResponse[LotteryDataStageReportRead]:
+    service = LotteryService(db)
+    return ok(service.get_data_stage_report())
 
 
 @router.get("/draws/{issue_no}", response_model=ApiResponse[LotteryDrawRead])

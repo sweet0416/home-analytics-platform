@@ -8,6 +8,7 @@ import {
   fetchBasicStatistics,
   fetchCoOccurrenceAnalysis,
   fetchCurrentRule,
+  fetchDataStageReport,
   fetchDecayAnalysis,
   fetchDisclaimer,
   fetchDrawCoverage,
@@ -42,6 +43,7 @@ import {
   type LotteryBasicStatistics,
   type LotteryCombinationCoverageAnalysis,
   type LotteryCoverageRequest,
+  type LotteryDataStageReport,
   type LotteryDrawCoverage,
   type LotteryNumberOmissionDetail,
   type LotteryOmissionStatistics,
@@ -68,6 +70,7 @@ export const useLotteryStore = defineStore('lottery', {
     rule: null as LotteryRule | null,
     draws: null as DrawPage | null,
     drawCoverage: null as LotteryDrawCoverage | null,
+    dataStageReport: null as LotteryDataStageReport | null,
     latestSyncRun: null as LotterySyncRun | null,
     syncStatus: null as LotterySyncStatus | null,
     syncRuns: null as SyncRunPage | null,
@@ -101,15 +104,17 @@ export const useLotteryStore = defineStore('lottery', {
       this.loading = true;
       this.error = '';
       try {
-        const [rule, draws, coverage, disclaimer] = await Promise.all([
+        const [rule, draws, coverage, dataStageReport, disclaimer] = await Promise.all([
           fetchCurrentRule(),
           fetchDraws(),
           fetchDrawCoverage(),
+          fetchDataStageReport(),
           fetchDisclaimer(),
         ]);
         this.rule = rule;
         this.draws = draws;
         this.drawCoverage = coverage;
+        this.dataStageReport = dataStageReport;
         this.disclaimer = disclaimer.disclaimer;
         await this.loadSyncState();
       } catch (error) {
@@ -123,6 +128,9 @@ export const useLotteryStore = defineStore('lottery', {
     },
     async loadDrawCoverage(): Promise<void> {
       this.drawCoverage = await fetchDrawCoverage();
+    },
+    async loadDataStageReport(): Promise<void> {
+      this.dataStageReport = await fetchDataStageReport();
     },
     async loadSyncState(): Promise<void> {
       this.syncError = '';
@@ -269,6 +277,7 @@ export const useLotteryStore = defineStore('lottery', {
         await Promise.all([
           this.loadDraws(),
           this.loadDrawCoverage(),
+          this.loadDataStageReport(),
           this.loadSyncState(),
           this.loadStatistics(),
           this.loadOmissionStatistics(),
@@ -293,6 +302,7 @@ export const useLotteryStore = defineStore('lottery', {
         await Promise.all([
           this.loadDraws(),
           this.loadDrawCoverage(),
+          this.loadDataStageReport(),
           this.loadSyncState(),
           this.loadStatistics(),
           this.loadOmissionStatistics(),

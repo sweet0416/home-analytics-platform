@@ -105,6 +105,36 @@ def test_lottery_service_returns_decay_analysis(db_session: Session) -> None:
     assert analysis["back"]["numbers"][0]["number"] == 3
 
 
+def test_lottery_service_reports_data_stage_quality(db_session: Session) -> None:
+    repository = LotteryRepository(db_session)
+    repository.ensure_dlt_seed_data()
+    repository.upsert_draw(
+        DrawRecord(
+            game_code=DLT_GAME_CODE,
+            issue_no="25001",
+            draw_date=date(2026, 1, 1),
+            front_numbers=[1, 2, 3, 4, 5],
+            back_numbers=[1, 2],
+            sales_amount=Decimal("100.00"),
+            pool_amount=None,
+            source_url="https://datachart.500.com/dlt/history/history.shtml",
+            raw_data={"fixture": 1},
+        )
+    )
+    db_session.commit()
+
+    report = LotteryService(db_session).get_data_stage_report()
+
+    assert report["sample_size"] == 1
+    assert report["stages"][0]["stage_code"] == "dlt-current-official"
+    assert report["stages"][0]["earliest_issue_no"] == "25001"
+    assert report["source_summary"][0]["source"] == "datachart.500.com"
+    assert report["quality"]["sales_present_rate"] == 1
+    assert report["quality"]["pool_present_rate"] == 0
+    assert report["quality"]["rule_bound_rate"] == 0
+    assert any("rule_version_id" in warning for warning in report["warnings"])
+
+
 def test_lottery_service_returns_omission_statistics(db_session: Session) -> None:
     repository = LotteryRepository(db_session)
     repository.ensure_dlt_seed_data()

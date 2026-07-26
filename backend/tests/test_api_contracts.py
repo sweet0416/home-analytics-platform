@@ -75,6 +75,17 @@ def test_basic_statistics_endpoint_returns_empty_statistics(client: TestClient) 
     assert body["sum"] == {"min": None, "max": None, "average": None}
 
 
+def test_data_stage_endpoint_returns_empty_report(client: TestClient) -> None:
+    response = client.get("/api/v1/lottery/dlt/data/stages")
+
+    assert response.status_code == 200
+    body = response.json()["data"]
+    assert body["sample_size"] == 0
+    assert body["stages"] == []
+    assert body["quality"]["level"] == "empty"
+    assert {"warnings", "notes", "source_summary"}.issubset(body)
+
+
 def test_randomness_endpoint_includes_deviation_diagnostics(client: TestClient) -> None:
     response = client.get("/api/v1/lottery/dlt/statistics/randomness")
 

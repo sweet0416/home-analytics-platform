@@ -7,6 +7,12 @@ GET /api/v1/lottery/dlt/rules/current
 GET /api/v1/lottery/dlt/draws
 GET /api/v1/lottery/dlt/draws/coverage
 GET /api/v1/lottery/dlt/draws/latest
+GET /api/v1/lottery/dlt/data/stages
+  response: stages[]
+    fields: stage_code, stage_name, rule_code, effective_start_date, effective_end_date, earliest_issue_no, latest_issue_no, earliest_draw_date, latest_draw_date, draw_count, data_source, data_quality_level, description
+  response: quality
+    fields: level, label, description, sales_present_rate, pool_present_rate, rule_bound_rate
+  note: stage report highlights rule/source/field-quality risks and does not affect recommendations or backtest scoring
 GET /api/v1/lottery/dlt/statistics/basic
 GET /api/v1/lottery/dlt/statistics/omissions
 GET /api/v1/lottery/dlt/statistics/randomness

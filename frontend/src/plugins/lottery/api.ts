@@ -66,6 +66,48 @@ export interface LotteryDrawCoverage {
   description: string;
 }
 
+export interface LotteryDataStage {
+  stage_code: string;
+  stage_name: string;
+  rule_code: string | null;
+  effective_start_date: string | null;
+  effective_end_date: string | null;
+  earliest_issue_no: string;
+  latest_issue_no: string;
+  earliest_draw_date: string;
+  latest_draw_date: string;
+  draw_count: number;
+  data_source: string;
+  data_quality_level: string;
+  description: string;
+}
+
+export interface LotteryDataSourceSummary {
+  source: string;
+  count: number;
+  share: number;
+}
+
+export interface LotteryDataQuality {
+  level: string;
+  label: string;
+  description: string;
+  sales_present_rate: number;
+  pool_present_rate: number;
+  rule_bound_rate: number;
+}
+
+export interface LotteryDataStageReport {
+  sample_size: number;
+  latest_issue_no: string | null;
+  earliest_issue_no: string | null;
+  stages: LotteryDataStage[];
+  source_summary: LotteryDataSourceSummary[];
+  quality: LotteryDataQuality;
+  warnings: string[];
+  notes: string[];
+}
+
 export interface LotterySyncRequest {
   sync_type: 'manual' | 'backfill';
   page: number;
@@ -887,6 +929,10 @@ export function fetchDraws(page = 1, pageSize = 20): Promise<DrawPage> {
 
 export function fetchDrawCoverage(): Promise<LotteryDrawCoverage> {
   return getApiData<LotteryDrawCoverage>('/lottery/dlt/draws/coverage');
+}
+
+export function fetchDataStageReport(): Promise<LotteryDataStageReport> {
+  return getApiData<LotteryDataStageReport>('/lottery/dlt/data/stages');
 }
 
 export function fetchDisclaimer(): Promise<{ disclaimer: string }> {
