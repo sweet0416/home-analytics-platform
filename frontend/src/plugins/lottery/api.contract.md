@@ -10,6 +10,9 @@ GET /api/v1/lottery/dlt/draws/latest
 GET /api/v1/lottery/dlt/statistics/basic
 GET /api/v1/lottery/dlt/statistics/omissions
 GET /api/v1/lottery/dlt/statistics/randomness
+  response: front_frequency/back_frequency.top_deviations[]
+    fields: number, count, expected, deviation, confidence_low, confidence_high, z_score
+  note: confidence range and z_score are statistical diagnostics only, not prediction signals
 GET /api/v1/lottery/dlt/numbers/{area}/{number}/omission
 GET /api/v1/lottery/dlt/analysis/same-period
 GET /api/v1/lottery/dlt/analysis/co-occurrence?area&limit&top

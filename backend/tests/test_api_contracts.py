@@ -75,6 +75,24 @@ def test_basic_statistics_endpoint_returns_empty_statistics(client: TestClient) 
     assert body["sum"] == {"min": None, "max": None, "average": None}
 
 
+def test_randomness_endpoint_includes_deviation_diagnostics(client: TestClient) -> None:
+    response = client.get("/api/v1/lottery/dlt/statistics/randomness")
+
+    assert response.status_code == 200
+    body = response.json()["data"]
+    front_deviation = body["front_frequency"]["top_deviations"][0]
+    assert {
+        "number",
+        "count",
+        "expected",
+        "deviation",
+        "confidence_low",
+        "confidence_high",
+        "z_score",
+    }.issubset(front_deviation)
+    assert front_deviation["confidence_low"] <= front_deviation["confidence_high"]
+
+
 def test_saved_combination_can_be_created_and_listed(client: TestClient) -> None:
     payload = {
         "label": "回测池 1",
