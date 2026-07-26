@@ -236,17 +236,17 @@ function rankDeltaClass(value: number): string {
   line-height: 1.7;
 }
 
-.decay-table-panel {
+:deep(.decay-table-panel) {
   margin: 0;
 }
 
-.decay-table {
+:deep(.decay-table) {
   display: grid;
   gap: 8px;
   overflow-x: auto;
 }
 
-.decay-row {
+:deep(.decay-row) {
   align-items: center;
   border-bottom: 1px solid rgba(148, 163, 184, 0.1);
   display: grid;
@@ -256,37 +256,37 @@ function rankDeltaClass(value: number): string {
   padding: 8px 0;
 }
 
-.decay-row span,
-.decay-row strong {
+:deep(.decay-row span),
+:deep(.decay-row strong) {
   color: var(--color-muted);
   font-size: 13px;
 }
 
-.decay-row > span,
-.decay-row > strong {
+:deep(.decay-row > span),
+:deep(.decay-row > strong) {
   display: block;
   min-width: 0;
 }
 
-.decay-row > .lottery-ball {
+:deep(.decay-row > .lottery-ball) {
   justify-self: start;
 }
 
-.decay-row-head span {
+:deep(.decay-row-head span) {
   color: var(--color-text);
   font-weight: 700;
 }
 
-.rank-up {
+:deep(.rank-up) {
   color: #86efac !important;
   font-weight: 700;
 }
 
-.rank-down {
+:deep(.rank-down) {
   color: #fca5a5 !important;
 }
 
-.rank-flat {
+:deep(.rank-flat) {
   color: var(--color-muted) !important;
 }
 
