@@ -119,14 +119,29 @@ class LotteryRepository:
         *,
         game_code: str = DLT_GAME_CODE,
         limit: int = 100,
+        rule_code: str | None = None,
     ) -> list[LotteryDrawModel]:
-        return list(
-            self.db.scalars(
+        statement = (
+            select(LotteryDrawModel)
+            .where(LotteryDrawModel.game_code == game_code)
+            .order_by(LotteryDrawModel.draw_date.desc())
+            .limit(limit)
+        )
+        if rule_code:
+            rule = self.get_rule_by_code(rule_code)
+            if rule is None:
+                return []
+            statement = (
                 select(LotteryDrawModel)
-                .where(LotteryDrawModel.game_code == game_code)
+                .where(
+                    LotteryDrawModel.game_code == game_code,
+                    LotteryDrawModel.rule_version_id == rule.id,
+                )
                 .order_by(LotteryDrawModel.draw_date.desc())
                 .limit(limit)
             )
+        return list(
+            self.db.scalars(statement)
         )
 
     def list_all_draws(self, game_code: str = DLT_GAME_CODE) -> list[LotteryDrawModel]:

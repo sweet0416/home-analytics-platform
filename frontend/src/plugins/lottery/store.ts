@@ -176,8 +176,8 @@ export const useLotteryStore = defineStore('lottery', {
     async loadOmissionStatistics(limit = 100): Promise<void> {
       this.omissionStatistics = await fetchOmissionStatistics(limit);
     },
-    async loadRandomnessDiagnostics(limit = 500): Promise<void> {
-      this.randomnessDiagnostics = await fetchRandomnessDiagnostics(limit);
+    async loadRandomnessDiagnostics(limit = 500, stageCode?: string): Promise<void> {
+      this.randomnessDiagnostics = await fetchRandomnessDiagnostics(limit, stageCode);
     },
     async loadOmissionDetail(
       area: 'front' | 'back',

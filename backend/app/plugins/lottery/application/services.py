@@ -439,10 +439,15 @@ class LotteryService:
             "trend": list(reversed(per_draw)),
         }
 
-    def get_randomness_diagnostics(self, limit: int = 500) -> dict[str, object]:
+    def get_randomness_diagnostics(
+        self,
+        limit: int = 500,
+        stage_code: str | None = None,
+    ) -> dict[str, object]:
+        stage_rule = self.repository.get_rule_by_code(stage_code) if stage_code else None
         draws = [
             self._serialize_draw(draw)
-            for draw in self.repository.list_recent_draws(limit=limit)
+            for draw in self.repository.list_recent_draws(limit=limit, rule_code=stage_code)
         ]
         per_draw = [
             self._build_draw_metrics(
@@ -481,6 +486,8 @@ class LotteryService:
         return {
             "sample_size": len(draws),
             "requested_limit": limit,
+            "stage_code": stage_code,
+            "stage_name": stage_rule.rule_name if stage_rule else None,
             "latest_issue_no": str(draws[0]["issue_no"]) if draws else None,
             "earliest_issue_no": str(draws[-1]["issue_no"]) if draws else None,
             "sample_quality": self._build_randomness_sample_quality(len(draws)),

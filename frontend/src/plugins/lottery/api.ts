@@ -856,6 +856,8 @@ export interface LotteryRandomnessSampleQuality {
 export interface LotteryRandomnessDiagnostics {
   sample_size: number;
   requested_limit: number;
+  stage_code: string | null;
+  stage_name: string | null;
   latest_issue_no: string | null;
   earliest_issue_no: string | null;
   sample_quality: LotteryRandomnessSampleQuality;
@@ -972,9 +974,14 @@ export function fetchOmissionStatistics(limit = 100): Promise<LotteryOmissionSta
   return getApiData<LotteryOmissionStatistics>(`/lottery/dlt/statistics/omissions?limit=${limit}`);
 }
 
-export function fetchRandomnessDiagnostics(limit = 500): Promise<LotteryRandomnessDiagnostics> {
+export function fetchRandomnessDiagnostics(
+  limit = 500,
+  stageCode?: string,
+): Promise<LotteryRandomnessDiagnostics> {
+  const params = new URLSearchParams({ limit: String(limit) });
+  if (stageCode) params.set('stage_code', stageCode);
   return getApiData<LotteryRandomnessDiagnostics>(
-    `/lottery/dlt/statistics/randomness?limit=${limit}`,
+    `/lottery/dlt/statistics/randomness?${params.toString()}`,
   );
 }
 

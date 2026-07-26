@@ -349,11 +349,11 @@ onBeforeUnmount(() => {
 }
 
 .heatmap-grid.front {
-  grid-template-columns: repeat(7, minmax(58px, 78px));
+  grid-template-columns: repeat(7, minmax(64px, 86px));
 }
 
 .heatmap-grid.back {
-  grid-template-columns: repeat(6, minmax(58px, 78px));
+  grid-template-columns: repeat(6, minmax(64px, 86px));
 }
 
 .heatmap-cell {
@@ -381,12 +381,12 @@ onBeforeUnmount(() => {
 
 .cell-number {
   color: #e2e8f0;
-  font-size: 16px;
+  font-size: 17px;
   font-weight: 780;
 }
 
 .heatmap-cell strong {
-  font-size: 21px;
+  font-size: 22px;
   line-height: 1;
 }
 

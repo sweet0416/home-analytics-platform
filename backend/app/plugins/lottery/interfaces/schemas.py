@@ -885,6 +885,8 @@ class LotteryRandomnessSampleQualityRead(BaseModel):
 class LotteryRandomnessDiagnosticsRead(BaseModel):
     sample_size: int
     requested_limit: int
+    stage_code: str | None = None
+    stage_name: str | None = None
     latest_issue_no: str | None
     earliest_issue_no: str | None
     sample_quality: LotteryRandomnessSampleQualityRead

@@ -22,6 +22,18 @@
           样本期数
           <el-input-number v-model="limit" :min="50" :max="2000" :step="50" />
         </label>
+        <label>
+          规则阶段
+          <el-select v-model="stageCode" placeholder="全部阶段">
+            <el-option label="全部阶段" value="" />
+            <el-option
+              v-for="stage in stageOptions"
+              :key="stage.stage_code"
+              :label="stage.stage_name"
+              :value="stage.stage_code"
+            />
+          </el-select>
+        </label>
       </div>
     </section>
 
@@ -31,6 +43,7 @@
       <MetricCard label="后区熵" :value="backEntropy" :meta="backEntropyMeta" />
       <MetricCard label="和值自相关" :value="sumCorrelation" meta="lag 1" />
       <MetricCard label="样本可靠性" :value="sampleQualityLabel" :meta="sampleQualityMeta" />
+      <MetricCard label="规则阶段" :value="stageLabel" :meta="stageMeta" />
     </div>
 
     <section v-if="diagnostics" class="panel randomness-panel">
@@ -183,8 +196,10 @@ import { useLotteryStore } from '@/plugins/lottery/store';
 const lottery = useLotteryStore();
 const loading = ref(false);
 const limit = ref(500);
+const stageCode = ref('');
 
 const diagnostics = computed(() => lottery.randomnessDiagnostics);
+const stageOptions = computed(() => lottery.dataStageReport?.stages ?? []);
 const sampleSize = computed(() => String(diagnostics.value?.sample_size ?? 0));
 const issueRange = computed(() =>
   diagnostics.value
@@ -217,6 +232,10 @@ const sampleQualityLabel = computed(() => diagnostics.value?.sample_quality.labe
 const sampleQualityMeta = computed(() =>
   diagnostics.value?.sample_quality.description ?? '等待体检',
 );
+const stageLabel = computed(() => diagnostics.value?.stage_name ?? '全部阶段');
+const stageMeta = computed(() =>
+  diagnostics.value?.stage_code ? '仅使用该规则阶段内样本' : '混合全部已入库阶段',
+);
 const frequencyMetrics = computed(() =>
   diagnostics.value ? [diagnostics.value.front_frequency, diagnostics.value.back_frequency] : [],
 );
@@ -240,7 +259,8 @@ onMounted(() => {
 async function loadDiagnostics(): Promise<void> {
   loading.value = true;
   try {
-    await lottery.loadRandomnessDiagnostics(limit.value);
+    await lottery.loadDataStageReport();
+    await lottery.loadRandomnessDiagnostics(limit.value, stageCode.value || undefined);
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : '随机性体检失败');
   } finally {

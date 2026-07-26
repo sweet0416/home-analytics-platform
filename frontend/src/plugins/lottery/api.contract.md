@@ -15,10 +15,12 @@ GET /api/v1/lottery/dlt/data/stages
   note: stage report highlights rule/source/field-quality risks and does not affect recommendations or backtest scoring
 POST /api/v1/lottery/dlt/data/stages/repair-rule-bindings
   response: repaired_count, rule_code, stage_report
-  note: only fills empty rule_version_id values with the configured current rule; it does not change draw numbers or source records
+  note: rebinds draws to the configured rule stage by issue range; it does not change draw numbers or source records
 GET /api/v1/lottery/dlt/statistics/basic
 GET /api/v1/lottery/dlt/statistics/omissions
-GET /api/v1/lottery/dlt/statistics/randomness
+GET /api/v1/lottery/dlt/statistics/randomness?limit&stage_code
+  query: stage_code is optional; when present, diagnostics only use draws in that rule stage
+  response: stage_code, stage_name
   response: sample_quality
     fields: level, label, description
   response: front_frequency/back_frequency

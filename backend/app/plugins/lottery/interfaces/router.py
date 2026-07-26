@@ -282,10 +282,11 @@ def get_omission_statistics(
 @router.get("/statistics/randomness", response_model=ApiResponse[LotteryRandomnessDiagnosticsRead])
 def get_randomness_diagnostics(
     limit: int = Query(default=500, ge=50, le=2000),
+    stage_code: str | None = Query(default=None, min_length=1, max_length=64),
     db: Session = Depends(get_db),
 ) -> ApiResponse[LotteryRandomnessDiagnosticsRead]:
     service = LotteryService(db)
-    return ok(service.get_randomness_diagnostics(limit=limit))
+    return ok(service.get_randomness_diagnostics(limit=limit, stage_code=stage_code))
 
 
 @router.get(
