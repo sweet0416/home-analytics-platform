@@ -202,6 +202,33 @@ def test_lottery_service_binds_rule_stage_boundaries(db_session: Session) -> Non
         assert draw.rule_version_id == rule.id
 
 
+def test_lottery_service_parses_compact_random_ticket_ocr_text() -> None:
+    raw_text = """2
+2608431 1 202
+728
+
+2 2
+
+06414417423433 01406
+05426429430432 08411
+
+0306110411435 06410
+
+0412119423427 07409
+4
+
+ 10 4900
+496 284192088 000"""
+
+    rows = LotteryService._parse_random_ticket_ocr_text(raw_text)
+
+    assert rows[:3] == [
+        {"rank": 1, "front_numbers": [6, 14, 17, 23, 33], "back_numbers": [1, 6]},
+        {"rank": 2, "front_numbers": [5, 26, 29, 30, 32], "back_numbers": [8, 11]},
+        {"rank": 3, "front_numbers": [3, 6, 10, 11, 35], "back_numbers": [6, 10]},
+    ]
+
+
 def test_lottery_randomness_diagnostics_can_filter_by_rule_stage(db_session: Session) -> None:
     repository = LotteryRepository(db_session)
     repository.ensure_dlt_seed_data()

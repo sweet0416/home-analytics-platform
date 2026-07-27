@@ -2446,6 +2446,10 @@ class LotteryService:
         front_rows: list[list[int]] = []
         back_rows: list[list[int]] = []
         for line in raw_text.splitlines():
+            compact_row = cls._parse_compact_random_ticket_line(line)
+            if compact_row is not None:
+                rows.append(compact_row)
+                continue
             tokens = cls._extract_ocr_number_tokens(line)
             parsed = cls._parse_random_ticket_tokens(tokens)
             if parsed is not None:
@@ -2489,6 +2493,93 @@ class LotteryService:
     @staticmethod
     def _extract_ocr_number_tokens(text: str) -> list[int]:
         return [int(token) for token in re.findall(r"\d{1,2}", text)]
+
+    @classmethod
+    def _parse_compact_random_ticket_line(cls, line: str) -> dict[str, object] | None:
+        groups = re.findall(r"\d+", line)
+        if len(groups) < 2:
+            return None
+
+        candidates: list[dict[str, object]] = []
+        for split_index in range(1, len(groups)):
+            front_text = "".join(groups[:split_index])
+            back_text = "".join(groups[split_index:])
+            if len(front_text) < 5 or len(back_text) < 2:
+                continue
+            front_numbers = cls._decode_compact_ocr_numbers(
+                front_text,
+                count=5,
+                max_number=35,
+            )
+            back_numbers = cls._decode_compact_ocr_numbers(
+                back_text,
+                count=2,
+                max_number=12,
+            )
+            if front_numbers is None or back_numbers is None:
+                continue
+            candidates.append(
+                {
+                    "rank": 0,
+                    "front_numbers": front_numbers,
+                    "back_numbers": back_numbers,
+                }
+            )
+
+        if not candidates:
+            return None
+        return candidates[0]
+
+    @staticmethod
+    def _decode_compact_ocr_numbers(
+        text: str,
+        *,
+        count: int,
+        max_number: int,
+    ) -> list[int] | None:
+        digits = re.sub(r"\D", "", text)
+        if len(digits) < count:
+            return None
+
+        best: tuple[int, list[int]] | None = None
+
+        def search(position: int, selected: list[int], penalty: int) -> None:
+            nonlocal best
+            if best is not None and penalty >= best[0]:
+                return
+            if len(selected) == count:
+                remainder = digits[position:]
+                if remainder and any(char != "4" for char in remainder):
+                    return
+                extra_penalty = len(remainder)
+                result = sorted(selected)
+                if len(set(result)) != count:
+                    return
+                best = (penalty + extra_penalty, result)
+                return
+            if position >= len(digits):
+                return
+
+            if selected:
+                skip_penalty = 1 if digits[position] == "4" else 4
+                search(position + 1, selected, penalty + skip_penalty)
+
+            for width in (2, 1):
+                if position + width > len(digits):
+                    continue
+                raw_number = digits[position : position + width]
+                number = int(raw_number)
+                if number < 1 or number > max_number:
+                    continue
+                if number in selected:
+                    continue
+                if selected and number <= selected[-1]:
+                    continue
+                width_penalty = 0 if width == 2 else 2
+                search(position + width, [*selected, number], penalty + width_penalty)
+
+        search(0, [], 0)
+        return best[1] if best is not None else None
 
     @staticmethod
     def _parse_random_ticket_tokens(tokens: list[int]) -> dict[str, object] | None:

@@ -4,6 +4,7 @@
 outputs/
 work/
 desktop_screenshot.png
+tmp-random-ticket-photo.png
 
 **/__pycache__/
 **/*.py[cod]
@@ -18,4 +19,3 @@ frontend/.vite/
 .env
 *.db
 *.sqlite
-
