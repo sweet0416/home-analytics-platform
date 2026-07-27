@@ -318,10 +318,18 @@ def get_co_occurrence_analysis(
     area: str = Query(default="front", pattern="^(front|back|cross)$"),
     limit: int = Query(default=500, ge=50, le=2000),
     top: int = Query(default=30, ge=5, le=100),
+    stage_code: str | None = Query(default=None, min_length=1, max_length=64),
     db: Session = Depends(get_db),
 ) -> ApiResponse[LotteryCoOccurrenceRead]:
     service = LotteryService(db)
-    return ok(service.get_co_occurrence_analysis(area=area, limit=limit, top=top))
+    return ok(
+        service.get_co_occurrence_analysis(
+            area=area,
+            limit=limit,
+            top=top,
+            stage_code=stage_code,
+        )
+    )
 
 
 @router.get("/analysis/decay", response_model=ApiResponse[LotteryDecayAnalysisRead])

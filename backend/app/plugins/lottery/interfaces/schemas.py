@@ -951,6 +951,8 @@ class LotteryCoOccurrenceRead(BaseModel):
     sample_size: int
     requested_limit: int
     top: int
+    stage_code: str | None = None
+    stage_name: str | None = None
     latest_issue_no: str | None
     earliest_issue_no: str | None
     nodes: list[LotteryCoOccurrenceNodeRead]

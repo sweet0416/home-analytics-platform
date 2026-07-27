@@ -30,7 +30,9 @@ GET /api/v1/lottery/dlt/statistics/randomness?limit&stage_code
   note: confidence range, z_score and multiple-testing correction are statistical diagnostics only, not prediction signals
 GET /api/v1/lottery/dlt/numbers/{area}/{number}/omission
 GET /api/v1/lottery/dlt/analysis/same-period
-GET /api/v1/lottery/dlt/analysis/co-occurrence?area&limit&top
+GET /api/v1/lottery/dlt/analysis/co-occurrence?area&limit&top&stage_code
+  query: stage_code is optional; when present, co-occurrence only uses draws in that rule stage
+  response: stage_code, stage_name
 GET /api/v1/lottery/dlt/analysis/decay?limit&half_life&top&stage_code
   query: stage_code is optional; when present, analysis only uses draws in that rule stage
   response: stage_code, stage_name

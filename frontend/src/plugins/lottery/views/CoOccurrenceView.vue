@@ -30,6 +30,18 @@
           展示边数
           <el-input-number v-model="top" :min="5" :max="100" :step="5" />
         </label>
+        <label>
+          规则阶段
+          <el-select v-model="stageCode" placeholder="全部阶段">
+            <el-option label="全部阶段" value="" />
+            <el-option
+              v-for="stage in stageOptions"
+              :key="stage.stage_code"
+              :label="stage.stage_name"
+              :value="stage.stage_code"
+            />
+          </el-select>
+        </label>
       </div>
     </section>
 
@@ -38,6 +50,7 @@
       <MetricCard label="网络节点" :value="nodeCount" :meta="areaLabel" />
       <MetricCard label="展示关联" :value="edgeCount" :meta="`Top ${top}`" />
       <MetricCard label="最高 lift" :value="maxLift" meta="相对随机期望" />
+      <MetricCard label="规则阶段" :value="stageLabel" :meta="stageMeta" />
     </div>
 
     <section v-if="analysis?.edges.length" class="panel co-panel">
@@ -104,6 +117,7 @@ const loading = ref(false);
 const area = ref<CoArea>('front');
 const limit = ref(500);
 const top = ref(30);
+const stageCode = ref('');
 const areaOptions = [
   { label: '前区', value: 'front' },
   { label: '后区', value: 'back' },
@@ -111,6 +125,7 @@ const areaOptions = [
 ];
 
 const analysis = computed(() => lottery.coOccurrence);
+const stageOptions = computed(() => lottery.dataStageReport?.stages ?? []);
 const sampleSize = computed(() => String(analysis.value?.sample_size ?? 0));
 const issueRange = computed(() =>
   analysis.value
@@ -123,6 +138,10 @@ const maxLift = computed(() =>
   analysis.value?.edges.length ? String(analysis.value.edges[0].lift) : '--',
 );
 const areaLabel = computed(() => areaName(area.value));
+const stageLabel = computed(() => analysis.value?.stage_name ?? '全部阶段');
+const stageMeta = computed(() =>
+  analysis.value?.stage_code ? '仅使用该规则阶段内样本' : '混合全部已入库阶段',
+);
 const topNodes = computed(() => analysis.value?.nodes.slice(0, 18) ?? []);
 
 onMounted(() => {
@@ -132,7 +151,8 @@ onMounted(() => {
 async function loadData(): Promise<void> {
   loading.value = true;
   try {
-    await lottery.loadCoOccurrence(area.value, limit.value, top.value);
+    await lottery.loadDataStageReport();
+    await lottery.loadCoOccurrence(area.value, limit.value, top.value, stageCode.value || undefined);
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : '共现分析失败');
   } finally {
@@ -187,7 +207,7 @@ function liftClass(value: number): string {
 .co-form {
   display: grid;
   gap: 12px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .co-form label {

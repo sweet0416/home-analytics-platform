@@ -651,6 +651,7 @@ class LotteryService:
         area: str = "front",
         limit: int = 500,
         top: int = 30,
+        stage_code: str | None = None,
     ) -> dict[str, object]:
         if area not in {"front", "back", "cross"}:
             raise AppError(
@@ -658,9 +659,10 @@ class LotteryService:
                 message="Co-occurrence area must be front, back or cross.",
                 status_code=422,
             )
+        stage_rule = self.repository.get_rule_by_code(stage_code) if stage_code else None
         draws = [
             self._serialize_draw(draw)
-            for draw in self.repository.list_recent_draws(limit=limit)
+            for draw in self.repository.list_recent_draws(limit=limit, rule_code=stage_code)
         ]
         edges = self._build_co_occurrence_edges(draws=draws, area=area)
         nodes = self._build_co_occurrence_nodes(draws=draws, area=area)
@@ -678,6 +680,8 @@ class LotteryService:
             "sample_size": len(draws),
             "requested_limit": limit,
             "top": top,
+            "stage_code": stage_code,
+            "stage_name": stage_rule.rule_name if stage_rule else None,
             "latest_issue_no": str(draws[0]["issue_no"]) if draws else None,
             "earliest_issue_no": str(draws[-1]["issue_no"]) if draws else None,
             "nodes": nodes,

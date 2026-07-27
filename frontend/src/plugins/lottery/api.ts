@@ -891,6 +891,8 @@ export interface LotteryCoOccurrenceAnalysis {
   sample_size: number;
   requested_limit: number;
   top: number;
+  stage_code: string | null;
+  stage_name: string | null;
   latest_issue_no: string | null;
   earliest_issue_no: string | null;
   nodes: LotteryCoOccurrenceNode[];
@@ -991,12 +993,14 @@ export function fetchCoOccurrenceAnalysis(
   area: 'front' | 'back' | 'cross' = 'front',
   limit = 500,
   top = 30,
+  stageCode?: string,
 ): Promise<LotteryCoOccurrenceAnalysis> {
   const params = new URLSearchParams({
     area,
     limit: String(limit),
     top: String(top),
   });
+  if (stageCode) params.set('stage_code', stageCode);
   return getApiData<LotteryCoOccurrenceAnalysis>(
     `/lottery/dlt/analysis/co-occurrence?${params.toString()}`,
   );

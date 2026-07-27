@@ -167,8 +167,9 @@ export const useLotteryStore = defineStore('lottery', {
       area: 'front' | 'back' | 'cross' = 'front',
       limit = 500,
       top = 30,
+      stageCode?: string,
     ): Promise<void> {
-      this.coOccurrence = await fetchCoOccurrenceAnalysis(area, limit, top);
+      this.coOccurrence = await fetchCoOccurrenceAnalysis(area, limit, top, stageCode);
     },
     async loadDecayAnalysis(
       limit = 500,

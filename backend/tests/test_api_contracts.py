@@ -139,6 +139,17 @@ def test_decay_endpoint_returns_empty_contract(client: TestClient) -> None:
     }.issubset(body["front"]["numbers"][0])
 
 
+def test_co_occurrence_endpoint_includes_stage_contract(client: TestClient) -> None:
+    response = client.get("/api/v1/lottery/dlt/analysis/co-occurrence")
+
+    assert response.status_code == 200
+    body = response.json()["data"]
+    assert body["sample_size"] == 0
+    assert body["stage_code"] is None
+    assert body["stage_name"] is None
+    assert {"nodes", "edges", "notes"}.issubset(body)
+
+
 def test_saved_combination_can_be_created_and_listed(client: TestClient) -> None:
     payload = {
         "label": "回测池 1",
