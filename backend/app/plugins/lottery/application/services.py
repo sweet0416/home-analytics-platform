@@ -2,6 +2,7 @@ import json
 import random
 from collections import Counter
 from dataclasses import replace
+from decimal import Decimal
 from itertools import combinations
 from math import ceil, comb, erf, log2, sqrt
 from statistics import mean
@@ -20,6 +21,7 @@ from app.plugins.lottery.domain.sync import (
 )
 from app.plugins.lottery.infrastructure.persistence.models import (
     LotteryDrawModel,
+    LotteryRandomTicketRunModel,
     LotterySavedCombinationModel,
     LotterySyncRunModel,
 )
@@ -935,6 +937,7 @@ class LotteryService:
         sample_limit: int = 200,
         sample_weight: float = 18,
         stage_code: str | None = None,
+        save: bool = True,
     ) -> dict[str, object]:
         latest_draw = self.repository.get_latest_draw()
         if latest_draw is None:
@@ -1017,36 +1020,72 @@ class LotteryService:
 
         all_front = [number for item in normalized for number in list(item["front_numbers"])]
         all_back = [number for item in normalized for number in list(item["back_numbers"])]
+        target_issue_no = self._next_issue_no(str(latest_draw.issue_no))
+        sample_summary = {
+            "front_unique_count": len(set(all_front)),
+            "back_unique_count": len(set(all_back)),
+            "front_repeat_numbers": self._build_random_ticket_repeat_numbers(all_front),
+            "back_repeat_numbers": self._build_random_ticket_repeat_numbers(all_back),
+            "zone_coverage": self._build_zone_coverage(all_front),
+            "parity_coverage": self._build_parity_coverage(all_front, all_back),
+            "size_coverage": self._build_size_coverage(all_front, all_back),
+            "tail_coverage": self._build_tail_coverage(all_front, all_back),
+        }
+        methodology = [
+            "先把外部随机五注当作一批样本，统计重复号码、区间覆盖、奇偶大小和尾数覆盖。",
+            "随机票中重复或覆盖到的号码只作为轻量加权，不直接等同于下期倾向。",
+            "二次候选仍会结合历史频率、当前遗漏、近期共现强度和结构分散度。",
+            "多组结果会控制重合度，方便和老板随机票做对照观察。",
+        ]
+        notes = [
+            "这个模块用于研究外部随机样本和历史结构的关系，不代表未来开奖结果。",
+            "如果五注号码里覆盖了很多当期号码，也可能只是随机波动，建议长期保存后再回看。",
+        ]
+        comparison = self._build_random_ticket_comparison(
+            target_issue_no=target_issue_no,
+            input_combinations=normalized,
+            recommendations=recommendations,
+        )
+        run_id: int | None = None
+        if save:
+            run = self.repository.create_random_ticket_run(
+                game_code=DLT_GAME_CODE,
+                target_issue_no=target_issue_no,
+                latest_issue_no=str(latest_draw.issue_no),
+                stage_code=stage_code,
+                sample_size=len(recent_draws),
+                requested_sets=sets,
+                sample_weight=Decimal(str(sample_weight)),
+                input_combinations_json=json.dumps(normalized, ensure_ascii=False),
+                sample_summary_json=json.dumps(sample_summary, ensure_ascii=False),
+                recommendations_json=json.dumps(recommendations, ensure_ascii=False),
+                methodology_json=json.dumps(methodology, ensure_ascii=False),
+                notes_json=json.dumps(notes, ensure_ascii=False),
+            )
+            run_id = run.id
+
         return {
+            "run_id": run_id,
             "disclaimer": DLT_DISCLAIMER,
+            "target_issue_no": target_issue_no,
             "input_set_count": len(normalized),
             "sample_size": len(recent_draws),
             "requested_sets": sets,
             "stage_code": stage_code,
             "stage_name": stage_rule.rule_name if stage_rule else None,
             "latest_issue_no": str(latest_draw.issue_no),
-            "sample_summary": {
-                "front_unique_count": len(set(all_front)),
-                "back_unique_count": len(set(all_back)),
-                "front_repeat_numbers": self._build_random_ticket_repeat_numbers(all_front),
-                "back_repeat_numbers": self._build_random_ticket_repeat_numbers(all_back),
-                "zone_coverage": self._build_zone_coverage(all_front),
-                "parity_coverage": self._build_parity_coverage(all_front, all_back),
-                "size_coverage": self._build_size_coverage(all_front, all_back),
-                "tail_coverage": self._build_tail_coverage(all_front, all_back),
-            },
-            "methodology": [
-                "先把外部随机五注当作一批样本，统计重复号码、区间覆盖、奇偶大小和尾数覆盖。",
-                "随机票中重复或覆盖到的号码只作为轻量加权，不直接等同于下期倾向。",
-                "二次候选仍会结合历史频率、当前遗漏、近期共现强度和结构分散度。",
-                "多组结果会控制重合度，方便和老板随机票做对照观察。",
-            ],
+            "sample_summary": sample_summary,
+            "methodology": methodology,
             "recommendations": recommendations,
-            "notes": [
-                "这个模块用于研究外部随机样本和历史结构的关系，不代表未来开奖结果。",
-                "如果五注号码里覆盖了很多当期号码，也可能只是随机波动，建议长期保存后再回看。",
-            ],
+            "comparison": comparison,
+            "notes": notes,
         }
+
+    def list_random_ticket_runs(self, *, limit: int = 20) -> list[dict[str, object]]:
+        return [
+            self._serialize_random_ticket_run(run)
+            for run in self.repository.list_random_ticket_runs(limit=limit)
+        ]
 
     def simulate_numbers(
         self,
@@ -1434,6 +1473,12 @@ class LotteryService:
                 prefix = latest_issue_no[:-3] if len(latest_issue_no) > 3 else ""
                 return f"{prefix}{normalized}"
             return normalized
+        if latest_issue_no.isdigit():
+            return str(int(latest_issue_no) + 1).zfill(len(latest_issue_no))
+        return latest_issue_no
+
+    @staticmethod
+    def _next_issue_no(latest_issue_no: str) -> str:
         if latest_issue_no.isdigit():
             return str(int(latest_issue_no) + 1).zfill(len(latest_issue_no))
         return latest_issue_no
@@ -2300,6 +2345,175 @@ class LotteryService:
             )
             if count > 1
         ]
+
+    def _serialize_random_ticket_run(
+        self,
+        run: LotteryRandomTicketRunModel,
+    ) -> dict[str, object]:
+        input_combinations = json.loads(run.input_combinations_json)
+        recommendations = json.loads(run.recommendations_json)
+        return {
+            "id": run.id,
+            "target_issue_no": run.target_issue_no,
+            "latest_issue_no": run.latest_issue_no,
+            "stage_code": run.stage_code,
+            "sample_size": run.sample_size,
+            "requested_sets": run.requested_sets,
+            "sample_weight": float(run.sample_weight),
+            "input_combinations": [
+                {
+                    **item,
+                    **self._build_coverage_combination_metrics(
+                        rank=int(item["rank"]),
+                        front_numbers=list(item["front_numbers"]),
+                        back_numbers=list(item["back_numbers"]),
+                    ),
+                }
+                for item in input_combinations
+            ],
+            "sample_summary": json.loads(run.sample_summary_json),
+            "recommendations": recommendations,
+            "comparison": self._build_random_ticket_comparison(
+                target_issue_no=run.target_issue_no,
+                input_combinations=input_combinations,
+                recommendations=recommendations,
+            ),
+            "created_at": run.created_at.isoformat(),
+        }
+
+    def _build_random_ticket_comparison(
+        self,
+        *,
+        target_issue_no: str,
+        input_combinations: list[dict[str, object]],
+        recommendations: list[dict[str, object]],
+    ) -> dict[str, object]:
+        target_draw = self.repository.get_draw_by_issue(target_issue_no)
+        if target_draw is None:
+            return {
+                "status": "pending",
+                "status_label": "等待开奖",
+                "target_issue_no": target_issue_no,
+                "target_draw": None,
+                "input_items": [],
+                "recommendation_items": [],
+                "input_best": None,
+                "recommendation_best": None,
+                "summary": "目标期尚未入库，开奖同步后会自动计算命中对比。",
+            }
+
+        target = self._serialize_draw(target_draw)
+        input_items = self._compare_random_ticket_items(
+            items=input_combinations,
+            target=target,
+        )
+        recommendation_items = self._compare_random_ticket_items(
+            items=recommendations,
+            target=target,
+        )
+        input_best = self._best_random_ticket_match(input_items)
+        recommendation_best = self._best_random_ticket_match(recommendation_items)
+        return {
+            "status": "settled",
+            "status_label": "已对比",
+            "target_issue_no": target_issue_no,
+            "target_draw": target,
+            "input_items": input_items,
+            "recommendation_items": recommendation_items,
+            "input_best": input_best,
+            "recommendation_best": recommendation_best,
+            "summary": self._build_random_ticket_comparison_summary(
+                input_best=input_best,
+                recommendation_best=recommendation_best,
+            ),
+        }
+
+    @classmethod
+    def _compare_random_ticket_items(
+        cls,
+        *,
+        items: list[dict[str, object]],
+        target: dict[str, object],
+    ) -> list[dict[str, object]]:
+        compared: list[dict[str, object]] = []
+        target_front = set(target["front_numbers"])
+        target_back = set(target["back_numbers"])
+        for index, item in enumerate(items, start=1):
+            front_numbers = list(item["front_numbers"])
+            back_numbers = list(item["back_numbers"])
+            front_matches = sorted(set(front_numbers) & target_front)
+            back_matches = sorted(set(back_numbers) & target_back)
+            front_match_count = len(front_matches)
+            back_match_count = len(back_matches)
+            compared.append(
+                {
+                    "rank": int(item.get("rank", index)),
+                    "front_numbers": front_numbers,
+                    "back_numbers": back_numbers,
+                    "front_matches": front_matches,
+                    "back_matches": back_matches,
+                    "front_match_count": front_match_count,
+                    "back_match_count": back_match_count,
+                    "match_key": f"{front_match_count}+{back_match_count}",
+                    "prize_tier": cls._resolve_dlt_prize_tier(
+                        front_match_count,
+                        back_match_count,
+                    ),
+                }
+            )
+        return compared
+
+    @staticmethod
+    def _best_random_ticket_match(items: list[dict[str, object]]) -> dict[str, object] | None:
+        return max(
+            items,
+            key=lambda item: (
+                int(item["front_match_count"]),
+                int(item["back_match_count"]),
+                -int(item["rank"]),
+            ),
+            default=None,
+        )
+
+    @staticmethod
+    def _resolve_dlt_prize_tier(front_match_count: int, back_match_count: int) -> int | None:
+        prize_rules = {
+            (5, 2): 1,
+            (5, 1): 2,
+            (5, 0): 3,
+            (4, 2): 3,
+            (4, 1): 4,
+            (4, 0): 5,
+            (3, 2): 5,
+            (3, 1): 6,
+            (2, 2): 6,
+            (3, 0): 7,
+            (2, 1): 7,
+            (1, 2): 7,
+            (0, 2): 7,
+        }
+        return prize_rules.get((front_match_count, back_match_count))
+
+    @staticmethod
+    def _build_random_ticket_comparison_summary(
+        *,
+        input_best: dict[str, object] | None,
+        recommendation_best: dict[str, object] | None,
+    ) -> str:
+        if input_best is None or recommendation_best is None:
+            return "暂无可对比结果。"
+        input_key = str(input_best["match_key"])
+        recommendation_key = str(recommendation_best["match_key"])
+        if recommendation_key == input_key:
+            return f"老板原始票和二次候选的最佳命中均为 {input_key}。"
+        input_score = int(input_best["front_match_count"]) * 10 + int(input_best["back_match_count"])
+        recommendation_score = (
+            int(recommendation_best["front_match_count"]) * 10
+            + int(recommendation_best["back_match_count"])
+        )
+        if recommendation_score > input_score:
+            return f"二次候选最佳命中 {recommendation_key}，高于老板原始票最佳 {input_key}。"
+        return f"老板原始票最佳命中 {input_key}，高于二次候选最佳 {recommendation_key}。"
 
     @classmethod
     def _build_recommendation_sets(

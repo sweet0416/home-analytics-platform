@@ -11,6 +11,7 @@ from app.plugins.lottery.infrastructure.persistence.models import (
     LotteryDrawModel,
     LotteryGameModel,
     LotteryPrizeTierModel,
+    LotteryRandomTicketRunModel,
     LotteryReplayGeneratedSetModel,
     LotteryReplayRunModel,
     LotteryRuleVersionModel,
@@ -387,6 +388,58 @@ class LotteryRepository:
                 LotteryReplayRunModel.game_code == game_code,
             )
             .options(selectinload(LotteryReplayRunModel.generated_sets))
+        )
+
+    def create_random_ticket_run(
+        self,
+        *,
+        game_code: str,
+        target_issue_no: str,
+        latest_issue_no: str,
+        stage_code: str | None,
+        sample_size: int,
+        requested_sets: int,
+        sample_weight: Decimal,
+        input_combinations_json: str,
+        sample_summary_json: str,
+        recommendations_json: str,
+        methodology_json: str,
+        notes_json: str,
+    ) -> LotteryRandomTicketRunModel:
+        run = LotteryRandomTicketRunModel(
+            game_code=game_code,
+            target_issue_no=target_issue_no,
+            latest_issue_no=latest_issue_no,
+            stage_code=stage_code,
+            sample_size=sample_size,
+            requested_sets=requested_sets,
+            sample_weight=sample_weight,
+            input_combinations_json=input_combinations_json,
+            sample_summary_json=sample_summary_json,
+            recommendations_json=recommendations_json,
+            methodology_json=methodology_json,
+            notes_json=notes_json,
+        )
+        self.db.add(run)
+        self.db.flush()
+        return run
+
+    def list_random_ticket_runs(
+        self,
+        *,
+        game_code: str = DLT_GAME_CODE,
+        limit: int = 20,
+    ) -> list[LotteryRandomTicketRunModel]:
+        return list(
+            self.db.scalars(
+                select(LotteryRandomTicketRunModel)
+                .where(LotteryRandomTicketRunModel.game_code == game_code)
+                .order_by(
+                    LotteryRandomTicketRunModel.created_at.desc(),
+                    LotteryRandomTicketRunModel.id.desc(),
+                )
+                .limit(limit)
+            )
         )
 
     def get_draw_by_issue(

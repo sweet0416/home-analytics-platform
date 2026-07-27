@@ -18,6 +18,7 @@ import {
   fetchNumberOmissionDetail,
   fetchOmissionStatistics,
   fetchRandomnessDiagnostics,
+  fetchRandomTicketRuns,
   fetchRecommendationAnalysis,
   fetchReplayContext,
   fetchReplayRun,
@@ -52,6 +53,7 @@ import {
   type LotteryRandomnessDiagnostics,
   type LotteryRandomTicketAnalysis,
   type LotteryRandomTicketRequest,
+  type LotteryRandomTicketRun,
   type LotteryRecommendationAnalysis,
   type LotteryRecommendationWeights,
   type LotteryReplayContext,
@@ -84,6 +86,7 @@ export const useLotteryStore = defineStore('lottery', {
     omissionStatistics: null as LotteryOmissionStatistics | null,
     randomnessDiagnostics: null as LotteryRandomnessDiagnostics | null,
     randomTicket: null as LotteryRandomTicketAnalysis | null,
+    randomTicketRuns: [] as LotteryRandomTicketRun[],
     omissionDetail: null as LotteryNumberOmissionDetail | null,
     samePeriod: null as LotterySamePeriodAnalysis | null,
     recommendations: null as LotteryRecommendationAnalysis | null,
@@ -216,6 +219,10 @@ export const useLotteryStore = defineStore('lottery', {
     },
     async analyzeRandomTicket(payload: LotteryRandomTicketRequest): Promise<void> {
       this.randomTicket = await analyzeRandomTicketRequest(payload);
+      await this.loadRandomTicketRuns();
+    },
+    async loadRandomTicketRuns(limit = 20): Promise<void> {
+      this.randomTicketRuns = await fetchRandomTicketRuns(limit);
     },
     async loadReplayContext(targetIssueNo: string, sampleLimit = 500): Promise<void> {
       this.replayContext = await fetchReplayContext(targetIssueNo, sampleLimit);

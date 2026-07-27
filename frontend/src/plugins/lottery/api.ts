@@ -326,6 +326,7 @@ export interface LotteryRandomTicketRequest {
   sample_limit: number;
   sample_weight: number;
   stage_code?: string | null;
+  save?: boolean;
 }
 
 export interface LotteryRandomTicketRepeatNumber {
@@ -334,7 +335,9 @@ export interface LotteryRandomTicketRepeatNumber {
 }
 
 export interface LotteryRandomTicketAnalysis {
+  run_id: number | null;
   disclaimer: string;
+  target_issue_no: string;
   input_set_count: number;
   sample_size: number;
   requested_sets: number;
@@ -353,7 +356,47 @@ export interface LotteryRandomTicketAnalysis {
   };
   methodology: string[];
   recommendations: LotteryRecommendationSet[];
+  comparison: LotteryRandomTicketComparison;
   notes: string[];
+}
+
+export interface LotteryRandomTicketComparisonItem {
+  rank: number;
+  front_numbers: number[];
+  back_numbers: number[];
+  front_matches: number[];
+  back_matches: number[];
+  front_match_count: number;
+  back_match_count: number;
+  match_key: string;
+  prize_tier: number | null;
+}
+
+export interface LotteryRandomTicketComparison {
+  status: 'pending' | 'settled';
+  status_label: string;
+  target_issue_no: string;
+  target_draw: LotteryDraw | null;
+  input_items: LotteryRandomTicketComparisonItem[];
+  recommendation_items: LotteryRandomTicketComparisonItem[];
+  input_best: LotteryRandomTicketComparisonItem | null;
+  recommendation_best: LotteryRandomTicketComparisonItem | null;
+  summary: string;
+}
+
+export interface LotteryRandomTicketRun {
+  id: number;
+  target_issue_no: string;
+  latest_issue_no: string;
+  stage_code: string | null;
+  sample_size: number;
+  requested_sets: number;
+  sample_weight: number;
+  input_combinations: LotteryCoverageCombination[];
+  sample_summary: LotteryRandomTicketAnalysis['sample_summary'];
+  recommendations: LotteryRecommendationSet[];
+  comparison: LotteryRandomTicketComparison;
+  created_at: string;
 }
 
 export interface LotterySimulationSet {
@@ -1119,6 +1162,12 @@ export function analyzeRandomTicket(
     '/lottery/dlt/analysis/random-ticket',
     payload,
     { timeout: 60000 },
+  );
+}
+
+export function fetchRandomTicketRuns(limit = 20): Promise<LotteryRandomTicketRun[]> {
+  return getApiData<LotteryRandomTicketRun[]>(
+    `/lottery/dlt/analysis/random-ticket/runs?limit=${limit}`,
   );
 }
 

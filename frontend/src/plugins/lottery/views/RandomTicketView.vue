@@ -98,6 +98,7 @@
 
     <div class="grid metrics random-ticket-metrics">
       <MetricCard label="输入注数" :value="inputCount" meta="外部随机样本" />
+      <MetricCard label="目标期号" :value="targetIssueNo" meta="生成后自动存档" />
       <MetricCard label="前区覆盖" :value="frontCoverage" meta="不同前区号码" />
       <MetricCard label="后区覆盖" :value="backCoverage" meta="不同后区号码" />
       <MetricCard label="分析阶段" :value="stageLabel" :meta="stageMeta" />
@@ -159,6 +160,50 @@
         </article>
       </div>
     </section>
+
+    <section v-if="archiveRuns.length" class="panel random-ticket-panel">
+      <div class="panel-header">
+        <h2 class="panel-title">样本存档</h2>
+        <span class="panel-meta">开奖同步后会自动对比老板原始五注和二次候选五注</span>
+      </div>
+      <div class="archive-list">
+        <article v-for="run in archiveRuns" :key="run.id" class="archive-card">
+          <div class="archive-head">
+            <strong>目标 {{ run.target_issue_no }}</strong>
+            <span>{{ run.comparison.status_label }} · {{ formatDateTime(run.created_at) }}</span>
+          </div>
+          <p>{{ run.comparison.summary }}</p>
+          <div v-if="run.comparison.target_draw" class="number-line">
+            <span>开奖号</span>
+            <LotteryBall
+              v-for="number in run.comparison.target_draw.front_numbers"
+              :key="`archive-draw-front-${run.id}-${number}`"
+              area="front"
+              :value="number"
+            />
+            <span class="back-label">后区</span>
+            <LotteryBall
+              v-for="number in run.comparison.target_draw.back_numbers"
+              :key="`archive-draw-back-${run.id}-${number}`"
+              area="back"
+              :value="number"
+            />
+          </div>
+          <div class="comparison-grid">
+            <InfoBlock
+              label="老板票最佳"
+              :value="formatBestMatch(run.comparison.input_best)"
+              meta="原始五注"
+            />
+            <InfoBlock
+              label="二次候选最佳"
+              :value="formatBestMatch(run.comparison.recommendation_best)"
+              meta="系统生成五注"
+            />
+          </div>
+        </article>
+      </div>
+    </section>
   </div>
 </template>
 
@@ -171,6 +216,7 @@ import DisclaimerAlert from '@/plugins/lottery/components/DisclaimerAlert.vue';
 import DltModuleNav from '@/plugins/lottery/components/DltModuleNav.vue';
 import LotteryBall from '@/plugins/lottery/components/LotteryBall.vue';
 import LotteryNumberBoard from '@/plugins/lottery/components/LotteryNumberBoard.vue';
+import type { LotteryRandomTicketComparisonItem } from '@/plugins/lottery/api';
 import { useLotteryStore } from '@/plugins/lottery/store';
 
 type Area = 'front' | 'back';
@@ -199,7 +245,9 @@ const fallbackDisclaimer = '本结果仅基于历史统计分析，仅供娱乐�
 const analysis = computed(() => lottery.randomTicket);
 const activeTicket = computed(() => tickets.value[activeIndex.value] ?? tickets.value[0]);
 const stageOptions = computed(() => lottery.dataStageReport?.stages ?? []);
+const archiveRuns = computed(() => lottery.randomTicketRuns);
 const inputCount = computed(() => String(analysis.value?.input_set_count ?? tickets.value.length));
+const targetIssueNo = computed(() => analysis.value?.target_issue_no ?? '--');
 const frontCoverage = computed(() =>
   analysis.value ? String(analysis.value.sample_summary.front_unique_count) : '--',
 );
@@ -238,6 +286,7 @@ const InfoBlock = defineComponent({
 
 onMounted(() => {
   void lottery.loadDataStageReport();
+  void lottery.loadRandomTicketRuns();
 });
 
 function cloneDefaults(): EditableTicket[] {
@@ -310,12 +359,30 @@ async function runAnalysis(): Promise<void> {
       sample_limit: 200,
       sample_weight: 18,
       stage_code: stageCode.value || null,
+      save: true,
     });
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : '随机票样本分析失败');
   } finally {
     loading.value = false;
   }
+}
+
+function formatBestMatch(item: LotteryRandomTicketComparisonItem | null): string {
+  if (!item) return '等待开奖';
+  const tier = item.prize_tier ? ` · ${item.prize_tier}等奖` : '';
+  return `${item.match_key}${tier}`;
+}
+
+function formatDateTime(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString('zh-CN', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 }
 </script>
 
@@ -353,7 +420,8 @@ async function runAnalysis(): Promise<void> {
 }
 
 .ticket-list,
-.recommendation-list {
+.recommendation-list,
+.archive-list {
   display: grid;
   gap: 10px;
 }
@@ -383,7 +451,8 @@ async function runAnalysis(): Promise<void> {
 }
 
 .ticket-row,
-.recommendation-card {
+.recommendation-card,
+.archive-card {
   border: 1px solid rgba(148, 163, 184, 0.14);
   border-radius: 8px;
   display: grid;
@@ -402,7 +471,8 @@ async function runAnalysis(): Promise<void> {
 
 .number-line,
 .recommendation-head,
-.picker-header {
+.picker-header,
+.archive-head {
   align-items: center;
   display: flex;
   flex-wrap: wrap;
@@ -410,13 +480,16 @@ async function runAnalysis(): Promise<void> {
 }
 
 .recommendation-head,
-.picker-header {
+.picker-header,
+.archive-head {
   justify-content: space-between;
 }
 
 .number-line span,
 .picker-header span,
 .recommendation-head span,
+.archive-head span,
+.archive-card p,
 .recommendation-card li,
 .info-block span,
 .info-block small {
@@ -448,6 +521,12 @@ async function runAnalysis(): Promise<void> {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
+.comparison-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .info-block {
   border: 1px solid rgba(148, 163, 184, 0.14);
   border-radius: 8px;
@@ -474,7 +553,8 @@ async function runAnalysis(): Promise<void> {
 
 @media (max-width: 980px) {
   .ticket-workspace,
-  .summary-grid {
+  .summary-grid,
+  .comparison-grid {
     grid-template-columns: 1fr;
   }
 }

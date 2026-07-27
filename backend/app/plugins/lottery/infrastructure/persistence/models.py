@@ -200,6 +200,30 @@ class LotteryReplayRunModel(Base):
     )
 
 
+class LotteryRandomTicketRunModel(Base):
+    __tablename__ = "lottery_random_ticket_runs"
+    __table_args__ = (
+        Index("ix_lottery_random_ticket_runs_game_created", "game_code", "created_at"),
+        Index("ix_lottery_random_ticket_runs_game_target", "game_code", "target_issue_no"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    game_code: Mapped[str] = mapped_column(String(32), index=True)
+    target_issue_no: Mapped[str] = mapped_column(String(32), index=True)
+    latest_issue_no: Mapped[str] = mapped_column(String(32))
+    stage_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    sample_size: Mapped[int] = mapped_column(Integer)
+    requested_sets: Mapped[int] = mapped_column(Integer)
+    sample_weight: Mapped[Decimal] = mapped_column(Numeric(8, 2))
+    input_combinations_json: Mapped[str] = mapped_column(Text)
+    sample_summary_json: Mapped[str] = mapped_column(Text)
+    recommendations_json: Mapped[str] = mapped_column(Text)
+    methodology_json: Mapped[str] = mapped_column(Text, default="[]")
+    notes_json: Mapped[str] = mapped_column(Text, default="[]")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
 class LotteryReplayGeneratedSetModel(Base):
     __tablename__ = "lottery_replay_generated_sets"
     __table_args__ = (

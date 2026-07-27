@@ -45,9 +45,11 @@ GET /api/v1/lottery/dlt/analysis/decay?limit&half_life&top&stage_code
   note: exponential decay weights recent historical draws more heavily; it is a sample diagnostic, not a prediction signal
 GET /api/v1/lottery/dlt/analysis/recommendations?sets&same_period_count&sample_limit&same_period_weight&frequency_weight&missing_weight&structure_weight&co_occurrence_weight&coverage_weight
 POST /api/v1/lottery/dlt/analysis/random-ticket
-  body: combinations[{front_numbers, back_numbers}], sets, sample_limit, sample_weight, stage_code
-  response: sample_summary, methodology, recommendations, notes
-  note: analyzes external random-ticket samples as lightweight comparison signals; it is not a prediction endpoint
+  body: combinations[{front_numbers, back_numbers}], sets, sample_limit, sample_weight, stage_code, save
+  response: run_id, target_issue_no, sample_summary, methodology, recommendations, comparison, notes
+  note: analyzes external random-ticket samples as lightweight comparison signals; save=true stores a run for draw-result comparison
+GET /api/v1/lottery/dlt/analysis/random-ticket/runs?limit
+  response: saved random-ticket runs with input combinations, generated recommendations and dynamic draw comparison
 GET /api/v1/lottery/dlt/analysis/simulation
 POST /api/v1/lottery/dlt/analysis/coverage
   body: combinations[{front_numbers, back_numbers}]

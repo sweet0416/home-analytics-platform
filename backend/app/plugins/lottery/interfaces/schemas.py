@@ -365,10 +365,13 @@ class LotteryRandomTicketRequest(BaseModel):
     sample_limit: int = Field(default=200, ge=50, le=500)
     sample_weight: float = Field(default=18, ge=0, le=100)
     stage_code: str | None = Field(default=None, min_length=1, max_length=64)
+    save: bool = True
 
 
 class LotteryRandomTicketRead(BaseModel):
+    run_id: int | None = None
     disclaimer: str
+    target_issue_no: str
     input_set_count: int
     sample_size: int
     requested_sets: int
@@ -378,7 +381,23 @@ class LotteryRandomTicketRead(BaseModel):
     sample_summary: dict[str, object]
     methodology: list[str]
     recommendations: list[LotteryRecommendationSetRead]
+    comparison: dict[str, object]
     notes: list[str]
+
+
+class LotteryRandomTicketRunRead(BaseModel):
+    id: int
+    target_issue_no: str
+    latest_issue_no: str
+    stage_code: str | None = None
+    sample_size: int
+    requested_sets: int
+    sample_weight: float
+    input_combinations: list[LotteryCoverageCombinationRead]
+    sample_summary: dict[str, object]
+    recommendations: list[LotteryRecommendationSetRead]
+    comparison: dict[str, object]
+    created_at: str
 
 
 class LotteryEntropyRead(BaseModel):

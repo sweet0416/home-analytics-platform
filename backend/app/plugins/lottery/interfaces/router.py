@@ -36,6 +36,7 @@ from app.plugins.lottery.interfaces.schemas import (
     LotteryRandomnessDiagnosticsRead,
     LotteryRandomTicketRead,
     LotteryRandomTicketRequest,
+    LotteryRandomTicketRunRead,
     LotteryRecommendationRead,
     LotteryReplayContextRead,
     LotteryReplayRequest,
@@ -400,8 +401,21 @@ def analyze_random_ticket(
             sample_limit=payload.sample_limit,
             sample_weight=payload.sample_weight,
             stage_code=payload.stage_code,
+            save=payload.save,
         )
     )
+
+
+@router.get(
+    "/analysis/random-ticket/runs",
+    response_model=ApiResponse[list[LotteryRandomTicketRunRead]],
+)
+def list_random_ticket_runs(
+    limit: int = Query(default=20, ge=1, le=100),
+    db: Session = Depends(get_db),
+) -> ApiResponse[list[LotteryRandomTicketRunRead]]:
+    service = LotteryService(db)
+    return ok(service.list_random_ticket_runs(limit=limit))
 
 
 @router.get("/analysis/simulation", response_model=ApiResponse[LotterySimulationRead])
