@@ -70,6 +70,8 @@ def test_basic_statistics_endpoint_returns_empty_statistics(client: TestClient) 
     body = response.json()["data"]
     assert body["sample_size"] == 0
     assert body["requested_limit"] == 100
+    assert body["stage_code"] is None
+    assert body["stage_name"] is None
     assert len(body["front_frequency"]) == 35
     assert len(body["back_frequency"]) == 12
     assert body["sum"] == {"min": None, "max": None, "average": None}

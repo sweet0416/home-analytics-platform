@@ -6,6 +6,15 @@
         <div class="page-subtitle">频率、遗漏、和值、跨度、冷热和结构分布</div>
       </div>
       <div class="statistics-actions">
+        <el-select v-model="stageCode" class="stage-select" placeholder="全部阶段">
+          <el-option label="全部阶段" value="" />
+          <el-option
+            v-for="stage in stageOptions"
+            :key="stage.stage_code"
+            :label="stage.stage_name"
+            :value="stage.stage_code"
+          />
+        </el-select>
         <el-button :icon="Refresh" :loading="statisticsLoading" @click="reloadStatistics">
           刷新
         </el-button>
@@ -19,6 +28,7 @@
       <MetricCard label="最新期号" :value="latestIssue" meta="统计样本最新一期" />
       <MetricCard label="和值均值" :value="sumAverage" :meta="sumRange" />
       <MetricCard label="跨度均值" :value="spanAverage" :meta="spanRange" />
+      <MetricCard label="规则阶段" :value="stageLabel" :meta="stageMeta" />
     </div>
 
     <section class="panel statistics-panel">
@@ -151,9 +161,11 @@ const lottery = useLotteryStore();
 const sumSpanChartRef = ref<HTMLDivElement | null>(null);
 const structureChartRef = ref<HTMLDivElement | null>(null);
 const statisticsLoading = ref(false);
+const stageCode = ref('');
 let sumSpanChart: ECharts | null = null;
 let structureChart: ECharts | null = null;
 
+const stageOptions = computed(() => lottery.dataStageReport?.stages ?? []);
 const sampleSize = computed(() => String(lottery.statistics?.sample_size ?? 0));
 const sampleMeta = computed(() => `请求最近 ${lottery.statistics?.requested_limit ?? 100} 期`);
 const latestIssue = computed(() => lottery.statistics?.latest_issue_no ?? '--');
@@ -161,6 +173,10 @@ const sumAverage = computed(() => formatMetric(lottery.statistics?.sum.average))
 const spanAverage = computed(() => formatMetric(lottery.statistics?.span.average));
 const sumRange = computed(() => formatRange(lottery.statistics?.sum.min, lottery.statistics?.sum.max));
 const spanRange = computed(() => formatRange(lottery.statistics?.span.min, lottery.statistics?.span.max));
+const stageLabel = computed(() => lottery.statistics?.stage_name ?? '全部阶段');
+const stageMeta = computed(() =>
+  lottery.statistics?.stage_code ? '仅使用该规则阶段内样本' : '混合全部已入库阶段',
+);
 
 const NumberList = defineComponent({
   name: 'NumberList',
@@ -244,7 +260,8 @@ function formatRange(min: number | null | undefined, max: number | null | undefi
 async function reloadStatistics(): Promise<void> {
   statisticsLoading.value = true;
   try {
-    await lottery.loadStatistics();
+    await lottery.loadDataStageReport();
+    await lottery.loadStatistics(100, stageCode.value || undefined);
     await nextTick();
     renderCharts();
   } finally {
@@ -388,6 +405,10 @@ onBeforeUnmount(() => {
   align-items: center;
   flex-shrink: 0;
   gap: 12px;
+}
+
+.stage-select {
+  min-width: 220px;
 }
 
 .table-meta {

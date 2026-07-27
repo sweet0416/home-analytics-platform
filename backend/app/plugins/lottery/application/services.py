@@ -367,8 +367,13 @@ class LotteryService:
         self.repository.db.commit()
         return {"deleted": True, "id": combination_id}
 
-    def get_basic_statistics(self, limit: int = 100) -> dict[str, object]:
-        draws = self.repository.list_recent_draws(limit=limit)
+    def get_basic_statistics(
+        self,
+        limit: int = 100,
+        stage_code: str | None = None,
+    ) -> dict[str, object]:
+        stage_rule = self.repository.get_rule_by_code(stage_code) if stage_code else None
+        draws = self.repository.list_recent_draws(limit=limit, rule_code=stage_code)
         serialized_draws = [self._serialize_draw(draw) for draw in draws]
         front_rows = [item["front_numbers"] for item in serialized_draws]
         back_rows = [item["back_numbers"] for item in serialized_draws]
@@ -398,6 +403,8 @@ class LotteryService:
         return {
             "sample_size": len(serialized_draws),
             "requested_limit": limit,
+            "stage_code": stage_code,
+            "stage_name": stage_rule.rule_name if stage_rule else None,
             "latest_issue_no": issue_numbers[0] if issue_numbers else None,
             "front_frequency": front_frequency,
             "back_frequency": back_frequency,

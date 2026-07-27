@@ -264,10 +264,11 @@ def delete_saved_combination(
 @router.get("/statistics/basic", response_model=ApiResponse[LotteryBasicStatisticsRead])
 def get_basic_statistics(
     limit: int = Query(default=100, ge=10, le=500),
+    stage_code: str | None = Query(default=None, min_length=1, max_length=64),
     db: Session = Depends(get_db),
 ) -> ApiResponse[LotteryBasicStatisticsRead]:
     service = LotteryService(db)
-    return ok(service.get_basic_statistics(limit=limit))
+    return ok(service.get_basic_statistics(limit=limit, stage_code=stage_code))
 
 
 @router.get("/statistics/omissions", response_model=ApiResponse[LotteryOmissionStatisticsRead])

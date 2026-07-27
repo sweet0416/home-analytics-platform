@@ -160,8 +160,8 @@ export const useLotteryStore = defineStore('lottery', {
         this.syncError = error instanceof Error ? error.message : 'Failed to load sync status';
       }
     },
-    async loadStatistics(limit = 100): Promise<void> {
-      this.statistics = await fetchBasicStatistics(limit);
+    async loadStatistics(limit = 100, stageCode?: string): Promise<void> {
+      this.statistics = await fetchBasicStatistics(limit, stageCode);
     },
     async loadCoOccurrence(
       area: 'front' | 'back' | 'cross' = 'front',

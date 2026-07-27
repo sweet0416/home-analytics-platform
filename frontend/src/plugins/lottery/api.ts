@@ -769,6 +769,8 @@ export interface LotterySavedCombinationUpdate {
 export interface LotteryBasicStatistics {
   sample_size: number;
   requested_limit: number;
+  stage_code: string | null;
+  stage_name: string | null;
   latest_issue_no: string | null;
   front_frequency: LotteryNumberFrequency[];
   back_frequency: LotteryNumberFrequency[];
@@ -970,8 +972,13 @@ export function fetchSyncStatus(): Promise<LotterySyncStatus> {
   return getApiData<LotterySyncStatus>('/lottery/dlt/sync/status');
 }
 
-export function fetchBasicStatistics(limit = 100): Promise<LotteryBasicStatistics> {
-  return getApiData<LotteryBasicStatistics>(`/lottery/dlt/statistics/basic?limit=${limit}`);
+export function fetchBasicStatistics(
+  limit = 100,
+  stageCode?: string,
+): Promise<LotteryBasicStatistics> {
+  const params = new URLSearchParams({ limit: String(limit) });
+  if (stageCode) params.set('stage_code', stageCode);
+  return getApiData<LotteryBasicStatistics>(`/lottery/dlt/statistics/basic?${params.toString()}`);
 }
 
 export function fetchOmissionStatistics(limit = 100): Promise<LotteryOmissionStatistics> {

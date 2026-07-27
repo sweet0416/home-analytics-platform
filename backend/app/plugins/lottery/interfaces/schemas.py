@@ -812,6 +812,8 @@ class LotteryHotColdRead(BaseModel):
 class LotteryBasicStatisticsRead(BaseModel):
     sample_size: int
     requested_limit: int
+    stage_code: str | None = None
+    stage_name: str | None = None
     latest_issue_no: str | None
     front_frequency: list[LotteryNumberFrequencyRead]
     back_frequency: list[LotteryNumberFrequencyRead]

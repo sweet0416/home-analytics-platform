@@ -16,7 +16,9 @@ GET /api/v1/lottery/dlt/data/stages
 POST /api/v1/lottery/dlt/data/stages/repair-rule-bindings
   response: repaired_count, rule_code, stage_report
   note: rebinds draws to the configured rule stage by issue range; it does not change draw numbers or source records
-GET /api/v1/lottery/dlt/statistics/basic
+GET /api/v1/lottery/dlt/statistics/basic?limit&stage_code
+  query: stage_code is optional; when present, statistics only use draws in that rule stage
+  response: stage_code, stage_name
 GET /api/v1/lottery/dlt/statistics/omissions
 GET /api/v1/lottery/dlt/statistics/randomness?limit&stage_code
   query: stage_code is optional; when present, diagnostics only use draws in that rule stage
