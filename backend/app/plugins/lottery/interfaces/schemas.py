@@ -385,21 +385,6 @@ class LotteryRandomTicketRead(BaseModel):
     notes: list[str]
 
 
-class LotteryRandomTicketRunRead(BaseModel):
-    id: int
-    target_issue_no: str
-    latest_issue_no: str
-    stage_code: str | None = None
-    sample_size: int
-    requested_sets: int
-    sample_weight: float
-    input_combinations: list[LotteryCoverageCombinationRead]
-    sample_summary: dict[str, object]
-    recommendations: list[LotteryRecommendationSetRead]
-    comparison: dict[str, object]
-    created_at: str
-
-
 class LotteryEntropyRead(BaseModel):
     value: float
     max: float
@@ -416,6 +401,21 @@ class LotteryCoverageCombinationRead(BaseModel):
     front_zone_pattern: str
     front_route012_pattern: str
     front_min_distance: int
+
+
+class LotteryRandomTicketRunRead(BaseModel):
+    id: int
+    target_issue_no: str
+    latest_issue_no: str
+    stage_code: str | None = None
+    sample_size: int
+    requested_sets: int
+    sample_weight: float
+    input_combinations: list[LotteryCoverageCombinationRead]
+    sample_summary: dict[str, object]
+    recommendations: list[LotteryRecommendationSetRead]
+    comparison: dict[str, object]
+    created_at: str
 
 
 class LotteryPairwiseSimilarityRead(BaseModel):
