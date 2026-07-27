@@ -320,6 +320,42 @@ export interface LotteryRecommendationAnalysis {
   recommendations: LotteryRecommendationSet[];
 }
 
+export interface LotteryRandomTicketRequest {
+  combinations: LotteryCoverageCombinationRequest[];
+  sets: number;
+  sample_limit: number;
+  sample_weight: number;
+  stage_code?: string | null;
+}
+
+export interface LotteryRandomTicketRepeatNumber {
+  number: number;
+  count: number;
+}
+
+export interface LotteryRandomTicketAnalysis {
+  disclaimer: string;
+  input_set_count: number;
+  sample_size: number;
+  requested_sets: number;
+  stage_code: string | null;
+  stage_name: string | null;
+  latest_issue_no: string | null;
+  sample_summary: {
+    front_unique_count: number;
+    back_unique_count: number;
+    front_repeat_numbers: LotteryRandomTicketRepeatNumber[];
+    back_repeat_numbers: LotteryRandomTicketRepeatNumber[];
+    zone_coverage: Record<string, number>;
+    parity_coverage: Record<string, number>;
+    size_coverage: Record<string, number>;
+    tail_coverage: Record<string, number>;
+  };
+  methodology: string[];
+  recommendations: LotteryRecommendationSet[];
+  notes: string[];
+}
+
 export interface LotterySimulationSet {
   rank: number;
   front_numbers: number[];
@@ -1072,6 +1108,16 @@ export function fetchRecommendationAnalysis(
   if (issueNo) params.set('issue_no', issueNo);
   return getApiData<LotteryRecommendationAnalysis>(
     `/lottery/dlt/analysis/recommendations?${params.toString()}`,
+    { timeout: 60000 },
+  );
+}
+
+export function analyzeRandomTicket(
+  payload: LotteryRandomTicketRequest,
+): Promise<LotteryRandomTicketAnalysis> {
+  return postApiData<LotteryRandomTicketAnalysis, LotteryRandomTicketRequest>(
+    '/lottery/dlt/analysis/random-ticket',
+    payload,
     { timeout: 60000 },
   );
 }

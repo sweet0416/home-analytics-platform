@@ -359,6 +359,28 @@ class LotteryCoverageRequest(BaseModel):
     combinations: list[LotteryCoverageCombinationRequest] = Field(min_length=2, max_length=50)
 
 
+class LotteryRandomTicketRequest(BaseModel):
+    combinations: list[LotteryCoverageCombinationRequest] = Field(min_length=2, max_length=20)
+    sets: int = Field(default=5, ge=1, le=12)
+    sample_limit: int = Field(default=200, ge=50, le=500)
+    sample_weight: float = Field(default=18, ge=0, le=100)
+    stage_code: str | None = Field(default=None, min_length=1, max_length=64)
+
+
+class LotteryRandomTicketRead(BaseModel):
+    disclaimer: str
+    input_set_count: int
+    sample_size: int
+    requested_sets: int
+    stage_code: str | None = None
+    stage_name: str | None = None
+    latest_issue_no: str | None
+    sample_summary: dict[str, object]
+    methodology: list[str]
+    recommendations: list[LotteryRecommendationSetRead]
+    notes: list[str]
+
+
 class LotteryEntropyRead(BaseModel):
     value: float
     max: float

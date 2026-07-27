@@ -2,6 +2,7 @@ import { defineStore } from 'pinia';
 
 import {
   analyzeCombinationCoverage as analyzeCombinationCoverageRequest,
+  analyzeRandomTicket as analyzeRandomTicketRequest,
   analyzeDantuo as analyzeDantuoRequest,
   analyzeSensitivity as analyzeSensitivityRequest,
   backtestNumbers as backtestNumbersRequest,
@@ -49,6 +50,8 @@ import {
   type LotteryNumberOmissionDetail,
   type LotteryOmissionStatistics,
   type LotteryRandomnessDiagnostics,
+  type LotteryRandomTicketAnalysis,
+  type LotteryRandomTicketRequest,
   type LotteryRecommendationAnalysis,
   type LotteryRecommendationWeights,
   type LotteryReplayContext,
@@ -80,6 +83,7 @@ export const useLotteryStore = defineStore('lottery', {
     decayAnalysis: null as LotteryDecayAnalysis | null,
     omissionStatistics: null as LotteryOmissionStatistics | null,
     randomnessDiagnostics: null as LotteryRandomnessDiagnostics | null,
+    randomTicket: null as LotteryRandomTicketAnalysis | null,
     omissionDetail: null as LotteryNumberOmissionDetail | null,
     samePeriod: null as LotterySamePeriodAnalysis | null,
     recommendations: null as LotteryRecommendationAnalysis | null,
@@ -209,6 +213,9 @@ export const useLotteryStore = defineStore('lottery', {
         sampleLimit,
         weights,
       );
+    },
+    async analyzeRandomTicket(payload: LotteryRandomTicketRequest): Promise<void> {
+      this.randomTicket = await analyzeRandomTicketRequest(payload);
     },
     async loadReplayContext(targetIssueNo: string, sampleLimit = 500): Promise<void> {
       this.replayContext = await fetchReplayContext(targetIssueNo, sampleLimit);

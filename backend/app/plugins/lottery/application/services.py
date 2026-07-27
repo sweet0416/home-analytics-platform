@@ -927,6 +927,127 @@ class LotteryService:
             ),
         }
 
+    def analyze_random_ticket_sample(
+        self,
+        *,
+        combinations: list[dict[str, object]],
+        sets: int = 5,
+        sample_limit: int = 200,
+        sample_weight: float = 18,
+        stage_code: str | None = None,
+    ) -> dict[str, object]:
+        latest_draw = self.repository.get_latest_draw()
+        if latest_draw is None:
+            raise AppError(
+                code=ErrorCode.lottery_draw_not_found,
+                message="No lottery draw data is available for random-ticket analysis.",
+                status_code=404,
+            )
+
+        normalized = self._normalize_coverage_combinations(combinations)
+        recent_draws = [
+            self._serialize_draw(draw)
+            for draw in self.repository.list_recent_draws(
+                limit=sample_limit,
+                rule_code=stage_code,
+            )
+        ]
+        if not recent_draws:
+            raise AppError(
+                code=ErrorCode.lottery_draw_not_found,
+                message="No lottery draw data is available in the selected stage.",
+                status_code=404,
+            )
+
+        stage_rule = self.repository.get_rule_by_code(stage_code) if stage_code else None
+        strategy_weights = self._normalize_recommendation_weights(
+            same_period_weight=0,
+            frequency_weight=30,
+            missing_weight=20,
+            structure_weight=12,
+            co_occurrence_weight=18,
+            coverage_weight=18,
+        )
+        front_scores = self._score_recommendation_numbers(
+            area="front",
+            min_number=1,
+            max_number=35,
+            recent_draws=recent_draws,
+            same_period_draws=[],
+            strategy_weights=strategy_weights,
+            co_occurrence_scores=self._build_recommendation_co_occurrence_scores(
+                recent_draws=recent_draws,
+                area="front",
+            ),
+        )
+        back_scores = self._score_recommendation_numbers(
+            area="back",
+            min_number=1,
+            max_number=12,
+            recent_draws=recent_draws,
+            same_period_draws=[],
+            strategy_weights=strategy_weights,
+            co_occurrence_scores=self._build_recommendation_co_occurrence_scores(
+                recent_draws=recent_draws,
+                area="back",
+            ),
+        )
+        front_scores = self._apply_random_ticket_sample_bias(
+            scored_numbers=front_scores,
+            sample_counts=Counter(
+                number for item in normalized for number in list(item["front_numbers"])
+            ),
+            sample_weight=sample_weight,
+        )
+        back_scores = self._apply_random_ticket_sample_bias(
+            scored_numbers=back_scores,
+            sample_counts=Counter(
+                number for item in normalized for number in list(item["back_numbers"])
+            ),
+            sample_weight=sample_weight,
+        )
+        recommendations = self._build_recommendation_sets(
+            front_scores=front_scores,
+            back_scores=back_scores,
+            recent_draws=recent_draws,
+            structure_weight=strategy_weights["structure"],
+            limit=sets,
+            coverage_weight=strategy_weights["coverage"],
+        )
+
+        all_front = [number for item in normalized for number in list(item["front_numbers"])]
+        all_back = [number for item in normalized for number in list(item["back_numbers"])]
+        return {
+            "disclaimer": DLT_DISCLAIMER,
+            "input_set_count": len(normalized),
+            "sample_size": len(recent_draws),
+            "requested_sets": sets,
+            "stage_code": stage_code,
+            "stage_name": stage_rule.rule_name if stage_rule else None,
+            "latest_issue_no": str(latest_draw.issue_no),
+            "sample_summary": {
+                "front_unique_count": len(set(all_front)),
+                "back_unique_count": len(set(all_back)),
+                "front_repeat_numbers": self._build_random_ticket_repeat_numbers(all_front),
+                "back_repeat_numbers": self._build_random_ticket_repeat_numbers(all_back),
+                "zone_coverage": self._build_zone_coverage(all_front),
+                "parity_coverage": self._build_parity_coverage(all_front, all_back),
+                "size_coverage": self._build_size_coverage(all_front, all_back),
+                "tail_coverage": self._build_tail_coverage(all_front, all_back),
+            },
+            "methodology": [
+                "先把外部随机五注当作一批样本，统计重复号码、区间覆盖、奇偶大小和尾数覆盖。",
+                "随机票中重复或覆盖到的号码只作为轻量加权，不直接等同于下期倾向。",
+                "二次候选仍会结合历史频率、当前遗漏、近期共现强度和结构分散度。",
+                "多组结果会控制重合度，方便和老板随机票做对照观察。",
+            ],
+            "recommendations": recommendations,
+            "notes": [
+                "这个模块用于研究外部随机样本和历史结构的关系，不代表未来开奖结果。",
+                "如果五注号码里覆盖了很多当期号码，也可能只是随机波动，建议长期保存后再回看。",
+            ],
+        }
+
     def simulate_numbers(
         self,
         *,
@@ -2138,6 +2259,47 @@ class LotteryService:
         else:
             reasons.append(f"当前遗漏 {missing} 期，处于中间区间")
         return reasons
+
+    @staticmethod
+    def _apply_random_ticket_sample_bias(
+        *,
+        scored_numbers: list[dict[str, object]],
+        sample_counts: Counter[int],
+        sample_weight: float,
+    ) -> list[dict[str, object]]:
+        if sample_weight <= 0 or not sample_counts:
+            return scored_numbers
+        max_count = max(sample_counts.values(), default=1) or 1
+        biased: list[dict[str, object]] = []
+        for item in scored_numbers:
+            number = int(item["number"])
+            count = sample_counts.get(number, 0)
+            if count <= 0:
+                biased.append(item)
+                continue
+            boost = round(sample_weight * (count / max_count), 2)
+            reasons = list(item["reasons"])
+            reasons.insert(0, f"老板随机票样本中出现 {count} 次，作为外部样本轻量加权")
+            biased.append(
+                {
+                    **item,
+                    "score": round(float(item["score"]) + boost, 2),
+                    "reasons": reasons,
+                }
+            )
+        return sorted(biased, key=lambda row: (-float(row["score"]), int(row["number"])))
+
+    @staticmethod
+    def _build_random_ticket_repeat_numbers(numbers: list[int]) -> list[dict[str, int]]:
+        counts = Counter(numbers)
+        return [
+            {"number": number, "count": count}
+            for number, count in sorted(
+                counts.items(),
+                key=lambda item: (-item[1], item[0]),
+            )
+            if count > 1
+        ]
 
     @classmethod
     def _build_recommendation_sets(

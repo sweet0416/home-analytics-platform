@@ -25,6 +25,7 @@ const moduleNavItems = [
   { label: '共现网络', path: '/lottery/dlt/co-occurrence' },
   { label: '衰减分析', path: '/lottery/dlt/decay' },
   { label: '选号推荐', path: '/lottery/dlt/recommendations' },
+  { label: '随机票样本', path: '/lottery/dlt/random-ticket' },
   { label: '模拟选号', path: '/lottery/dlt/simulation' },
   { label: '组合覆盖', path: '/lottery/dlt/coverage' },
   { label: '定胆胆拖', path: '/lottery/dlt/dantuo' },

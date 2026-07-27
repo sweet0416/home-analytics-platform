@@ -34,6 +34,8 @@ from app.plugins.lottery.interfaces.schemas import (
     LotteryNumberOmissionDetailRead,
     LotteryOmissionStatisticsRead,
     LotteryRandomnessDiagnosticsRead,
+    LotteryRandomTicketRead,
+    LotteryRandomTicketRequest,
     LotteryRecommendationRead,
     LotteryReplayContextRead,
     LotteryReplayRequest,
@@ -379,6 +381,25 @@ def get_recommendations(
             structure_weight=structure_weight,
             co_occurrence_weight=co_occurrence_weight,
             coverage_weight=coverage_weight,
+        )
+    )
+
+
+@router.post("/analysis/random-ticket", response_model=ApiResponse[LotteryRandomTicketRead])
+def analyze_random_ticket(
+    payload: LotteryRandomTicketRequest,
+    db: Session = Depends(get_db),
+) -> ApiResponse[LotteryRandomTicketRead]:
+    service = LotteryService(db)
+    return ok(
+        service.analyze_random_ticket_sample(
+            combinations=[
+                combination.model_dump() for combination in payload.combinations
+            ],
+            sets=payload.sets,
+            sample_limit=payload.sample_limit,
+            sample_weight=payload.sample_weight,
+            stage_code=payload.stage_code,
         )
     )
 
