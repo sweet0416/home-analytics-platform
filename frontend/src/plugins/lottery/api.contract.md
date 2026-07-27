@@ -50,6 +50,10 @@ POST /api/v1/lottery/dlt/analysis/random-ticket
   note: analyzes external random-ticket samples as lightweight comparison signals; save=true stores a run for draw-result comparison
 GET /api/v1/lottery/dlt/analysis/random-ticket/runs?limit
   response: saved random-ticket runs with input combinations, generated recommendations and dynamic draw comparison
+POST /api/v1/lottery/dlt/analysis/random-ticket/ocr
+  body: multipart file image
+  response: filename, engine, status, raw_text, combinations[{rank, front_numbers, back_numbers}], warnings
+  note: uses local OCR when available; results are prefill suggestions and must be manually confirmed before analysis
 GET /api/v1/lottery/dlt/analysis/simulation
 POST /api/v1/lottery/dlt/analysis/coverage
   body: combinations[{front_numbers, back_numbers}]

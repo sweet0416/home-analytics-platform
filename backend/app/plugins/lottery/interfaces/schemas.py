@@ -385,6 +385,12 @@ class LotteryRandomTicketRead(BaseModel):
     notes: list[str]
 
 
+class LotteryRandomTicketOcrCombinationRead(BaseModel):
+    rank: int
+    front_numbers: list[int] = Field(min_length=5, max_length=5)
+    back_numbers: list[int] = Field(min_length=2, max_length=2)
+
+
 class LotteryEntropyRead(BaseModel):
     value: float
     max: float
@@ -401,6 +407,15 @@ class LotteryCoverageCombinationRead(BaseModel):
     front_zone_pattern: str
     front_route012_pattern: str
     front_min_distance: int
+
+
+class LotteryRandomTicketOcrRead(BaseModel):
+    filename: str
+    engine: str
+    status: str
+    raw_text: str
+    combinations: list[LotteryRandomTicketOcrCombinationRead]
+    warnings: list[str]
 
 
 class LotteryRandomTicketRunRead(BaseModel):

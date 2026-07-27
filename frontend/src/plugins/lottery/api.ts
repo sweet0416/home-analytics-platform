@@ -1,4 +1,11 @@
-import { deleteApiData, getApiData, patchApiData, postApiData } from '@/api/client';
+import {
+  apiClient,
+  deleteApiData,
+  getApiData,
+  patchApiData,
+  postApiData,
+  type ApiResponse,
+} from '@/api/client';
 
 export interface PrizeTier {
   tier: number;
@@ -397,6 +404,21 @@ export interface LotteryRandomTicketRun {
   recommendations: LotteryRecommendationSet[];
   comparison: LotteryRandomTicketComparison;
   created_at: string;
+}
+
+export interface LotteryRandomTicketOcrCombination {
+  rank: number;
+  front_numbers: number[];
+  back_numbers: number[];
+}
+
+export interface LotteryRandomTicketOcrResult {
+  filename: string;
+  engine: string;
+  status: 'recognized' | 'needs_review' | 'engine_missing' | 'timeout';
+  raw_text: string;
+  combinations: LotteryRandomTicketOcrCombination[];
+  warnings: string[];
 }
 
 export interface LotterySimulationSet {
@@ -1169,6 +1191,20 @@ export function fetchRandomTicketRuns(limit = 20): Promise<LotteryRandomTicketRu
   return getApiData<LotteryRandomTicketRun[]>(
     `/lottery/dlt/analysis/random-ticket/runs?limit=${limit}`,
   );
+}
+
+export async function recognizeRandomTicketImage(file: File): Promise<LotteryRandomTicketOcrResult> {
+  const formData = new FormData();
+  formData.append('file', file);
+  const response = await apiClient.post<ApiResponse<LotteryRandomTicketOcrResult>>(
+    '/lottery/dlt/analysis/random-ticket/ocr',
+    formData,
+    {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 60000,
+    },
+  );
+  return response.data.data;
 }
 
 export function fetchSimulationAnalysis(

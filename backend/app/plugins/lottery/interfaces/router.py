@@ -2,7 +2,7 @@ from datetime import datetime
 from threading import Lock
 from uuid import uuid4
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Query, UploadFile
 from sqlalchemy.orm import Session
 
 from app.core.config.settings import get_settings
@@ -34,6 +34,7 @@ from app.plugins.lottery.interfaces.schemas import (
     LotteryNumberOmissionDetailRead,
     LotteryOmissionStatisticsRead,
     LotteryRandomnessDiagnosticsRead,
+    LotteryRandomTicketOcrRead,
     LotteryRandomTicketRead,
     LotteryRandomTicketRequest,
     LotteryRandomTicketRunRead,
@@ -416,6 +417,24 @@ def list_random_ticket_runs(
 ) -> ApiResponse[list[LotteryRandomTicketRunRead]]:
     service = LotteryService(db)
     return ok(service.list_random_ticket_runs(limit=limit))
+
+
+@router.post(
+    "/analysis/random-ticket/ocr",
+    response_model=ApiResponse[LotteryRandomTicketOcrRead],
+)
+async def recognize_random_ticket_image(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+) -> ApiResponse[LotteryRandomTicketOcrRead]:
+    service = LotteryService(db)
+    return ok(
+        service.recognize_random_ticket_image(
+            filename=file.filename or "ticket-image",
+            content_type=file.content_type,
+            payload=await file.read(),
+        )
+    )
 
 
 @router.get("/analysis/simulation", response_model=ApiResponse[LotterySimulationRead])

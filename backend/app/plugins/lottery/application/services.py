@@ -1,10 +1,14 @@
 import json
 import random
+import re
+import subprocess
+import tempfile
 from collections import Counter
 from dataclasses import replace
 from decimal import Decimal
 from itertools import combinations
 from math import ceil, comb, erf, log2, sqrt
+from pathlib import Path
 from statistics import mean
 from urllib.parse import urlparse
 
@@ -35,6 +39,96 @@ from app.shared.exceptions.codes import ErrorCode
 class LotteryService:
     def __init__(self, db: Session) -> None:
         self.repository = LotteryRepository(db)
+
+    def recognize_random_ticket_image(
+        self,
+        *,
+        filename: str,
+        content_type: str | None,
+        payload: bytes,
+    ) -> dict[str, object]:
+        max_size = 8 * 1024 * 1024
+        if not payload:
+            raise AppError(
+                code=ErrorCode.validation_error,
+                message="Uploaded ticket image is empty.",
+                status_code=422,
+            )
+        if len(payload) > max_size:
+            raise AppError(
+                code=ErrorCode.validation_error,
+                message="Ticket image must be smaller than 8 MB.",
+                status_code=422,
+            )
+        if content_type and not content_type.startswith("image/"):
+            raise AppError(
+                code=ErrorCode.validation_error,
+                message="Only image uploads are supported for ticket OCR.",
+                status_code=422,
+            )
+
+        suffix = Path(filename).suffix.lower()
+        if suffix not in {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tif", ".tiff"}:
+            suffix = ".png"
+
+        warnings: list[str] = []
+        try:
+            with tempfile.NamedTemporaryFile(suffix=suffix, delete=True) as image_file:
+                image_file.write(payload)
+                image_file.flush()
+                completed = subprocess.run(
+                    [
+                        "tesseract",
+                        image_file.name,
+                        "stdout",
+                        "--psm",
+                        "6",
+                        "-c",
+                        "tessedit_char_whitelist=0123456789 ",
+                    ],
+                    check=False,
+                    capture_output=True,
+                    text=True,
+                    timeout=20,
+                )
+        except FileNotFoundError:
+            return {
+                "filename": filename,
+                "engine": "tesseract",
+                "status": "engine_missing",
+                "raw_text": "",
+                "combinations": [],
+                "warnings": [
+                    "当前后端环境没有安装 Tesseract OCR；重新构建最新 Docker 镜像后可启用本地识别。",
+                ],
+            }
+        except subprocess.TimeoutExpired:
+            return {
+                "filename": filename,
+                "engine": "tesseract",
+                "status": "timeout",
+                "raw_text": "",
+                "combinations": [],
+                "warnings": ["OCR 识别超时，请裁剪票面号码区域后重试。"],
+            }
+
+        raw_text = completed.stdout.strip()
+        if completed.returncode != 0:
+            stderr = completed.stderr.strip()
+            warnings.append(stderr[:300] if stderr else "OCR 引擎返回失败状态。")
+
+        combinations = self._parse_random_ticket_ocr_text(raw_text)
+        if not combinations:
+            warnings.append("没有识别出完整的 5 个前区 + 2 个后区，请手动校对或裁剪后重试。")
+
+        return {
+            "filename": filename,
+            "engine": "tesseract",
+            "status": "recognized" if combinations else "needs_review",
+            "raw_text": raw_text,
+            "combinations": combinations,
+            "warnings": warnings,
+        }
 
     def get_current_rule(self) -> dict[str, object]:
         rule = self.repository.get_current_rule()
@@ -2345,6 +2439,122 @@ class LotteryService:
             )
             if count > 1
         ]
+
+    @classmethod
+    def _parse_random_ticket_ocr_text(cls, raw_text: str) -> list[dict[str, object]]:
+        rows: list[dict[str, object]] = []
+        front_rows: list[list[int]] = []
+        back_rows: list[list[int]] = []
+        for line in raw_text.splitlines():
+            tokens = cls._extract_ocr_number_tokens(line)
+            parsed = cls._parse_random_ticket_tokens(tokens)
+            if parsed is not None:
+                rows.append(parsed)
+                continue
+            front_row = cls._parse_random_ticket_front_tokens(tokens)
+            if front_row is not None:
+                front_rows.append(front_row)
+                continue
+            back_row = cls._parse_random_ticket_back_tokens(tokens)
+            if back_row is not None:
+                back_rows.append(back_row)
+            if len(rows) >= 20:
+                return cls._rank_random_ticket_rows(rows)
+
+        if rows:
+            return cls._rank_random_ticket_rows(rows)
+
+        if front_rows and back_rows:
+            return cls._rank_random_ticket_rows(
+                [
+                    {
+                        "rank": index + 1,
+                        "front_numbers": front_numbers,
+                        "back_numbers": back_rows[index],
+                    }
+                    for index, front_numbers in enumerate(front_rows[: len(back_rows)])
+                ]
+            )
+
+        tokens = cls._extract_ocr_number_tokens(raw_text)
+        chunked_rows: list[dict[str, object]] = []
+        for index in range(0, len(tokens), 7):
+            parsed = cls._parse_random_ticket_tokens(tokens[index : index + 7])
+            if parsed is not None:
+                chunked_rows.append(parsed)
+            if len(chunked_rows) >= 20:
+                break
+        return cls._rank_random_ticket_rows(chunked_rows)
+
+    @staticmethod
+    def _extract_ocr_number_tokens(text: str) -> list[int]:
+        return [int(token) for token in re.findall(r"\d{1,2}", text)]
+
+    @staticmethod
+    def _parse_random_ticket_tokens(tokens: list[int]) -> dict[str, object] | None:
+        if len(tokens) >= 8 and 1 <= tokens[0] <= 20:
+            tokens = tokens[1:]
+        if len(tokens) < 7:
+            return None
+        front_numbers = sorted(tokens[:5])
+        back_numbers = sorted(tokens[5:7])
+        if len(set(front_numbers)) != 5 or len(set(back_numbers)) != 2:
+            return None
+        if any(number < 1 or number > 35 for number in front_numbers):
+            return None
+        if any(number < 1 or number > 12 for number in back_numbers):
+            return None
+        return {
+            "rank": 0,
+            "front_numbers": front_numbers,
+            "back_numbers": back_numbers,
+        }
+
+    @staticmethod
+    def _parse_random_ticket_front_tokens(tokens: list[int]) -> list[int] | None:
+        if len(tokens) == 6 and 1 <= tokens[0] <= 20:
+            tokens = tokens[1:]
+        if len(tokens) != 5:
+            return None
+        front_numbers = sorted(tokens)
+        if len(set(front_numbers)) != 5:
+            return None
+        if any(number < 1 or number > 35 for number in front_numbers):
+            return None
+        return front_numbers
+
+    @staticmethod
+    def _parse_random_ticket_back_tokens(tokens: list[int]) -> list[int] | None:
+        if len(tokens) == 3 and 1 <= tokens[0] <= 20:
+            tokens = tokens[1:]
+        if len(tokens) != 2:
+            return None
+        back_numbers = sorted(tokens)
+        if len(set(back_numbers)) != 2:
+            return None
+        if any(number < 1 or number > 12 for number in back_numbers):
+            return None
+        return back_numbers
+
+    @staticmethod
+    def _rank_random_ticket_rows(rows: list[dict[str, object]]) -> list[dict[str, object]]:
+        ranked: list[dict[str, object]] = []
+        seen: set[str] = set()
+        for row in rows:
+            front_numbers = list(row["front_numbers"])
+            back_numbers = list(row["back_numbers"])
+            signature = f"{','.join(map(str, front_numbers))}|{','.join(map(str, back_numbers))}"
+            if signature in seen:
+                continue
+            seen.add(signature)
+            ranked.append(
+                {
+                    "rank": len(ranked) + 1,
+                    "front_numbers": front_numbers,
+                    "back_numbers": back_numbers,
+                }
+            )
+        return ranked
 
     def _serialize_random_ticket_run(
         self,

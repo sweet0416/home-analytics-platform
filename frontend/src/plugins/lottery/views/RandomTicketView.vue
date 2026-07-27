@@ -15,6 +15,14 @@
             :value="stage.stage_code"
           />
         </el-select>
+        <input
+          ref="ticketImageInput"
+          class="ticket-image-input"
+          type="file"
+          accept="image/*"
+          @change="handleTicketImageSelected"
+        />
+        <el-button plain :loading="ocrLoading" @click="openTicketImagePicker">照片识别</el-button>
         <el-button plain @click="resetTickets">恢复默认</el-button>
         <el-button type="primary" :loading="loading" @click="runAnalysis">生成二次候选</el-button>
       </div>
@@ -26,6 +34,23 @@
       :text="analysis?.disclaimer ?? fallbackDisclaimer"
       class="random-ticket-alert"
     />
+
+    <section v-if="ocrResult" class="panel random-ticket-panel">
+      <div class="panel-header">
+        <h2 class="panel-title">照片识别结果</h2>
+        <span class="panel-meta">{{ ocrStatusText }}</span>
+      </div>
+      <div class="ocr-result">
+        <p v-for="warning in ocrResult.warnings" :key="warning">{{ warning }}</p>
+        <p v-if="ocrResult.combinations.length">
+          已识别 {{ ocrResult.combinations.length }} 注，已填入下方号码球，请确认后再生成。
+        </p>
+        <details v-if="ocrResult.raw_text">
+          <summary>查看 OCR 原文</summary>
+          <pre>{{ ocrResult.raw_text }}</pre>
+        </details>
+      </div>
+    </section>
 
     <section class="panel random-ticket-panel">
       <div class="panel-header">
@@ -235,8 +260,10 @@ const defaultTickets: EditableTicket[] = Array.from({ length: 5 }, (_, index) =>
 
 const lottery = useLotteryStore();
 const loading = ref(false);
+const ocrLoading = ref(false);
 const activeIndex = ref(0);
 const stageCode = ref('');
+const ticketImageInput = ref<HTMLInputElement | null>(null);
 const tickets = ref<EditableTicket[]>(cloneDefaults());
 const frontNumbers = Array.from({ length: 35 }, (_, index) => index + 1);
 const backNumbers = Array.from({ length: 12 }, (_, index) => index + 1);
@@ -246,6 +273,7 @@ const analysis = computed(() => lottery.randomTicket);
 const activeTicket = computed(() => tickets.value[activeIndex.value] ?? tickets.value[0]);
 const stageOptions = computed(() => lottery.dataStageReport?.stages ?? []);
 const archiveRuns = computed(() => lottery.randomTicketRuns);
+const ocrResult = computed(() => lottery.randomTicketOcr);
 const inputCount = computed(() => String(analysis.value?.input_set_count ?? tickets.value.length));
 const targetIssueNo = computed(() => analysis.value?.target_issue_no ?? '--');
 const frontCoverage = computed(() =>
@@ -265,6 +293,13 @@ const zoneSummary = computed(() => {
 const paritySummary = computed(() => {
   const value = analysis.value?.sample_summary.parity_coverage;
   return value ? `${value.front_odd}:${value.front_even} / ${value.back_odd}:${value.back_even}` : '--';
+});
+const ocrStatusText = computed(() => {
+  if (!ocrResult.value) return '';
+  if (ocrResult.value.status === 'recognized') return '已识别，支持 6+14+17+23+33  1+6 这种格式';
+  if (ocrResult.value.status === 'engine_missing') return 'OCR 引擎未启用';
+  if (ocrResult.value.status === 'timeout') return '识别超时';
+  return '需要人工校对';
 });
 
 const InfoBlock = defineComponent({
@@ -323,6 +358,45 @@ function toggleNumber(area: Area, number: number): void {
 
 function resetTickets(): void {
   tickets.value = cloneDefaults();
+  activeIndex.value = 0;
+  lottery.randomTicket = null;
+  lottery.randomTicketOcr = null;
+}
+
+function openTicketImagePicker(): void {
+  ticketImageInput.value?.click();
+}
+
+async function handleTicketImageSelected(event: Event): Promise<void> {
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
+  input.value = '';
+  if (!file) return;
+  ocrLoading.value = true;
+  try {
+    const result = await lottery.recognizeRandomTicketImage(file);
+    if (result.combinations.length) {
+      applyOcrCombinations(result.combinations);
+      ElMessage.success(`识别到 ${result.combinations.length} 注，请确认号码后再生成`);
+      return;
+    }
+    ElMessage.warning(result.warnings[0] ?? '没有识别出完整号码，请手动输入');
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : '照片识别失败');
+  } finally {
+    ocrLoading.value = false;
+  }
+}
+
+function applyOcrCombinations(
+  combinations: Array<{ front_numbers: number[]; back_numbers: number[] }>,
+): void {
+  const nextTickets = cloneDefaults();
+  combinations.slice(0, nextTickets.length).forEach((item, index) => {
+    nextTickets[index].frontNumbers = [...item.front_numbers].sort((left, right) => left - right);
+    nextTickets[index].backNumbers = [...item.back_numbers].sort((left, right) => left - right);
+  });
+  tickets.value = nextTickets;
   activeIndex.value = 0;
   lottery.randomTicket = null;
 }
@@ -402,6 +476,10 @@ function formatDateTime(value: string): string {
   min-width: 220px;
 }
 
+.ticket-image-input {
+  display: none;
+}
+
 .random-ticket-alert,
 .random-ticket-panel,
 .random-ticket-metrics {
@@ -411,6 +489,35 @@ function formatDateTime(value: string): string {
 .panel-meta {
   color: var(--color-muted);
   font-size: 13px;
+}
+
+.ocr-result {
+  display: grid;
+  gap: 8px;
+}
+
+.ocr-result p {
+  color: var(--color-muted);
+  font-size: 13px;
+  margin: 0;
+}
+
+.ocr-result summary {
+  color: var(--color-primary);
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.ocr-result pre {
+  background: rgba(2, 6, 23, 0.45);
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 8px;
+  color: var(--color-text);
+  margin: 8px 0 0;
+  max-height: 180px;
+  overflow: auto;
+  padding: 10px;
+  white-space: pre-wrap;
 }
 
 .ticket-workspace {
