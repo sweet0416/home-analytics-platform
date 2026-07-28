@@ -2852,8 +2852,8 @@ class LotteryService:
                 "status_label": "等待开奖",
                 "target_issue_no": target_issue_no,
                 "target_draw": None,
-                "input_items": [],
-                "recommendation_items": [],
+                "input_items": self._build_pending_random_ticket_items(input_combinations),
+                "recommendation_items": self._build_pending_random_ticket_items(recommendations),
                 "input_best": None,
                 "recommendation_best": None,
                 "summary": "目标期尚未入库，开奖同步后会自动计算命中对比。",
@@ -2884,6 +2884,28 @@ class LotteryService:
                 recommendation_best=recommendation_best,
             ),
         }
+
+    @classmethod
+    def _build_pending_random_ticket_items(
+        cls,
+        items: list[dict[str, object]],
+    ) -> list[dict[str, object]]:
+        pending_items: list[dict[str, object]] = []
+        for index, item in enumerate(items, start=1):
+            pending_items.append(
+                {
+                    "rank": int(item.get("rank", index)),
+                    "front_numbers": list(item["front_numbers"]),
+                    "back_numbers": list(item["back_numbers"]),
+                    "front_matches": [],
+                    "back_matches": [],
+                    "front_match_count": 0,
+                    "back_match_count": 0,
+                    "match_key": "待开奖",
+                    "prize_tier": None,
+                }
+            )
+        return pending_items
 
     @classmethod
     def _compare_random_ticket_items(

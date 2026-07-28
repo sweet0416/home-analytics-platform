@@ -322,6 +322,40 @@ def test_lottery_service_preserves_five_ranked_ticket_slots() -> None:
     ]
 
 
+def test_lottery_service_keeps_pending_random_ticket_snapshot() -> None:
+    items = LotteryService._build_pending_random_ticket_items(
+        [
+            {"rank": 1, "front_numbers": [6, 14, 17, 23, 33], "back_numbers": [1, 6]},
+            {"rank": 2, "front_numbers": [5, 26, 29, 30, 32], "back_numbers": [8, 11]},
+        ]
+    )
+
+    assert items == [
+        {
+            "rank": 1,
+            "front_numbers": [6, 14, 17, 23, 33],
+            "back_numbers": [1, 6],
+            "front_matches": [],
+            "back_matches": [],
+            "front_match_count": 0,
+            "back_match_count": 0,
+            "match_key": "待开奖",
+            "prize_tier": None,
+        },
+        {
+            "rank": 2,
+            "front_numbers": [5, 26, 29, 30, 32],
+            "back_numbers": [8, 11],
+            "front_matches": [],
+            "back_matches": [],
+            "front_match_count": 0,
+            "back_match_count": 0,
+            "match_key": "待开奖",
+            "prize_tier": None,
+        },
+    ]
+
+
 def test_lottery_randomness_diagnostics_can_filter_by_rule_stage(db_session: Session) -> None:
     repository = LotteryRepository(db_session)
     repository.ensure_dlt_seed_data()

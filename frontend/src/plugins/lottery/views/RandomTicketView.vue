@@ -245,62 +245,68 @@
               meta="系统生成五注"
             />
           </div>
-          <div v-if="run.comparison.status === 'settled'" class="settled-detail">
-            <section>
-              <h3>老板原始五注</h3>
-              <div
-                v-for="item in run.comparison.input_items"
-                :key="`archive-input-${run.id}-${item.rank}`"
-                class="match-row"
-              >
-                <span>#{{ item.rank }}</span>
-                <div class="match-numbers">
-                  <LotteryBall
-                    v-for="number in item.front_numbers"
-                    :key="`archive-input-front-${run.id}-${item.rank}-${number}`"
-                    area="front"
-                    :class="{ matched: item.front_matches.includes(number) }"
-                    :value="number"
-                  />
-                  <LotteryBall
-                    v-for="number in item.back_numbers"
-                    :key="`archive-input-back-${run.id}-${item.rank}-${number}`"
-                    area="back"
-                    :class="{ matched: item.back_matches.includes(number) }"
-                    :value="number"
-                  />
+          <details
+            v-if="run.comparison.input_items.length || run.comparison.recommendation_items.length"
+            class="archive-detail-toggle"
+          >
+            <summary>查看保存号码</summary>
+            <div class="settled-detail">
+              <section>
+                <h3>老板原始五注</h3>
+                <div
+                  v-for="item in run.comparison.input_items"
+                  :key="`archive-input-${run.id}-${item.rank}`"
+                  class="match-row"
+                >
+                  <span>#{{ item.rank }}</span>
+                  <div class="match-numbers">
+                    <LotteryBall
+                      v-for="number in item.front_numbers"
+                      :key="`archive-input-front-${run.id}-${item.rank}-${number}`"
+                      area="front"
+                      :class="{ matched: run.comparison.status === 'settled' && item.front_matches.includes(number) }"
+                      :value="number"
+                    />
+                    <LotteryBall
+                      v-for="number in item.back_numbers"
+                      :key="`archive-input-back-${run.id}-${item.rank}-${number}`"
+                      area="back"
+                      :class="{ matched: run.comparison.status === 'settled' && item.back_matches.includes(number) }"
+                      :value="number"
+                    />
+                  </div>
+                  <strong>{{ formatArchiveMatchResult(run.comparison.status, item) }}</strong>
                 </div>
-                <strong>{{ formatMatchResult(item) }}</strong>
-              </div>
-            </section>
-            <section>
-              <h3>系统二次候选</h3>
-              <div
-                v-for="item in run.comparison.recommendation_items"
-                :key="`archive-recommendation-${run.id}-${item.rank}`"
-                class="match-row"
-              >
-                <span>#{{ item.rank }}</span>
-                <div class="match-numbers">
-                  <LotteryBall
-                    v-for="number in item.front_numbers"
-                    :key="`archive-recommendation-front-${run.id}-${item.rank}-${number}`"
-                    area="front"
-                    :class="{ matched: item.front_matches.includes(number) }"
-                    :value="number"
-                  />
-                  <LotteryBall
-                    v-for="number in item.back_numbers"
-                    :key="`archive-recommendation-back-${run.id}-${item.rank}-${number}`"
-                    area="back"
-                    :class="{ matched: item.back_matches.includes(number) }"
-                    :value="number"
-                  />
+              </section>
+              <section>
+                <h3>系统二次候选</h3>
+                <div
+                  v-for="item in run.comparison.recommendation_items"
+                  :key="`archive-recommendation-${run.id}-${item.rank}`"
+                  class="match-row"
+                >
+                  <span>#{{ item.rank }}</span>
+                  <div class="match-numbers">
+                    <LotteryBall
+                      v-for="number in item.front_numbers"
+                      :key="`archive-recommendation-front-${run.id}-${item.rank}-${number}`"
+                      area="front"
+                      :class="{ matched: run.comparison.status === 'settled' && item.front_matches.includes(number) }"
+                      :value="number"
+                    />
+                    <LotteryBall
+                      v-for="number in item.back_numbers"
+                      :key="`archive-recommendation-back-${run.id}-${item.rank}-${number}`"
+                      area="back"
+                      :class="{ matched: run.comparison.status === 'settled' && item.back_matches.includes(number) }"
+                      :value="number"
+                    />
+                  </div>
+                  <strong>{{ formatArchiveMatchResult(run.comparison.status, item) }}</strong>
                 </div>
-                <strong>{{ formatMatchResult(item) }}</strong>
-              </div>
-            </section>
-          </div>
+              </section>
+            </div>
+          </details>
         </article>
       </div>
       <div v-else class="empty-archive">
@@ -582,7 +588,11 @@ function formatBestMatch(item: LotteryRandomTicketComparisonItem | null): string
   return `${item.match_key}${tier}`;
 }
 
-function formatMatchResult(item: LotteryRandomTicketComparisonItem): string {
+function formatArchiveMatchResult(
+  status: 'pending' | 'settled',
+  item: LotteryRandomTicketComparisonItem,
+): string {
+  if (status === 'pending') return '等待开奖';
   const tier = item.prize_tier ? `${item.prize_tier}等奖` : '未中奖';
   return `${item.match_key} · ${tier}`;
 }
@@ -839,13 +849,30 @@ function formatDateTime(value: string): string {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-.settled-detail {
+.archive-detail-toggle {
   border-top: 1px solid rgba(148, 163, 184, 0.12);
+  margin-top: 2px;
+  padding-top: 10px;
+}
+
+.archive-detail-toggle summary {
+  color: var(--color-primary);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  list-style-position: inside;
+  width: fit-content;
+}
+
+.archive-detail-toggle summary:hover {
+  color: var(--color-text);
+}
+
+.settled-detail {
   display: grid;
   gap: 14px;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  margin-top: 2px;
-  padding-top: 12px;
+  margin-top: 12px;
 }
 
 .settled-detail section {
