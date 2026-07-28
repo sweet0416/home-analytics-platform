@@ -89,6 +89,60 @@ def test_fund_positions_can_be_created_and_summarized(client: TestClient) -> Non
     assert final_summary_response.json()["data"]["position_count"] == 0
 
 
+def test_fund_watchlist_can_be_created_updated_and_deleted(client: TestClient) -> None:
+    empty_summary_response = client.get("/api/v1/fund/watchlist/summary")
+    assert empty_summary_response.status_code == 200
+    assert empty_summary_response.json()["data"]["item_count"] == 0
+
+    payload = {
+        "fund_code": "159915",
+        "fund_name": "创业板 ETF",
+        "fund_type": "ETF",
+        "priority": 2,
+        "status": "watching",
+        "watch_reason": "成长风格观察",
+        "risk_level": "high",
+        "target_position": "5%",
+        "tags": "A股,成长",
+        "note": "contract test",
+    }
+    create_response = client.post("/api/v1/fund/watchlist", json=payload)
+    assert create_response.status_code == 200
+    created = create_response.json()["data"]
+    assert created["fund_code"] == "159915"
+    assert created["priority"] == 2
+    assert created["risk_level"] == "high"
+
+    list_response = client.get("/api/v1/fund/watchlist")
+    assert list_response.status_code == 200
+    assert len(list_response.json()["data"]) == 1
+
+    summary_response = client.get("/api/v1/fund/watchlist/summary")
+    assert summary_response.status_code == 200
+    summary = summary_response.json()["data"]
+    assert summary["item_count"] == 1
+    assert summary["high_priority_count"] == 1
+    assert summary["risk_levels"] == ["high"]
+
+    update_response = client.put(
+        f"/api/v1/fund/watchlist/{created['id']}",
+        json={**payload, "priority": 4, "status": "paused", "note": "updated"},
+    )
+    assert update_response.status_code == 200
+    updated = update_response.json()["data"]
+    assert updated["priority"] == 4
+    assert updated["status"] == "paused"
+    assert updated["note"] == "updated"
+
+    delete_response = client.delete(f"/api/v1/fund/watchlist/{created['id']}")
+    assert delete_response.status_code == 200
+    assert delete_response.json()["data"] == {"deleted": True, "id": created["id"]}
+
+    final_summary_response = client.get("/api/v1/fund/watchlist/summary")
+    assert final_summary_response.status_code == 200
+    assert final_summary_response.json()["data"]["item_count"] == 0
+
+
 def test_current_dlt_rule_contract(client: TestClient) -> None:
     response = client.get("/api/v1/lottery/dlt/rules/current")
 

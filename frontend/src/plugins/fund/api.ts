@@ -40,6 +40,36 @@ export interface FundPosition {
   updated_at: string;
 }
 
+export interface FundWatchlistItem {
+  id: number;
+  fund_id: number;
+  fund_code: string;
+  fund_name: string;
+  fund_type: string;
+  priority: number;
+  status: string;
+  watch_reason: string;
+  risk_level: string;
+  target_position: string;
+  tags: string;
+  note: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface FundWatchlistCreate {
+  fund_code: string;
+  fund_name: string;
+  fund_type: string;
+  priority: number;
+  status: string;
+  watch_reason: string;
+  risk_level: string;
+  target_position: string;
+  tags: string;
+  note: string;
+}
+
 export interface FundPositionCreate {
   fund_code: string;
   fund_name: string;
@@ -66,6 +96,14 @@ export interface FundHoldingSummary {
   accounts: string[];
 }
 
+export interface FundWatchlistSummary {
+  item_count: number;
+  fund_count: number;
+  high_priority_count: number;
+  statuses: string[];
+  risk_levels: string[];
+}
+
 export function fetchFundStatus(): Promise<FundStatus> {
   return getApiData<FundStatus>('/fund/status');
 }
@@ -76,6 +114,36 @@ export function fetchFundPositions(): Promise<FundPosition[]> {
 
 export function createFundPosition(payload: FundPositionCreate): Promise<FundPosition> {
   return postApiData<FundPosition, FundPositionCreate>('/fund/positions', payload);
+}
+
+export function fetchFundWatchlist(): Promise<FundWatchlistItem[]> {
+  return getApiData<FundWatchlistItem[]>('/fund/watchlist');
+}
+
+export function createFundWatchlistItem(
+  payload: FundWatchlistCreate,
+): Promise<FundWatchlistItem> {
+  return postApiData<FundWatchlistItem, FundWatchlistCreate>('/fund/watchlist', payload);
+}
+
+export async function updateFundWatchlistItem(
+  itemId: number,
+  payload: FundWatchlistCreate,
+): Promise<FundWatchlistItem> {
+  const response = await apiClient.put<ApiResponse<FundWatchlistItem>>(
+    `/fund/watchlist/${itemId}`,
+    payload,
+  );
+  return response.data.data;
+}
+
+export async function deleteFundWatchlistItem(
+  itemId: number,
+): Promise<{ deleted: boolean; id: number }> {
+  const response = await apiClient.delete<ApiResponse<{ deleted: boolean; id: number }>>(
+    `/fund/watchlist/${itemId}`,
+  );
+  return response.data.data;
 }
 
 export async function updateFundPosition(
@@ -98,4 +166,8 @@ export async function deleteFundPosition(positionId: number): Promise<{ deleted:
 
 export function fetchFundHoldingSummary(): Promise<FundHoldingSummary> {
   return getApiData<FundHoldingSummary>('/fund/holdings/summary');
+}
+
+export function fetchFundWatchlistSummary(): Promise<FundWatchlistSummary> {
+  return getApiData<FundWatchlistSummary>('/fund/watchlist/summary');
 }

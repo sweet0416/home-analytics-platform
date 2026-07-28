@@ -8,11 +8,120 @@
     </RevealContent>
 
     <div class="grid metrics">
-      <MetricCard label="持仓数量" :value="String(summary?.position_count ?? 0)" meta="已录入记录" :delay="80" />
-      <MetricCard label="基金数量" :value="String(summary?.fund_count ?? 0)" meta="去重基金" :delay="140" />
-      <MetricCard label="总成本" :value="formatMoney(summary?.total_cost)" meta="手动持仓" :delay="200" />
-      <MetricCard label="浮盈亏" :value="formatMoney(summary?.unrealized_profit)" :meta="returnRateMeta" :delay="260" />
+      <MetricCard label="观察基金" :value="String(watchSummary?.item_count ?? 0)" meta="关注池记录" :delay="80" />
+      <MetricCard label="高优先级" :value="String(watchSummary?.high_priority_count ?? 0)" meta="优先级 1-2" :delay="120" />
+      <MetricCard label="持仓数量" :value="String(summary?.position_count ?? 0)" meta="已录入记录" :delay="160" />
+      <MetricCard label="浮盈亏" :value="formatMoney(summary?.unrealized_profit)" :meta="returnRateMeta" :delay="200" />
     </div>
+
+    <RevealContent as="section" class="panel fund-panel" :delay="260">
+      <div class="panel-header">
+        <div>
+          <h2 class="panel-title">基金观察池</h2>
+          <span class="panel-meta">先记录想关注的基金，后续净值、估值和日报会从这里展开</span>
+        </div>
+      </div>
+      <div class="panel-body">
+        <div class="watchlist-form">
+          <div v-if="editingWatchId !== null" class="edit-banner wide">
+            正在编辑观察项 #{{ editingWatchId }}
+          </div>
+          <label>
+            <span>基金代码</span>
+            <el-input v-model="watchForm.fund_code" placeholder="例如 159915" />
+          </label>
+          <label>
+            <span>基金名称</span>
+            <el-input v-model="watchForm.fund_name" placeholder="例如 创业板 ETF" />
+          </label>
+          <label>
+            <span>基金类型</span>
+            <el-select v-model="watchForm.fund_type">
+              <el-option v-for="type in fundTypes" :key="type" :label="type" :value="type" />
+            </el-select>
+          </label>
+          <label>
+            <span>优先级</span>
+            <el-input-number v-model="watchForm.priority" :min="1" :max="5" :step="1" />
+          </label>
+          <label>
+            <span>状态</span>
+            <el-select v-model="watchForm.status">
+              <el-option label="观察中" value="watching" />
+              <el-option label="等待回调" value="waiting" />
+              <el-option label="已暂停" value="paused" />
+              <el-option label="准备买入" value="ready" />
+            </el-select>
+          </label>
+          <label>
+            <span>风险等级</span>
+            <el-select v-model="watchForm.risk_level">
+              <el-option label="低" value="low" />
+              <el-option label="中" value="medium" />
+              <el-option label="高" value="high" />
+            </el-select>
+          </label>
+          <label>
+            <span>目标仓位</span>
+            <el-input v-model="watchForm.target_position" placeholder="例如 5%" />
+          </label>
+          <label>
+            <span>标签</span>
+            <el-input v-model="watchForm.tags" placeholder="A股, 海外, 长期" />
+          </label>
+          <label class="wide">
+            <span>关注原因</span>
+            <el-input v-model="watchForm.watch_reason" placeholder="为什么关注这只基金" />
+          </label>
+          <label class="wide">
+            <span>备注</span>
+            <el-input v-model="watchForm.note" placeholder="估值、买入条件、风险提示等" />
+          </label>
+          <div class="form-actions wide">
+            <el-button plain @click="resetWatchForm">{{ editingWatchId === null ? '清空' : '取消编辑' }}</el-button>
+            <el-button type="primary" :loading="savingWatch" @click="saveWatchItem">
+              {{ editingWatchId === null ? '加入观察池' : '更新观察项' }}
+            </el-button>
+          </div>
+        </div>
+
+        <div v-if="watchItems.length" class="watchlist-grid">
+          <div v-for="item in watchItems" :key="item.id" class="watch-card">
+            <div class="watch-card-head">
+              <div>
+                <strong>{{ item.fund_name }}</strong>
+                <small>{{ item.fund_code }} · {{ item.fund_type }}</small>
+              </div>
+              <span class="priority-pill">P{{ item.priority }}</span>
+            </div>
+            <div class="watch-meta">
+              <span>{{ statusText(item.status) }}</span>
+              <span>{{ riskText(item.risk_level) }}</span>
+              <span>{{ item.target_position || '未设仓位' }}</span>
+            </div>
+            <p>{{ item.watch_reason || '暂无关注原因' }}</p>
+            <small class="watch-note">{{ item.tags || '未设置标签' }}</small>
+            <div class="row-actions">
+              <el-button text size="small" @click="editWatchItem(item)">编辑</el-button>
+              <el-button
+                text
+                size="small"
+                type="danger"
+                :loading="deletingWatchId === item.id"
+                @click="removeWatchItem(item)"
+              >
+                删除
+              </el-button>
+            </div>
+          </div>
+        </div>
+        <EmptyState
+          v-else
+          title="还没有观察基金"
+          description="先把想研究的 ETF、QDII 或主动基金加入观察池。"
+        />
+      </div>
+    </RevealContent>
 
     <RevealContent as="section" class="panel fund-panel" :delay="300">
       <div class="panel-header">
@@ -37,13 +146,7 @@
           <label>
             <span>基金类型</span>
             <el-select v-model="form.fund_type">
-              <el-option label="ETF" value="ETF" />
-              <el-option label="QDII" value="QDII" />
-              <el-option label="指数基金" value="指数基金" />
-              <el-option label="混合型" value="混合型" />
-              <el-option label="债券型" value="债券型" />
-              <el-option label="货币型" value="货币型" />
-              <el-option label="其他" value="其他" />
+              <el-option v-for="type in fundTypes" :key="type" :label="type" :value="type" />
             </el-select>
           </label>
           <label>
@@ -140,7 +243,7 @@
       </div>
     </RevealContent>
 
-    <RevealContent as="section" class="panel fund-panel" :delay="320">
+    <RevealContent as="section" class="panel fund-panel" :delay="380">
       <div class="panel-header">
         <div>
           <h2 class="panel-title">基金模块路线图</h2>
@@ -161,15 +264,6 @@
         </div>
       </div>
     </RevealContent>
-
-    <RevealContent as="section" class="panel fund-panel" :delay="380">
-      <div class="panel-header">
-        <h2 class="panel-title">下一步</h2>
-      </div>
-      <div class="panel-body">
-        <p class="next-step">{{ fundStatus?.next_step ?? '等待后端基金插件状态接口返回。' }}</p>
-      </div>
-    </RevealContent>
   </div>
 </template>
 
@@ -182,25 +276,41 @@ import RevealContent from '@/components/common/RevealContent.vue';
 import MetricCard from '@/components/metric/MetricCard.vue';
 import {
   createFundPosition,
+  createFundWatchlistItem,
   deleteFundPosition,
+  deleteFundWatchlistItem,
   fetchFundHoldingSummary,
   fetchFundPositions,
   fetchFundStatus,
+  fetchFundWatchlist,
+  fetchFundWatchlistSummary,
   type FundHoldingSummary,
   type FundPosition,
   type FundPositionCreate,
   type FundStatus,
+  type FundWatchlistCreate,
+  type FundWatchlistItem,
+  type FundWatchlistSummary,
   updateFundPosition,
+  updateFundWatchlistItem,
 } from '@/plugins/fund/api';
+
+const fundTypes = ['ETF', 'QDII', '指数基金', '混合型', '债券型', '货币型', '其他'];
 
 const fundStatus = ref<FundStatus | null>(null);
 const positions = ref<FundPosition[]>([]);
+const watchItems = ref<FundWatchlistItem[]>([]);
 const summary = ref<FundHoldingSummary | null>(null);
+const watchSummary = ref<FundWatchlistSummary | null>(null);
 const isLoading = ref(false);
 const saving = ref(false);
+const savingWatch = ref(false);
 const deletingPositionId = ref<number | null>(null);
+const deletingWatchId = ref<number | null>(null);
 const errorMessage = ref('');
 const editingPositionId = ref<number | null>(null);
+const editingWatchId = ref<number | null>(null);
+
 const form = ref<FundPositionCreate>({
   fund_code: '',
   fund_name: '',
@@ -215,6 +325,19 @@ const form = ref<FundPositionCreate>({
   note: '',
 });
 
+const watchForm = ref<FundWatchlistCreate>({
+  fund_code: '',
+  fund_name: '',
+  fund_type: 'ETF',
+  priority: 3,
+  status: 'watching',
+  watch_reason: '',
+  risk_level: 'medium',
+  target_position: '',
+  tags: '',
+  note: '',
+});
+
 const labelMap: Record<string, string> = {
   scaffolded: '已接入',
   planned: '规划中',
@@ -222,9 +345,20 @@ const labelMap: Record<string, string> = {
   not_configured: '未配置',
   not_created: '未创建',
   created: '已创建',
+  watching: '观察中',
+  waiting: '等待回调',
+  paused: '已暂停',
+  ready: '准备买入',
+};
+
+const riskMap: Record<string, string> = {
+  low: '低风险',
+  medium: '中风险',
+  high: '高风险',
 };
 
 const statusText = (status: string): string => labelMap[status] ?? status;
+const riskText = (risk: string): string => riskMap[risk] ?? risk;
 
 const returnRateMeta = computed(() => {
   if (!summary.value?.unrealized_return_rate) return '等待当前净值';
@@ -268,6 +402,22 @@ function resetForm(): void {
   };
 }
 
+function resetWatchForm(): void {
+  editingWatchId.value = null;
+  watchForm.value = {
+    fund_code: '',
+    fund_name: '',
+    fund_type: 'ETF',
+    priority: 3,
+    status: 'watching',
+    watch_reason: '',
+    risk_level: 'medium',
+    target_position: '',
+    tags: '',
+    note: '',
+  };
+}
+
 async function loadHoldings(): Promise<void> {
   const [nextPositions, nextSummary] = await Promise.all([
     fetchFundPositions(),
@@ -275,6 +425,85 @@ async function loadHoldings(): Promise<void> {
   ]);
   positions.value = nextPositions;
   summary.value = nextSummary;
+}
+
+async function loadWatchlist(): Promise<void> {
+  const [nextItems, nextSummary] = await Promise.all([
+    fetchFundWatchlist(),
+    fetchFundWatchlistSummary(),
+  ]);
+  watchItems.value = nextItems;
+  watchSummary.value = nextSummary;
+}
+
+async function saveWatchItem(): Promise<void> {
+  if (!watchForm.value.fund_code.trim() || !watchForm.value.fund_name.trim()) {
+    ElMessage.warning('基金代码和名称不能为空');
+    return;
+  }
+  savingWatch.value = true;
+  try {
+    if (editingWatchId.value === null) {
+      await createFundWatchlistItem(watchForm.value);
+      ElMessage.success('已加入观察池');
+    } else {
+      await updateFundWatchlistItem(editingWatchId.value, watchForm.value);
+      ElMessage.success('观察项已更新');
+    }
+    resetWatchForm();
+    await loadWatchlist();
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : '观察项保存失败');
+  } finally {
+    savingWatch.value = false;
+  }
+}
+
+function editWatchItem(item: FundWatchlistItem): void {
+  editingWatchId.value = item.id;
+  watchForm.value = {
+    fund_code: item.fund_code,
+    fund_name: item.fund_name,
+    fund_type: item.fund_type,
+    priority: item.priority,
+    status: item.status,
+    watch_reason: item.watch_reason,
+    risk_level: item.risk_level,
+    target_position: item.target_position,
+    tags: item.tags,
+    note: item.note,
+  };
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+async function removeWatchItem(item: FundWatchlistItem): Promise<void> {
+  try {
+    await ElMessageBox.confirm(
+      `删除 ${item.fund_name}（${item.fund_code}）这条观察项？`,
+      '确认删除观察项',
+      {
+        confirmButtonText: '删除',
+        cancelButtonText: '取消',
+        type: 'warning',
+      },
+    );
+  } catch {
+    return;
+  }
+
+  deletingWatchId.value = item.id;
+  try {
+    await deleteFundWatchlistItem(item.id);
+    if (editingWatchId.value === item.id) {
+      resetWatchForm();
+    }
+    ElMessage.success('观察项已删除');
+    await loadWatchlist();
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : '观察项删除失败');
+  } finally {
+    deletingWatchId.value = null;
+  }
 }
 
 async function savePosition(): Promise<void> {
@@ -362,7 +591,7 @@ onMounted(async () => {
   errorMessage.value = '';
   try {
     fundStatus.value = await fetchFundStatus();
-    await loadHoldings();
+    await Promise.all([loadHoldings(), loadWatchlist()]);
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : '基金模块状态加载失败';
   } finally {
@@ -381,23 +610,27 @@ onMounted(async () => {
   font-size: 13px;
 }
 
-.position-form {
+.position-form,
+.watchlist-form {
   display: grid;
   gap: 12px;
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
-.position-form label {
+.position-form label,
+.watchlist-form label {
   display: grid;
   gap: 7px;
 }
 
-.position-form label span {
+.position-form label span,
+.watchlist-form label span {
   color: var(--color-muted);
   font-size: 12px;
 }
 
-.position-form .wide {
+.position-form .wide,
+.watchlist-form .wide {
   grid-column: span 2;
 }
 
@@ -414,6 +647,62 @@ onMounted(async () => {
   display: flex;
   gap: 10px;
   justify-content: flex-end;
+}
+
+.watchlist-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 16px;
+}
+
+.watch-card {
+  background: rgba(15, 23, 42, 0.32);
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 8px;
+  display: grid;
+  gap: 10px;
+  padding: 13px;
+}
+
+.watch-card-head,
+.watch-meta {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.watch-card strong {
+  color: var(--color-text);
+  display: block;
+  font-size: 14px;
+}
+
+.watch-card small,
+.watch-note {
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
+.watch-card p {
+  color: var(--color-text);
+  font-size: 13px;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.watch-meta {
+  justify-content: flex-start;
+}
+
+.watch-meta span,
+.priority-pill {
+  border: 1px solid rgba(56, 189, 248, 0.26);
+  border-radius: 999px;
+  color: #7dd3fc;
+  font-size: 12px;
+  padding: 4px 8px;
 }
 
 .position-table {
@@ -472,13 +761,13 @@ onMounted(async () => {
 }
 
 .roadmap-item {
-  display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 14px;
+  background: rgba(15, 23, 42, 0.32);
   border: 1px solid rgba(148, 163, 184, 0.16);
   border-radius: 8px;
-  background: rgba(15, 23, 42, 0.32);
+  display: flex;
+  gap: 14px;
+  justify-content: space-between;
   padding: 14px;
 }
 
@@ -488,7 +777,6 @@ onMounted(async () => {
 }
 
 .roadmap-item p,
-.next-step,
 .fund-loading,
 .fund-error {
   color: var(--color-muted);
@@ -510,14 +798,22 @@ onMounted(async () => {
   color: #fca5a5;
 }
 
-@media (max-width: 720px) {
+@media (max-width: 920px) {
   .position-form,
-  .position-row {
+  .watchlist-form,
+  .watchlist-grid {
     grid-template-columns: 1fr;
   }
 
-  .position-form .wide {
+  .position-form .wide,
+  .watchlist-form .wide {
     grid-column: auto;
+  }
+}
+
+@media (max-width: 720px) {
+  .position-row {
+    grid-template-columns: 1fr;
   }
 
   .form-actions {

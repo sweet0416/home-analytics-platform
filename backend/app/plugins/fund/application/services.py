@@ -1,12 +1,20 @@
 from decimal import Decimal
 
-from app.plugins.fund.infrastructure.persistence.models import FundModel, FundPositionModel
+from app.plugins.fund.infrastructure.persistence.models import (
+    FundModel,
+    FundPositionModel,
+    FundWatchlistItemModel,
+)
 from app.plugins.fund.infrastructure.persistence.repositories import FundRepository
 from app.plugins.fund.interfaces.schemas import (
     FundHoldingSummaryRead,
     FundPositionCreate,
     FundPositionRead,
     FundPositionUpdate,
+    FundWatchlistCreate,
+    FundWatchlistRead,
+    FundWatchlistSummaryRead,
+    FundWatchlistUpdate,
 )
 from app.shared.exceptions.base import AppError
 from app.shared.exceptions.codes import ErrorCode
@@ -18,6 +26,91 @@ class FundService:
 
     def list_positions(self) -> list[FundPositionRead]:
         return [self._to_position_read(position) for position in self.repository.list_positions()]
+
+    def list_watchlist_items(self) -> list[FundWatchlistRead]:
+        return [self._to_watchlist_read(item) for item in self.repository.list_watchlist_items()]
+
+    def create_watchlist_item(self, payload: FundWatchlistCreate) -> FundWatchlistRead:
+        fund = self.repository.upsert_fund(
+            code=payload.fund_code,
+            name=payload.fund_name,
+            fund_type=payload.fund_type,
+        )
+        existing = self.repository.get_watchlist_item_by_fund_id(fund.id)
+        if existing is not None:
+            item = self.repository.update_watchlist_item(
+                existing,
+                fund=fund,
+                priority=payload.priority,
+                status=payload.status,
+                watch_reason=payload.watch_reason,
+                risk_level=payload.risk_level,
+                target_position=payload.target_position,
+                tags=payload.tags,
+                note=payload.note,
+            )
+        else:
+            item = self.repository.create_watchlist_item(
+                fund=fund,
+                priority=payload.priority,
+                status=payload.status,
+                watch_reason=payload.watch_reason,
+                risk_level=payload.risk_level,
+                target_position=payload.target_position,
+                tags=payload.tags,
+                note=payload.note,
+            )
+        self.repository.commit()
+        return self._to_watchlist_read(item)
+
+    def update_watchlist_item(
+        self,
+        item_id: int,
+        payload: FundWatchlistUpdate,
+    ) -> FundWatchlistRead:
+        item = self.repository.get_watchlist_item(item_id)
+        if item is None:
+            raise AppError(
+                code=ErrorCode.not_found,
+                message="Fund watchlist item was not found.",
+                status_code=404,
+            )
+        fund = self.repository.upsert_fund(
+            code=payload.fund_code,
+            name=payload.fund_name,
+            fund_type=payload.fund_type,
+        )
+        existing = self.repository.get_watchlist_item_by_fund_id(fund.id)
+        if existing is not None and existing.id != item_id:
+            raise AppError(
+                code=ErrorCode.conflict,
+                message="Fund is already in the watchlist.",
+                status_code=409,
+            )
+        updated = self.repository.update_watchlist_item(
+            item,
+            fund=fund,
+            priority=payload.priority,
+            status=payload.status,
+            watch_reason=payload.watch_reason,
+            risk_level=payload.risk_level,
+            target_position=payload.target_position,
+            tags=payload.tags,
+            note=payload.note,
+        )
+        self.repository.commit()
+        return self._to_watchlist_read(updated)
+
+    def delete_watchlist_item(self, item_id: int) -> None:
+        item = self.repository.get_watchlist_item(item_id)
+        if item is None:
+            raise AppError(
+                code=ErrorCode.not_found,
+                message="Fund watchlist item was not found.",
+                status_code=404,
+            )
+        self.repository.delete_watchlist_item(item)
+        self.repository.commit()
 
     def create_position(self, payload: FundPositionCreate) -> FundPositionRead:
         fund = self.repository.upsert_fund(
@@ -107,6 +200,35 @@ class FundService:
             valued_position_count=len(valued_positions),
             fund_types=fund_types,
             accounts=accounts,
+        )
+
+    def get_watchlist_summary(self) -> FundWatchlistSummaryRead:
+        items = self.repository.list_watchlist_items()
+        return FundWatchlistSummaryRead(
+            item_count=len(items),
+            fund_count=len({item.fund_id for item in items}),
+            high_priority_count=len([item for item in items if item.priority <= 2]),
+            statuses=sorted({item.status for item in items}),
+            risk_levels=sorted({item.risk_level for item in items}),
+        )
+
+    def _to_watchlist_read(self, item: FundWatchlistItemModel) -> FundWatchlistRead:
+        fund: FundModel = item.fund
+        return FundWatchlistRead(
+            id=item.id,
+            fund_id=fund.id,
+            fund_code=fund.code,
+            fund_name=fund.name,
+            fund_type=fund.fund_type,
+            priority=item.priority,
+            status=item.status,
+            watch_reason=item.watch_reason,
+            risk_level=item.risk_level,
+            target_position=item.target_position,
+            tags=item.tags,
+            note=item.note,
+            created_at=item.created_at,
+            updated_at=item.updated_at,
         )
 
     def _to_position_read(self, position: FundPositionModel) -> FundPositionRead:

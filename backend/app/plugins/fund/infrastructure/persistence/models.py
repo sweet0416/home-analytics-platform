@@ -19,6 +19,29 @@ class FundModel(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     positions: Mapped[list["FundPositionModel"]] = relationship(back_populates="fund")
+    watchlist_items: Mapped[list["FundWatchlistItemModel"]] = relationship(back_populates="fund")
+
+
+class FundWatchlistItemModel(Base):
+    __tablename__ = "fund_watchlist_items"
+    __table_args__ = (
+        Index("ix_fund_watchlist_priority_created", "priority", "created_at"),
+        Index("ix_fund_watchlist_status_created", "status", "created_at"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    fund_id: Mapped[int] = mapped_column(ForeignKey("funds.id"), index=True)
+    priority: Mapped[int] = mapped_column(Integer, default=3)
+    status: Mapped[str] = mapped_column(String(32), default="watching")
+    watch_reason: Mapped[str] = mapped_column(String(256), default="")
+    risk_level: Mapped[str] = mapped_column(String(32), default="medium")
+    target_position: Mapped[str] = mapped_column(String(64), default="")
+    tags: Mapped[str] = mapped_column(String(256), default="")
+    note: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    fund: Mapped[FundModel] = relationship(back_populates="watchlist_items")
 
 
 class FundPositionModel(Base):

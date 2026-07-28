@@ -3,6 +3,7 @@ from enum import StrEnum
 
 class ErrorCode(StrEnum):
     validation_error = "VALIDATION_ERROR"
+    conflict = "CONFLICT"
     not_found = "NOT_FOUND"
     internal_error = "INTERNAL_ERROR"
     plugin_not_found = "PLUGIN_NOT_FOUND"

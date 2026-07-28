@@ -11,6 +11,10 @@ from app.plugins.fund.interfaces.schemas import (
     FundPositionRead,
     FundPositionUpdate,
     FundStatusRead,
+    FundWatchlistCreate,
+    FundWatchlistRead,
+    FundWatchlistSummaryRead,
+    FundWatchlistUpdate,
 )
 from app.shared.responses.schemas import ApiResponse, ok
 
@@ -43,6 +47,46 @@ def list_fund_positions(
     service: FundService = Depends(get_fund_service),
 ) -> ApiResponse[list[FundPositionRead]]:
     return ok(service.list_positions())
+
+
+@router.get("/watchlist", response_model=ApiResponse[list[FundWatchlistRead]])
+def list_fund_watchlist(
+    service: FundService = Depends(get_fund_service),
+) -> ApiResponse[list[FundWatchlistRead]]:
+    return ok(service.list_watchlist_items())
+
+
+@router.post("/watchlist", response_model=ApiResponse[FundWatchlistRead])
+def create_fund_watchlist_item(
+    payload: FundWatchlistCreate,
+    service: FundService = Depends(get_fund_service),
+) -> ApiResponse[FundWatchlistRead]:
+    return ok(service.create_watchlist_item(payload))
+
+
+@router.get("/watchlist/summary", response_model=ApiResponse[FundWatchlistSummaryRead])
+def get_fund_watchlist_summary(
+    service: FundService = Depends(get_fund_service),
+) -> ApiResponse[FundWatchlistSummaryRead]:
+    return ok(service.get_watchlist_summary())
+
+
+@router.put("/watchlist/{item_id}", response_model=ApiResponse[FundWatchlistRead])
+def update_fund_watchlist_item(
+    item_id: int,
+    payload: FundWatchlistUpdate,
+    service: FundService = Depends(get_fund_service),
+) -> ApiResponse[FundWatchlistRead]:
+    return ok(service.update_watchlist_item(item_id, payload))
+
+
+@router.delete("/watchlist/{item_id}", response_model=ApiResponse[dict[str, object]])
+def delete_fund_watchlist_item(
+    item_id: int,
+    service: FundService = Depends(get_fund_service),
+) -> ApiResponse[dict[str, object]]:
+    service.delete_watchlist_item(item_id)
+    return ok({"deleted": True, "id": item_id})
 
 
 @router.post("/positions", response_model=ApiResponse[FundPositionRead])

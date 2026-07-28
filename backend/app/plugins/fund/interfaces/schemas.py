@@ -4,6 +4,55 @@ from decimal import Decimal
 from pydantic import BaseModel, Field, field_validator
 
 
+class FundWatchlistCreate(BaseModel):
+    fund_code: str = Field(min_length=1, max_length=16)
+    fund_name: str = Field(min_length=1, max_length=128)
+    fund_type: str = Field(default="unknown", max_length=64)
+    priority: int = Field(default=3, ge=1, le=5)
+    status: str = Field(default="watching", max_length=32)
+    watch_reason: str = Field(default="", max_length=256)
+    risk_level: str = Field(default="medium", max_length=32)
+    target_position: str = Field(default="", max_length=64)
+    tags: str = Field(default="", max_length=256)
+    note: str = ""
+
+    @field_validator(
+        "fund_code",
+        "fund_name",
+        "fund_type",
+        "status",
+        "watch_reason",
+        "risk_level",
+        "target_position",
+        "tags",
+        "note",
+    )
+    @classmethod
+    def strip_text(cls, value: str) -> str:
+        return value.strip()
+
+
+class FundWatchlistUpdate(FundWatchlistCreate):
+    pass
+
+
+class FundWatchlistRead(BaseModel):
+    id: int
+    fund_id: int
+    fund_code: str
+    fund_name: str
+    fund_type: str
+    priority: int
+    status: str
+    watch_reason: str
+    risk_level: str
+    target_position: str
+    tags: str
+    note: str
+    created_at: datetime
+    updated_at: datetime
+
+
 class FundPositionCreate(BaseModel):
     fund_code: str = Field(min_length=1, max_length=16)
     fund_name: str = Field(min_length=1, max_length=128)
@@ -63,6 +112,14 @@ class FundHoldingSummaryRead(BaseModel):
     valued_position_count: int
     fund_types: list[str]
     accounts: list[str]
+
+
+class FundWatchlistSummaryRead(BaseModel):
+    item_count: int
+    fund_count: int
+    high_priority_count: int
+    statuses: list[str]
+    risk_levels: list[str]
 
 
 class FundModuleRead(BaseModel):

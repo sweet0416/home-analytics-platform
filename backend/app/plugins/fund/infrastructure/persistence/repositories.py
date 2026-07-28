@@ -4,7 +4,11 @@ from decimal import Decimal
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
-from app.plugins.fund.infrastructure.persistence.models import FundModel, FundPositionModel
+from app.plugins.fund.infrastructure.persistence.models import (
+    FundModel,
+    FundPositionModel,
+    FundWatchlistItemModel,
+)
 
 
 class FundRepository:
@@ -97,6 +101,88 @@ class FundRepository:
     def delete_position(self, position: FundPositionModel) -> None:
         self.db.delete(position)
         self.db.flush()
+
+    def create_watchlist_item(
+        self,
+        *,
+        fund: FundModel,
+        priority: int,
+        status: str,
+        watch_reason: str,
+        risk_level: str,
+        target_position: str,
+        tags: str,
+        note: str,
+    ) -> FundWatchlistItemModel:
+        item = FundWatchlistItemModel(
+            fund=fund,
+            priority=priority,
+            status=status,
+            watch_reason=watch_reason,
+            risk_level=risk_level,
+            target_position=target_position,
+            tags=tags,
+            note=note,
+        )
+        self.db.add(item)
+        self.db.flush()
+        return item
+
+    def get_watchlist_item(self, item_id: int) -> FundWatchlistItemModel | None:
+        return self.db.scalar(
+            select(FundWatchlistItemModel)
+            .options(selectinload(FundWatchlistItemModel.fund))
+            .where(FundWatchlistItemModel.id == item_id)
+        )
+
+    def get_watchlist_item_by_fund_id(self, fund_id: int) -> FundWatchlistItemModel | None:
+        return self.db.scalar(
+            select(FundWatchlistItemModel)
+            .options(selectinload(FundWatchlistItemModel.fund))
+            .where(FundWatchlistItemModel.fund_id == fund_id)
+        )
+
+    def update_watchlist_item(
+        self,
+        item: FundWatchlistItemModel,
+        *,
+        fund: FundModel,
+        priority: int,
+        status: str,
+        watch_reason: str,
+        risk_level: str,
+        target_position: str,
+        tags: str,
+        note: str,
+    ) -> FundWatchlistItemModel:
+        item.fund = fund
+        item.priority = priority
+        item.status = status
+        item.watch_reason = watch_reason
+        item.risk_level = risk_level
+        item.target_position = target_position
+        item.tags = tags
+        item.note = note
+        item.updated_at = datetime.utcnow()
+        self.db.flush()
+        return item
+
+    def delete_watchlist_item(self, item: FundWatchlistItemModel) -> None:
+        self.db.delete(item)
+        self.db.flush()
+
+    def list_watchlist_items(self) -> list[FundWatchlistItemModel]:
+        return list(
+            self.db.scalars(
+                select(FundWatchlistItemModel)
+                .options(selectinload(FundWatchlistItemModel.fund))
+                .order_by(
+                    FundWatchlistItemModel.priority.asc(),
+                    FundWatchlistItemModel.created_at.desc(),
+                    FundWatchlistItemModel.id.desc(),
+                )
+            )
+        )
 
     def list_positions(self) -> list[FundPositionModel]:
         return list(
