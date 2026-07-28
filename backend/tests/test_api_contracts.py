@@ -1,5 +1,33 @@
 from fastapi.testclient import TestClient
 
+from app.plugins.fund.infrastructure.sources.eastmoney import EastmoneyFundNavSource
+
+
+def test_eastmoney_fund_nav_source_parses_latest_record() -> None:
+    source = EastmoneyFundNavSource()
+    content = """
+    var fS_name = "测试基金";
+    var fS_code = "513199";
+    var Data_netWorthTrend = [
+      {"x":1785196800000,"y":1.2000,"equityReturn":0.1},
+      {"x":1785283200000,"y":1.3000,"equityReturn":0.2}
+    ];
+    var Data_ACWorthTrend = [[1785196800000,1.5000],[1785283200000,1.6000]];
+    """
+
+    latest = source.parse_script(
+        content,
+        source_url="https://fund.eastmoney.com/pingzhongdata/513199.js",
+        fund_code="513199",
+        fund_type="ETF",
+    )
+
+    assert latest.fund_code == "513199"
+    assert latest.fund_name == "测试基金"
+    assert str(latest.unit_nav) == "1.3000"
+    assert str(latest.accumulated_nav) == "1.6000"
+    assert latest.fund_type == "ETF"
+
 
 def test_health_check_returns_standard_response(client: TestClient) -> None:
     response = client.get("/api/v1/system/health")

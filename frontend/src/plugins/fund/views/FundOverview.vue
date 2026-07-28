@@ -169,6 +169,7 @@
           </label>
           <div class="form-actions">
             <el-button plain @click="resetNavForm">清空</el-button>
+            <el-button plain :loading="syncingNav" @click="syncLatestNav">自动获取最新净值</el-button>
             <el-button type="primary" :loading="savingNav" @click="saveNavRecord">保存净值</el-button>
           </div>
         </div>
@@ -377,6 +378,7 @@ import {
   fetchFundStatus,
   fetchFundWatchlist,
   fetchFundWatchlistSummary,
+  syncLatestFundNav,
   type FundHoldingSummary,
   type FundNavRecord,
   type FundNavRecordCreate,
@@ -404,6 +406,7 @@ const isLoading = ref(false);
 const saving = ref(false);
 const savingWatch = ref(false);
 const savingNav = ref(false);
+const syncingNav = ref(false);
 const deletingPositionId = ref<number | null>(null);
 const deletingWatchId = ref<number | null>(null);
 const deletingNavId = ref<number | null>(null);
@@ -602,6 +605,36 @@ async function saveNavRecord(): Promise<void> {
     ElMessage.error(error instanceof Error ? error.message : '净值保存失败');
   } finally {
     savingNav.value = false;
+  }
+}
+
+async function syncLatestNav(): Promise<void> {
+  if (!navForm.value.fund_code.trim()) {
+    ElMessage.warning('请先填写基金代码');
+    return;
+  }
+  syncingNav.value = true;
+  try {
+    const record = await syncLatestFundNav({
+      fund_code: navForm.value.fund_code,
+      fund_type: navForm.value.fund_type || 'unknown',
+    });
+    ElMessage.success(`已同步 ${record.fund_name} ${record.nav_date} 净值`);
+    navForm.value = {
+      fund_code: record.fund_code,
+      fund_name: record.fund_name,
+      fund_type: record.fund_type,
+      nav_date: record.nav_date,
+      unit_nav: Number(record.unit_nav),
+      accumulated_nav: record.accumulated_nav === null ? null : Number(record.accumulated_nav),
+      source: record.source,
+      note: record.note,
+    };
+    await Promise.all([loadNavRecords(), loadHoldings()]);
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : '自动获取净值失败');
+  } finally {
+    syncingNav.value = false;
   }
 }
 

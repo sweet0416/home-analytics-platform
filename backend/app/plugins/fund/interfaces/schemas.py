@@ -69,6 +69,16 @@ class FundNavRecordCreate(BaseModel):
         return value.strip()
 
 
+class FundNavSyncLatestRequest(BaseModel):
+    fund_code: str = Field(min_length=1, max_length=16)
+    fund_type: str = Field(default="unknown", max_length=64)
+
+    @field_validator("fund_code", "fund_type")
+    @classmethod
+    def strip_text(cls, value: str) -> str:
+        return value.strip()
+
+
 class FundNavRecordRead(BaseModel):
     id: int
     fund_id: int

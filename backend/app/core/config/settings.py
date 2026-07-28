@@ -55,6 +55,10 @@ class Settings(BaseSettings):
     lottery_dlt_500_history_url: str = (
         "https://datachart.500.com/dlt/history/newinc/history.php"
     )
+    fund_nav_sync_timeout_seconds: int = Field(default=20, ge=5, le=120)
+    fund_eastmoney_pingzhongdata_url: str = (
+        "https://fund.eastmoney.com/pingzhongdata/{fund_code}.js"
+    )
     cors_origins: list[str] = Field(
         default_factory=lambda: [
             "http://localhost:5173",

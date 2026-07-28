@@ -1,14 +1,16 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from app.plugins.fund.domain.constants import FUND_MODULES, FUND_PLUGIN_CODE
+from app.core.config.settings import Settings, get_settings
 from app.core.database.session import get_db
+from app.plugins.fund.domain.constants import FUND_MODULES, FUND_PLUGIN_CODE
 from app.plugins.fund.application.services import FundService
 from app.plugins.fund.infrastructure.persistence.repositories import FundRepository
 from app.plugins.fund.interfaces.schemas import (
     FundHoldingSummaryRead,
     FundNavRecordCreate,
     FundNavRecordRead,
+    FundNavSyncLatestRequest,
     FundNavSummaryRead,
     FundPositionCreate,
     FundPositionRead,
@@ -24,8 +26,11 @@ from app.shared.responses.schemas import ApiResponse, ok
 router = APIRouter(prefix="/fund")
 
 
-def get_fund_service(db: Session = Depends(get_db)) -> FundService:
-    return FundService(FundRepository(db))
+def get_fund_service(
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> FundService:
+    return FundService(FundRepository(db), settings=settings)
 
 
 @router.get("/status", response_model=ApiResponse[FundStatusRead])
@@ -88,6 +93,14 @@ def create_fund_nav_record(
     service: FundService = Depends(get_fund_service),
 ) -> ApiResponse[FundNavRecordRead]:
     return ok(service.create_nav_record(payload))
+
+
+@router.post("/nav-records/sync-latest", response_model=ApiResponse[FundNavRecordRead])
+def sync_latest_fund_nav_record(
+    payload: FundNavSyncLatestRequest,
+    service: FundService = Depends(get_fund_service),
+) -> ApiResponse[FundNavRecordRead]:
+    return ok(service.sync_latest_nav(payload))
 
 
 @router.get("/nav-records/summary", response_model=ApiResponse[FundNavSummaryRead])

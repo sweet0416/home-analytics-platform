@@ -1,5 +1,6 @@
 from decimal import Decimal
 
+from app.core.config.settings import Settings
 from app.plugins.fund.infrastructure.persistence.models import (
     FundModel,
     FundNavRecordModel,
@@ -7,10 +8,12 @@ from app.plugins.fund.infrastructure.persistence.models import (
     FundWatchlistItemModel,
 )
 from app.plugins.fund.infrastructure.persistence.repositories import FundRepository
+from app.plugins.fund.infrastructure.sources.eastmoney import EastmoneyFundNavSource
 from app.plugins.fund.interfaces.schemas import (
     FundHoldingSummaryRead,
     FundNavRecordCreate,
     FundNavRecordRead,
+    FundNavSyncLatestRequest,
     FundNavSummaryRead,
     FundPositionCreate,
     FundPositionRead,
@@ -25,8 +28,15 @@ from app.shared.exceptions.codes import ErrorCode
 
 
 class FundService:
-    def __init__(self, repository: FundRepository) -> None:
+    def __init__(
+        self,
+        repository: FundRepository,
+        settings: Settings | None = None,
+        nav_source: EastmoneyFundNavSource | None = None,
+    ) -> None:
         self.repository = repository
+        self.settings = settings
+        self.nav_source = nav_source
 
     def list_positions(self) -> list[FundPositionRead]:
         return [self._to_position_read(position) for position in self.repository.list_positions()]
@@ -56,6 +66,26 @@ class FundService:
             note=payload.note,
         )
         self.repository.update_position_navs(fund_id=fund.id, current_nav=payload.unit_nav)
+        self.repository.commit()
+        return self._to_nav_record_read(record)
+
+    def sync_latest_nav(self, payload: FundNavSyncLatestRequest) -> FundNavRecordRead:
+        source = self.nav_source or self._build_default_nav_source()
+        latest = source.fetch_latest(fund_code=payload.fund_code, fund_type=payload.fund_type)
+        fund = self.repository.upsert_fund(
+            code=latest.fund_code,
+            name=latest.fund_name,
+            fund_type=latest.fund_type,
+        )
+        record = self.repository.upsert_nav_record(
+            fund=fund,
+            nav_date=latest.nav_date,
+            unit_nav=latest.unit_nav,
+            accumulated_nav=latest.accumulated_nav,
+            source=latest.source,
+            note=f"source_url={latest.source_url}",
+        )
+        self.repository.update_position_navs(fund_id=fund.id, current_nav=latest.unit_nav)
         self.repository.commit()
         return self._to_nav_record_read(record)
 
@@ -333,4 +363,12 @@ class FundService:
             note=position.note,
             created_at=position.created_at,
             updated_at=position.updated_at,
+        )
+
+    def _build_default_nav_source(self) -> EastmoneyFundNavSource:
+        if self.settings is None:
+            return EastmoneyFundNavSource()
+        return EastmoneyFundNavSource(
+            timeout_seconds=self.settings.fund_nav_sync_timeout_seconds,
+            url_template=self.settings.fund_eastmoney_pingzhongdata_url,
         )

@@ -96,6 +96,11 @@ export interface FundNavRecordCreate {
   note: string;
 }
 
+export interface FundNavSyncLatestRequest {
+  fund_code: string;
+  fund_type: string;
+}
+
 export interface FundPositionCreate {
   fund_code: string;
   fund_name: string;
@@ -165,6 +170,10 @@ export function fetchFundNavRecords(limit = 50): Promise<FundNavRecord[]> {
 
 export function createFundNavRecord(payload: FundNavRecordCreate): Promise<FundNavRecord> {
   return postApiData<FundNavRecord, FundNavRecordCreate>('/fund/nav-records', payload);
+}
+
+export function syncLatestFundNav(payload: FundNavSyncLatestRequest): Promise<FundNavRecord> {
+  return postApiData<FundNavRecord, FundNavSyncLatestRequest>('/fund/nav-records/sync-latest', payload);
 }
 
 export async function deleteFundNavRecord(
