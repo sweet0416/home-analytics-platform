@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.plugins.fund.infrastructure.persistence.models import (
     FundModel,
+    FundNavRecordModel,
     FundPositionModel,
     FundWatchlistItemModel,
 )
@@ -170,6 +171,77 @@ class FundRepository:
     def delete_watchlist_item(self, item: FundWatchlistItemModel) -> None:
         self.db.delete(item)
         self.db.flush()
+
+    def upsert_nav_record(
+        self,
+        *,
+        fund: FundModel,
+        nav_date: date,
+        unit_nav: Decimal,
+        accumulated_nav: Decimal | None,
+        source: str,
+        note: str,
+    ) -> FundNavRecordModel:
+        record = self.db.scalar(
+            select(FundNavRecordModel)
+            .options(selectinload(FundNavRecordModel.fund))
+            .where(
+                FundNavRecordModel.fund_id == fund.id,
+                FundNavRecordModel.nav_date == nav_date,
+            )
+        )
+        now = datetime.utcnow()
+        if record is not None:
+            record.unit_nav = unit_nav
+            record.accumulated_nav = accumulated_nav
+            record.source = source
+            record.note = note
+            record.updated_at = now
+            self.db.flush()
+            return record
+
+        record = FundNavRecordModel(
+            fund=fund,
+            nav_date=nav_date,
+            unit_nav=unit_nav,
+            accumulated_nav=accumulated_nav,
+            source=source,
+            note=note,
+        )
+        self.db.add(record)
+        self.db.flush()
+        return record
+
+    def get_nav_record(self, record_id: int) -> FundNavRecordModel | None:
+        return self.db.scalar(
+            select(FundNavRecordModel)
+            .options(selectinload(FundNavRecordModel.fund))
+            .where(FundNavRecordModel.id == record_id)
+        )
+
+    def delete_nav_record(self, record: FundNavRecordModel) -> None:
+        self.db.delete(record)
+        self.db.flush()
+
+    def update_position_navs(self, *, fund_id: int, current_nav: Decimal) -> None:
+        positions = self.db.scalars(
+            select(FundPositionModel).where(FundPositionModel.fund_id == fund_id)
+        )
+        now = datetime.utcnow()
+        for position in positions:
+            position.current_nav = current_nav
+            position.updated_at = now
+        self.db.flush()
+
+    def list_nav_records(self, limit: int = 50) -> list[FundNavRecordModel]:
+        return list(
+            self.db.scalars(
+                select(FundNavRecordModel)
+                .options(selectinload(FundNavRecordModel.fund))
+                .order_by(FundNavRecordModel.nav_date.desc(), FundNavRecordModel.id.desc())
+                .limit(limit)
+            )
+        )
 
     def list_watchlist_items(self) -> list[FundWatchlistItemModel]:
         return list(

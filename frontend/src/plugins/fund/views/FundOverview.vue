@@ -10,8 +10,9 @@
     <div class="grid metrics">
       <MetricCard label="观察基金" :value="String(watchSummary?.item_count ?? 0)" meta="关注池记录" :delay="80" />
       <MetricCard label="高优先级" :value="String(watchSummary?.high_priority_count ?? 0)" meta="优先级 1-2" :delay="120" />
-      <MetricCard label="持仓数量" :value="String(summary?.position_count ?? 0)" meta="已录入记录" :delay="160" />
-      <MetricCard label="浮盈亏" :value="formatMoney(summary?.unrealized_profit)" :meta="returnRateMeta" :delay="200" />
+      <MetricCard label="净值记录" :value="String(navSummary?.record_count ?? 0)" :meta="latestNavMeta" :delay="160" />
+      <MetricCard label="持仓数量" :value="String(summary?.position_count ?? 0)" meta="已录入记录" :delay="200" />
+      <MetricCard label="浮盈亏" :value="formatMoney(summary?.unrealized_profit)" :meta="returnRateMeta" :delay="240" />
     </div>
 
     <RevealContent as="section" class="panel fund-panel" :delay="260">
@@ -119,6 +120,94 @@
           v-else
           title="还没有观察基金"
           description="先把想研究的 ETF、QDII 或主动基金加入观察池。"
+        />
+      </div>
+    </RevealContent>
+
+    <RevealContent as="section" class="panel fund-panel" :delay="280">
+      <div class="panel-header">
+        <div>
+          <h2 class="panel-title">净值记录</h2>
+          <span class="panel-meta">手动录入最新净值；如果已有对应持仓，会同步刷新当前净值和浮盈亏</span>
+        </div>
+      </div>
+      <div class="panel-body">
+        <div class="nav-form">
+          <label>
+            <span>基金代码</span>
+            <el-input v-model="navForm.fund_code" placeholder="例如 513100" />
+          </label>
+          <label>
+            <span>基金名称</span>
+            <el-input v-model="navForm.fund_name" placeholder="例如 纳指 ETF" />
+          </label>
+          <label>
+            <span>基金类型</span>
+            <el-select v-model="navForm.fund_type">
+              <el-option v-for="type in fundTypes" :key="type" :label="type" :value="type" />
+            </el-select>
+          </label>
+          <label>
+            <span>净值日期</span>
+            <el-date-picker v-model="navForm.nav_date" type="date" value-format="YYYY-MM-DD" />
+          </label>
+          <label>
+            <span>单位净值</span>
+            <el-input-number v-model="navForm.unit_nav" :min="0" :precision="4" :step="0.01" />
+          </label>
+          <label>
+            <span>累计净值</span>
+            <el-input-number v-model="navForm.accumulated_nav" :min="0" :precision="4" :step="0.01" />
+          </label>
+          <label>
+            <span>来源</span>
+            <el-input v-model="navForm.source" placeholder="manual" />
+          </label>
+          <label>
+            <span>备注</span>
+            <el-input v-model="navForm.note" placeholder="估算、收盘、补录等" />
+          </label>
+          <div class="form-actions">
+            <el-button plain @click="resetNavForm">清空</el-button>
+            <el-button type="primary" :loading="savingNav" @click="saveNavRecord">保存净值</el-button>
+          </div>
+        </div>
+
+        <div v-if="navRecords.length" class="nav-table">
+          <div class="nav-row table-head">
+            <span>基金</span>
+            <span>日期</span>
+            <span>单位净值</span>
+            <span>累计净值</span>
+            <span>来源</span>
+            <span>操作</span>
+          </div>
+          <div v-for="record in navRecords" :key="record.id" class="nav-row">
+            <span>
+              <strong>{{ record.fund_name }}</strong>
+              <small>{{ record.fund_code }} · {{ record.fund_type }}</small>
+            </span>
+            <span>{{ record.nav_date }}</span>
+            <span>{{ formatNumber(record.unit_nav, 4) }}</span>
+            <span>{{ formatNullableNumber(record.accumulated_nav, 4) }}</span>
+            <span>{{ record.source }}</span>
+            <span class="row-actions">
+              <el-button
+                text
+                size="small"
+                type="danger"
+                :loading="deletingNavId === record.id"
+                @click="removeNavRecord(record)"
+              >
+                删除
+              </el-button>
+            </span>
+          </div>
+        </div>
+        <EmptyState
+          v-else
+          title="还没有净值记录"
+          description="先手动录入最新净值，后续会接入自动同步。"
         />
       </div>
     </RevealContent>
@@ -275,16 +364,23 @@ import EmptyState from '@/components/common/EmptyState.vue';
 import RevealContent from '@/components/common/RevealContent.vue';
 import MetricCard from '@/components/metric/MetricCard.vue';
 import {
+  createFundNavRecord,
   createFundPosition,
   createFundWatchlistItem,
+  deleteFundNavRecord,
   deleteFundPosition,
   deleteFundWatchlistItem,
   fetchFundHoldingSummary,
+  fetchFundNavRecords,
+  fetchFundNavSummary,
   fetchFundPositions,
   fetchFundStatus,
   fetchFundWatchlist,
   fetchFundWatchlistSummary,
   type FundHoldingSummary,
+  type FundNavRecord,
+  type FundNavRecordCreate,
+  type FundNavSummary,
   type FundPosition,
   type FundPositionCreate,
   type FundStatus,
@@ -300,13 +396,17 @@ const fundTypes = ['ETF', 'QDII', '指数基金', '混合型', '债券型', '货
 const fundStatus = ref<FundStatus | null>(null);
 const positions = ref<FundPosition[]>([]);
 const watchItems = ref<FundWatchlistItem[]>([]);
+const navRecords = ref<FundNavRecord[]>([]);
 const summary = ref<FundHoldingSummary | null>(null);
 const watchSummary = ref<FundWatchlistSummary | null>(null);
+const navSummary = ref<FundNavSummary | null>(null);
 const isLoading = ref(false);
 const saving = ref(false);
 const savingWatch = ref(false);
+const savingNav = ref(false);
 const deletingPositionId = ref<number | null>(null);
 const deletingWatchId = ref<number | null>(null);
+const deletingNavId = ref<number | null>(null);
 const errorMessage = ref('');
 const editingPositionId = ref<number | null>(null);
 const editingWatchId = ref<number | null>(null);
@@ -338,6 +438,17 @@ const watchForm = ref<FundWatchlistCreate>({
   note: '',
 });
 
+const navForm = ref<FundNavRecordCreate>({
+  fund_code: '',
+  fund_name: '',
+  fund_type: 'ETF',
+  nav_date: new Date().toISOString().slice(0, 10),
+  unit_nav: 0,
+  accumulated_nav: null,
+  source: 'manual',
+  note: '',
+});
+
 const labelMap: Record<string, string> = {
   scaffolded: '已接入',
   planned: '规划中',
@@ -365,6 +476,8 @@ const returnRateMeta = computed(() => {
   return `${(Number(summary.value.unrealized_return_rate) * 100).toFixed(2)}%`;
 });
 
+const latestNavMeta = computed(() => navSummary.value?.latest_nav_date ?? '等待净值');
+
 function formatMoney(value: string | number | null | undefined): string {
   if (value === null || value === undefined) return '--';
   const numberValue = Number(value);
@@ -376,6 +489,11 @@ function formatNumber(value: string | number, digits = 2): string {
   const numberValue = Number(value);
   if (!Number.isFinite(numberValue)) return '--';
   return numberValue.toLocaleString('zh-CN', { maximumFractionDigits: digits });
+}
+
+function formatNullableNumber(value: string | number | null, digits = 2): string {
+  if (value === null) return '--';
+  return formatNumber(value, digits);
 }
 
 function profitClass(value: string | null): string {
@@ -418,6 +536,19 @@ function resetWatchForm(): void {
   };
 }
 
+function resetNavForm(): void {
+  navForm.value = {
+    fund_code: '',
+    fund_name: '',
+    fund_type: 'ETF',
+    nav_date: new Date().toISOString().slice(0, 10),
+    unit_nav: 0,
+    accumulated_nav: null,
+    source: 'manual',
+    note: '',
+  };
+}
+
 async function loadHoldings(): Promise<void> {
   const [nextPositions, nextSummary] = await Promise.all([
     fetchFundPositions(),
@@ -434,6 +565,71 @@ async function loadWatchlist(): Promise<void> {
   ]);
   watchItems.value = nextItems;
   watchSummary.value = nextSummary;
+}
+
+async function loadNavRecords(): Promise<void> {
+  const [nextRecords, nextSummary] = await Promise.all([
+    fetchFundNavRecords(),
+    fetchFundNavSummary(),
+  ]);
+  navRecords.value = nextRecords;
+  navSummary.value = nextSummary;
+}
+
+async function saveNavRecord(): Promise<void> {
+  if (!navForm.value.fund_code.trim() || !navForm.value.fund_name.trim()) {
+    ElMessage.warning('基金代码和名称不能为空');
+    return;
+  }
+  if (!navForm.value.nav_date || navForm.value.unit_nav <= 0) {
+    ElMessage.warning('净值日期和单位净值必须填写');
+    return;
+  }
+  savingNav.value = true;
+  try {
+    await createFundNavRecord({
+      ...navForm.value,
+      accumulated_nav:
+        navForm.value.accumulated_nav && navForm.value.accumulated_nav > 0
+          ? navForm.value.accumulated_nav
+          : null,
+      source: navForm.value.source || 'manual',
+    });
+    ElMessage.success('净值已保存，相关持仓已刷新');
+    resetNavForm();
+    await Promise.all([loadNavRecords(), loadHoldings()]);
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : '净值保存失败');
+  } finally {
+    savingNav.value = false;
+  }
+}
+
+async function removeNavRecord(record: FundNavRecord): Promise<void> {
+  try {
+    await ElMessageBox.confirm(
+      `删除 ${record.fund_name}（${record.fund_code}）${record.nav_date} 的净值记录？`,
+      '确认删除净值',
+      {
+        confirmButtonText: '删除',
+        cancelButtonText: '取消',
+        type: 'warning',
+      },
+    );
+  } catch {
+    return;
+  }
+
+  deletingNavId.value = record.id;
+  try {
+    await deleteFundNavRecord(record.id);
+    ElMessage.success('净值记录已删除');
+    await loadNavRecords();
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : '净值记录删除失败');
+  } finally {
+    deletingNavId.value = null;
+  }
 }
 
 async function saveWatchItem(): Promise<void> {
@@ -591,7 +787,7 @@ onMounted(async () => {
   errorMessage.value = '';
   try {
     fundStatus.value = await fetchFundStatus();
-    await Promise.all([loadHoldings(), loadWatchlist()]);
+    await Promise.all([loadHoldings(), loadWatchlist(), loadNavRecords()]);
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : '基金模块状态加载失败';
   } finally {
@@ -611,6 +807,7 @@ onMounted(async () => {
 }
 
 .position-form,
+.nav-form,
 .watchlist-form {
   display: grid;
   gap: 12px;
@@ -618,18 +815,21 @@ onMounted(async () => {
 }
 
 .position-form label,
+.nav-form label,
 .watchlist-form label {
   display: grid;
   gap: 7px;
 }
 
 .position-form label span,
+.nav-form label span,
 .watchlist-form label span {
   color: var(--color-muted);
   font-size: 12px;
 }
 
 .position-form .wide,
+.nav-form .wide,
 .watchlist-form .wide {
   grid-column: span 2;
 }
@@ -708,6 +908,38 @@ onMounted(async () => {
 .position-table {
   display: grid;
   gap: 8px;
+}
+
+.nav-table {
+  display: grid;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.nav-row {
+  align-items: center;
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 1.4fr 0.8fr repeat(3, 0.75fr) 0.7fr;
+  padding: 11px 12px;
+}
+
+.nav-row span {
+  color: var(--color-muted);
+  font-size: 13px;
+}
+
+.nav-row strong {
+  color: var(--color-text);
+  display: block;
+}
+
+.nav-row small {
+  display: block;
+  font-size: 12px;
+  margin-top: 4px;
 }
 
 .position-row {
@@ -800,18 +1032,21 @@ onMounted(async () => {
 
 @media (max-width: 920px) {
   .position-form,
+  .nav-form,
   .watchlist-form,
   .watchlist-grid {
     grid-template-columns: 1fr;
   }
 
   .position-form .wide,
+  .nav-form .wide,
   .watchlist-form .wide {
     grid-column: auto;
   }
 }
 
 @media (max-width: 720px) {
+  .nav-row,
   .position-row {
     grid-template-columns: 1fr;
   }

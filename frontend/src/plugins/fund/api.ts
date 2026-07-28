@@ -70,6 +70,32 @@ export interface FundWatchlistCreate {
   note: string;
 }
 
+export interface FundNavRecord {
+  id: number;
+  fund_id: number;
+  fund_code: string;
+  fund_name: string;
+  fund_type: string;
+  nav_date: string;
+  unit_nav: string;
+  accumulated_nav: string | null;
+  source: string;
+  note: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface FundNavRecordCreate {
+  fund_code: string;
+  fund_name: string;
+  fund_type: string;
+  nav_date: string;
+  unit_nav: number;
+  accumulated_nav?: number | null;
+  source: string;
+  note: string;
+}
+
 export interface FundPositionCreate {
   fund_code: string;
   fund_name: string;
@@ -104,6 +130,13 @@ export interface FundWatchlistSummary {
   risk_levels: string[];
 }
 
+export interface FundNavSummary {
+  record_count: number;
+  fund_count: number;
+  latest_nav_date: string | null;
+  sources: string[];
+}
+
 export function fetchFundStatus(): Promise<FundStatus> {
   return getApiData<FundStatus>('/fund/status');
 }
@@ -124,6 +157,23 @@ export function createFundWatchlistItem(
   payload: FundWatchlistCreate,
 ): Promise<FundWatchlistItem> {
   return postApiData<FundWatchlistItem, FundWatchlistCreate>('/fund/watchlist', payload);
+}
+
+export function fetchFundNavRecords(limit = 50): Promise<FundNavRecord[]> {
+  return getApiData<FundNavRecord[]>(`/fund/nav-records?limit=${limit}`);
+}
+
+export function createFundNavRecord(payload: FundNavRecordCreate): Promise<FundNavRecord> {
+  return postApiData<FundNavRecord, FundNavRecordCreate>('/fund/nav-records', payload);
+}
+
+export async function deleteFundNavRecord(
+  recordId: number,
+): Promise<{ deleted: boolean; id: number }> {
+  const response = await apiClient.delete<ApiResponse<{ deleted: boolean; id: number }>>(
+    `/fund/nav-records/${recordId}`,
+  );
+  return response.data.data;
 }
 
 export async function updateFundWatchlistItem(
@@ -170,4 +220,8 @@ export function fetchFundHoldingSummary(): Promise<FundHoldingSummary> {
 
 export function fetchFundWatchlistSummary(): Promise<FundWatchlistSummary> {
   return getApiData<FundWatchlistSummary>('/fund/watchlist/summary');
+}
+
+export function fetchFundNavSummary(): Promise<FundNavSummary> {
+  return getApiData<FundNavSummary>('/fund/nav-records/summary');
 }

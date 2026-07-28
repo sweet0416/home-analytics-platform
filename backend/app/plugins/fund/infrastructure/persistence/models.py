@@ -20,6 +20,7 @@ class FundModel(Base):
 
     positions: Mapped[list["FundPositionModel"]] = relationship(back_populates="fund")
     watchlist_items: Mapped[list["FundWatchlistItemModel"]] = relationship(back_populates="fund")
+    nav_records: Mapped[list["FundNavRecordModel"]] = relationship(back_populates="fund")
 
 
 class FundWatchlistItemModel(Base):
@@ -42,6 +43,26 @@ class FundWatchlistItemModel(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     fund: Mapped[FundModel] = relationship(back_populates="watchlist_items")
+
+
+class FundNavRecordModel(Base):
+    __tablename__ = "fund_nav_records"
+    __table_args__ = (
+        Index("ix_fund_nav_records_fund_date", "fund_id", "nav_date", unique=True),
+        Index("ix_fund_nav_records_date", "nav_date"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    fund_id: Mapped[int] = mapped_column(ForeignKey("funds.id"), index=True)
+    nav_date: Mapped[date] = mapped_column(Date)
+    unit_nav: Mapped[Decimal] = mapped_column(Numeric(18, 4))
+    accumulated_nav: Mapped[Decimal | None] = mapped_column(Numeric(18, 4), nullable=True)
+    source: Mapped[str] = mapped_column(String(64), default="manual")
+    note: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    fund: Mapped[FundModel] = relationship(back_populates="nav_records")
 
 
 class FundPositionModel(Base):

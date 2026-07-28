@@ -2,12 +2,16 @@ from decimal import Decimal
 
 from app.plugins.fund.infrastructure.persistence.models import (
     FundModel,
+    FundNavRecordModel,
     FundPositionModel,
     FundWatchlistItemModel,
 )
 from app.plugins.fund.infrastructure.persistence.repositories import FundRepository
 from app.plugins.fund.interfaces.schemas import (
     FundHoldingSummaryRead,
+    FundNavRecordCreate,
+    FundNavRecordRead,
+    FundNavSummaryRead,
     FundPositionCreate,
     FundPositionRead,
     FundPositionUpdate,
@@ -29,6 +33,42 @@ class FundService:
 
     def list_watchlist_items(self) -> list[FundWatchlistRead]:
         return [self._to_watchlist_read(item) for item in self.repository.list_watchlist_items()]
+
+    def list_nav_records(self, limit: int = 50) -> list[FundNavRecordRead]:
+        bounded_limit = max(1, min(limit, 200))
+        return [
+            self._to_nav_record_read(record)
+            for record in self.repository.list_nav_records(limit=bounded_limit)
+        ]
+
+    def create_nav_record(self, payload: FundNavRecordCreate) -> FundNavRecordRead:
+        fund = self.repository.upsert_fund(
+            code=payload.fund_code,
+            name=payload.fund_name,
+            fund_type=payload.fund_type,
+        )
+        record = self.repository.upsert_nav_record(
+            fund=fund,
+            nav_date=payload.nav_date,
+            unit_nav=payload.unit_nav,
+            accumulated_nav=payload.accumulated_nav,
+            source=payload.source,
+            note=payload.note,
+        )
+        self.repository.update_position_navs(fund_id=fund.id, current_nav=payload.unit_nav)
+        self.repository.commit()
+        return self._to_nav_record_read(record)
+
+    def delete_nav_record(self, record_id: int) -> None:
+        record = self.repository.get_nav_record(record_id)
+        if record is None:
+            raise AppError(
+                code=ErrorCode.not_found,
+                message="Fund NAV record was not found.",
+                status_code=404,
+            )
+        self.repository.delete_nav_record(record)
+        self.repository.commit()
 
     def create_watchlist_item(self, payload: FundWatchlistCreate) -> FundWatchlistRead:
         fund = self.repository.upsert_fund(
@@ -210,6 +250,32 @@ class FundService:
             high_priority_count=len([item for item in items if item.priority <= 2]),
             statuses=sorted({item.status for item in items}),
             risk_levels=sorted({item.risk_level for item in items}),
+        )
+
+    def get_nav_summary(self) -> FundNavSummaryRead:
+        records = self.repository.list_nav_records(limit=200)
+        return FundNavSummaryRead(
+            record_count=len(records),
+            fund_count=len({record.fund_id for record in records}),
+            latest_nav_date=max((record.nav_date for record in records), default=None),
+            sources=sorted({record.source for record in records}),
+        )
+
+    def _to_nav_record_read(self, record: FundNavRecordModel) -> FundNavRecordRead:
+        fund: FundModel = record.fund
+        return FundNavRecordRead(
+            id=record.id,
+            fund_id=fund.id,
+            fund_code=fund.code,
+            fund_name=fund.name,
+            fund_type=fund.fund_type,
+            nav_date=record.nav_date,
+            unit_nav=record.unit_nav,
+            accumulated_nav=record.accumulated_nav,
+            source=record.source,
+            note=record.note,
+            created_at=record.created_at,
+            updated_at=record.updated_at,
         )
 
     def _to_watchlist_read(self, item: FundWatchlistItemModel) -> FundWatchlistRead:

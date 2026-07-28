@@ -143,6 +143,66 @@ def test_fund_watchlist_can_be_created_updated_and_deleted(client: TestClient) -
     assert final_summary_response.json()["data"]["item_count"] == 0
 
 
+def test_fund_nav_record_updates_matching_position_nav(client: TestClient) -> None:
+    position_payload = {
+        "fund_code": "513100",
+        "fund_name": "纳指 ETF",
+        "fund_type": "QDII",
+        "account_name": "默认账户",
+        "shares": "1000",
+        "cost_price": "1.0000",
+        "current_nav": "1.0000",
+        "tags": "",
+        "note": "",
+    }
+    position_response = client.post("/api/v1/fund/positions", json=position_payload)
+    assert position_response.status_code == 200
+
+    nav_payload = {
+        "fund_code": "513100",
+        "fund_name": "纳指 ETF",
+        "fund_type": "QDII",
+        "nav_date": "2026-07-28",
+        "unit_nav": "1.2500",
+        "accumulated_nav": "1.5000",
+        "source": "manual",
+        "note": "contract test",
+    }
+    nav_response = client.post("/api/v1/fund/nav-records", json=nav_payload)
+    assert nav_response.status_code == 200
+    created = nav_response.json()["data"]
+    assert created["fund_code"] == "513100"
+    assert created["unit_nav"] == "1.2500"
+
+    list_response = client.get("/api/v1/fund/nav-records")
+    assert list_response.status_code == 200
+    assert len(list_response.json()["data"]) == 1
+
+    summary_response = client.get("/api/v1/fund/holdings/summary")
+    assert summary_response.status_code == 200
+    summary = summary_response.json()["data"]
+    assert summary["current_value"] == "1250.0000"
+    assert summary["unrealized_profit"] == "250.0000"
+
+    upsert_response = client.post(
+        "/api/v1/fund/nav-records",
+        json={**nav_payload, "unit_nav": "1.3000", "note": "updated"},
+    )
+    assert upsert_response.status_code == 200
+    assert upsert_response.json()["data"]["id"] == created["id"]
+    assert upsert_response.json()["data"]["unit_nav"] == "1.3000"
+
+    nav_summary_response = client.get("/api/v1/fund/nav-records/summary")
+    assert nav_summary_response.status_code == 200
+    nav_summary = nav_summary_response.json()["data"]
+    assert nav_summary["record_count"] == 1
+    assert nav_summary["latest_nav_date"] == "2026-07-28"
+
+    delete_response = client.delete(f"/api/v1/fund/nav-records/{created['id']}")
+    assert delete_response.status_code == 200
+    assert delete_response.json()["data"] == {"deleted": True, "id": created["id"]}
+
+
 def test_current_dlt_rule_contract(client: TestClient) -> None:
     response = client.get("/api/v1/lottery/dlt/rules/current")
 

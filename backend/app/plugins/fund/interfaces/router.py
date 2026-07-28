@@ -7,6 +7,9 @@ from app.plugins.fund.application.services import FundService
 from app.plugins.fund.infrastructure.persistence.repositories import FundRepository
 from app.plugins.fund.interfaces.schemas import (
     FundHoldingSummaryRead,
+    FundNavRecordCreate,
+    FundNavRecordRead,
+    FundNavSummaryRead,
     FundPositionCreate,
     FundPositionRead,
     FundPositionUpdate,
@@ -69,6 +72,38 @@ def get_fund_watchlist_summary(
     service: FundService = Depends(get_fund_service),
 ) -> ApiResponse[FundWatchlistSummaryRead]:
     return ok(service.get_watchlist_summary())
+
+
+@router.get("/nav-records", response_model=ApiResponse[list[FundNavRecordRead]])
+def list_fund_nav_records(
+    limit: int = 50,
+    service: FundService = Depends(get_fund_service),
+) -> ApiResponse[list[FundNavRecordRead]]:
+    return ok(service.list_nav_records(limit=limit))
+
+
+@router.post("/nav-records", response_model=ApiResponse[FundNavRecordRead])
+def create_fund_nav_record(
+    payload: FundNavRecordCreate,
+    service: FundService = Depends(get_fund_service),
+) -> ApiResponse[FundNavRecordRead]:
+    return ok(service.create_nav_record(payload))
+
+
+@router.get("/nav-records/summary", response_model=ApiResponse[FundNavSummaryRead])
+def get_fund_nav_summary(
+    service: FundService = Depends(get_fund_service),
+) -> ApiResponse[FundNavSummaryRead]:
+    return ok(service.get_nav_summary())
+
+
+@router.delete("/nav-records/{record_id}", response_model=ApiResponse[dict[str, object]])
+def delete_fund_nav_record(
+    record_id: int,
+    service: FundService = Depends(get_fund_service),
+) -> ApiResponse[dict[str, object]]:
+    service.delete_nav_record(record_id)
+    return ok({"deleted": True, "id": record_id})
 
 
 @router.put("/watchlist/{item_id}", response_model=ApiResponse[FundWatchlistRead])

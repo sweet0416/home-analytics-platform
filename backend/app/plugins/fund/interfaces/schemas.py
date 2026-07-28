@@ -53,6 +53,37 @@ class FundWatchlistRead(BaseModel):
     updated_at: datetime
 
 
+class FundNavRecordCreate(BaseModel):
+    fund_code: str = Field(min_length=1, max_length=16)
+    fund_name: str = Field(min_length=1, max_length=128)
+    fund_type: str = Field(default="unknown", max_length=64)
+    nav_date: date
+    unit_nav: Decimal = Field(gt=0, decimal_places=4)
+    accumulated_nav: Decimal | None = Field(default=None, gt=0, decimal_places=4)
+    source: str = Field(default="manual", max_length=64)
+    note: str = ""
+
+    @field_validator("fund_code", "fund_name", "fund_type", "source", "note")
+    @classmethod
+    def strip_text(cls, value: str) -> str:
+        return value.strip()
+
+
+class FundNavRecordRead(BaseModel):
+    id: int
+    fund_id: int
+    fund_code: str
+    fund_name: str
+    fund_type: str
+    nav_date: date
+    unit_nav: Decimal
+    accumulated_nav: Decimal | None
+    source: str
+    note: str
+    created_at: datetime
+    updated_at: datetime
+
+
 class FundPositionCreate(BaseModel):
     fund_code: str = Field(min_length=1, max_length=16)
     fund_name: str = Field(min_length=1, max_length=128)
@@ -120,6 +151,13 @@ class FundWatchlistSummaryRead(BaseModel):
     high_priority_count: int
     statuses: list[str]
     risk_levels: list[str]
+
+
+class FundNavSummaryRead(BaseModel):
+    record_count: int
+    fund_count: int
+    latest_nav_date: date | None
+    sources: list[str]
 
 
 class FundModuleRead(BaseModel):
