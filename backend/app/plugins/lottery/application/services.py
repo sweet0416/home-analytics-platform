@@ -2581,8 +2581,9 @@ class LotteryService:
         if len(groups) < 2:
             return None
 
+        source_rank = int(groups[0]) if groups[0].isdigit() and 1 <= int(groups[0]) <= 5 else None
         group_sets: list[tuple[int, list[str]]] = [(2, groups)]
-        if groups[0].isdigit() and 1 <= int(groups[0]) <= 20:
+        if source_rank is not None:
             group_sets.insert(0, (0, groups[1:]))
 
         candidates: list[tuple[int, dict[str, object]]] = []
@@ -2611,6 +2612,7 @@ class LotteryService:
                             "rank": 0,
                             "front_numbers": front_numbers,
                             "back_numbers": back_numbers,
+                            "source_rank": source_rank,
                         },
                     )
                 )
@@ -2720,7 +2722,31 @@ class LotteryService:
     def _rank_random_ticket_rows(rows: list[dict[str, object]]) -> list[dict[str, object]]:
         ranked: list[dict[str, object]] = []
         seen: set[str] = set()
+        rows_by_source_rank: dict[int, list[dict[str, object]]] = {}
+        fallback_rows: list[dict[str, object]] = []
         for row in rows:
+            source_rank = row.get("source_rank")
+            if isinstance(source_rank, int) and 1 <= source_rank <= 5:
+                rows_by_source_rank.setdefault(source_rank, []).append(row)
+                continue
+            fallback_rows.append(row)
+
+        ordered_rows: list[dict[str, object]] = []
+        extra_source_rows: list[dict[str, object]] = []
+        fallback_index = 0
+        for source_rank in range(1, 6):
+            if source_rank in rows_by_source_rank:
+                ordered_rows.append(rows_by_source_rank[source_rank][0])
+                extra_source_rows.extend(rows_by_source_rank[source_rank][1:])
+                continue
+            while fallback_index < len(fallback_rows):
+                ordered_rows.append(fallback_rows[fallback_index])
+                fallback_index += 1
+                break
+        ordered_rows.extend(extra_source_rows)
+        ordered_rows.extend(fallback_rows[fallback_index:])
+
+        for row in ordered_rows:
             front_numbers = list(row["front_numbers"])
             back_numbers = list(row["back_numbers"])
             signature = f"{','.join(map(str, front_numbers))}|{','.join(map(str, back_numbers))}"

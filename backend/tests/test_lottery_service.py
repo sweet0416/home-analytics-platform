@@ -236,7 +236,34 @@ def test_lottery_service_strips_row_index_from_compact_ocr_line() -> None:
         "rank": 0,
         "front_numbers": [15, 18, 20, 31, 32],
         "back_numbers": [7, 11],
+        "source_rank": 5,
     }
+
+
+def test_lottery_service_prioritizes_source_ranked_ocr_rows() -> None:
+    rows = LotteryService._rank_random_ticket_rows(
+        [
+            {"rank": 0, "front_numbers": [4, 12, 19, 23, 27], "back_numbers": [7, 9]},
+            {
+                "rank": 0,
+                "front_numbers": [15, 18, 20, 31, 32],
+                "back_numbers": [7, 11],
+                "source_rank": 5,
+            },
+            {
+                "rank": 0,
+                "front_numbers": [4, 18, 19, 23, 27],
+                "back_numbers": [7, 9],
+                "source_rank": 4,
+            },
+        ]
+    )
+
+    assert rows[:3] == [
+        {"rank": 1, "front_numbers": [4, 12, 19, 23, 27], "back_numbers": [7, 9]},
+        {"rank": 2, "front_numbers": [4, 18, 19, 23, 27], "back_numbers": [7, 9]},
+        {"rank": 3, "front_numbers": [15, 18, 20, 31, 32], "back_numbers": [7, 11]},
+    ]
 
 
 def test_lottery_randomness_diagnostics_can_filter_by_rule_stage(db_session: Session) -> None:
