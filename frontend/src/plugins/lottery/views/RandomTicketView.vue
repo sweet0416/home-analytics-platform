@@ -201,11 +201,17 @@
 
     <section class="panel random-ticket-panel">
       <div class="panel-header">
-        <h2 class="panel-title">样本存档</h2>
-        <span class="panel-meta">开奖同步后会自动对比老板原始五注和二次候选五注</span>
+        <div>
+          <h2 class="panel-title">样本存档</h2>
+          <span class="panel-meta">开奖同步后会自动对比老板原始五注和二次候选五注</span>
+        </div>
+        <div class="archive-actions">
+          <el-segmented v-model="archiveStatus" :options="archiveStatusOptions" />
+          <el-button plain :loading="archiveLoading" @click="loadArchiveRuns">刷新</el-button>
+        </div>
       </div>
-      <div v-if="archiveRuns.length" class="archive-list">
-        <article v-for="run in archiveRuns" :key="run.id" class="archive-card">
+      <div v-if="filteredArchiveRuns.length" class="archive-list">
+        <article v-for="run in filteredArchiveRuns" :key="run.id" class="archive-card">
           <div class="archive-head">
             <strong>目标 {{ run.target_issue_no }}</strong>
             <span>{{ run.comparison.status_label }} · {{ formatDateTime(run.created_at) }}</span>
@@ -298,8 +304,8 @@
         </article>
       </div>
       <div v-else class="empty-archive">
-        <strong>暂无样本存档</strong>
-        <span>生成二次候选后会自动保存，期开奖同步后这里会显示老板原始五注和系统二次候选的逐条命中对比。</span>
+        <strong>{{ emptyArchiveTitle }}</strong>
+        <span>{{ emptyArchiveText }}</span>
       </div>
     </section>
   </div>
@@ -318,6 +324,7 @@ import type { LotteryRandomTicketComparisonItem } from '@/plugins/lottery/api';
 import { useLotteryStore } from '@/plugins/lottery/store';
 
 type Area = 'front' | 'back';
+type ArchiveStatus = 'all' | 'pending' | 'settled';
 
 interface EditableTicket {
   id: string;
@@ -334,18 +341,29 @@ const defaultTickets: EditableTicket[] = Array.from({ length: 5 }, (_, index) =>
 const lottery = useLotteryStore();
 const loading = ref(false);
 const ocrLoading = ref(false);
+const archiveLoading = ref(false);
 const activeIndex = ref(0);
 const stageCode = ref('');
+const archiveStatus = ref<ArchiveStatus>('all');
 const ticketImageInput = ref<HTMLInputElement | null>(null);
 const tickets = ref<EditableTicket[]>(cloneDefaults());
 const frontNumbers = Array.from({ length: 35 }, (_, index) => index + 1);
 const backNumbers = Array.from({ length: 12 }, (_, index) => index + 1);
 const fallbackDisclaimer = '本结果仅基于历史统计分析，仅供娱乐，不代表未来开奖结果。';
+const archiveStatusOptions = [
+  { label: '全部', value: 'all' },
+  { label: '等待开奖', value: 'pending' },
+  { label: '已对比', value: 'settled' },
+];
 
 const analysis = computed(() => lottery.randomTicket);
 const activeTicket = computed(() => tickets.value[activeIndex.value] ?? tickets.value[0]);
 const stageOptions = computed(() => lottery.dataStageReport?.stages ?? []);
 const archiveRuns = computed(() => lottery.randomTicketRuns);
+const filteredArchiveRuns = computed(() => {
+  if (archiveStatus.value === 'all') return archiveRuns.value;
+  return archiveRuns.value.filter((run) => run.comparison.status === archiveStatus.value);
+});
 const ocrResult = computed(() => lottery.randomTicketOcr);
 const inputCount = computed(() => String(analysis.value?.input_set_count ?? tickets.value.length));
 const targetIssueNo = computed(() => analysis.value?.target_issue_no ?? '--');
@@ -378,6 +396,18 @@ const ocrPrefillCount = computed(() => {
   if (!ocrResult.value) return 0;
   return Math.min(ocrResult.value.combinations.length, tickets.value.length);
 });
+const emptyArchiveTitle = computed(() => {
+  if (archiveRuns.value.length === 0) return '暂无样本存档';
+  return archiveStatus.value === 'pending' ? '暂无等待开奖的存档' : '暂无已对比的存档';
+});
+const emptyArchiveText = computed(() => {
+  if (archiveRuns.value.length === 0) {
+    return '生成二次候选后会自动保存，期开奖同步后这里会显示老板原始五注和系统二次候选的逐条命中对比。';
+  }
+  return archiveStatus.value === 'pending'
+    ? '当前最近存档都已经完成对比，可以切换到“全部”或“已对比”查看。'
+    : '当前最近存档还在等待目标期开奖，可以切换到“全部”或“等待开奖”查看。';
+});
 
 const InfoBlock = defineComponent({
   name: 'InfoBlock',
@@ -398,7 +428,7 @@ const InfoBlock = defineComponent({
 
 onMounted(() => {
   void lottery.loadDataStageReport();
-  void lottery.loadRandomTicketRuns();
+  void loadArchiveRuns();
 });
 
 function cloneDefaults(): EditableTicket[] {
@@ -438,6 +468,17 @@ function resetTickets(): void {
   activeIndex.value = 0;
   lottery.randomTicket = null;
   lottery.randomTicketOcr = null;
+}
+
+async function loadArchiveRuns(): Promise<void> {
+  archiveLoading.value = true;
+  try {
+    await lottery.loadRandomTicketRuns();
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : '样本存档加载失败');
+  } finally {
+    archiveLoading.value = false;
+  }
 }
 
 function openTicketImagePicker(): void {
@@ -517,6 +558,12 @@ async function runAnalysis(): Promise<void> {
       stage_code: stageCode.value || null,
       save: true,
     });
+    const result = lottery.randomTicket;
+    if (result?.run_id) {
+      ElMessage.success(`已生成并存档到目标 ${result.target_issue_no}，存档 #${result.run_id}`);
+    } else {
+      ElMessage.success('已生成二次候选');
+    }
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : '随机票样本分析失败');
   } finally {
@@ -688,6 +735,14 @@ function formatDateTime(value: string): string {
   display: grid;
   gap: 8px;
   padding: 12px;
+}
+
+.archive-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
 }
 
 .empty-archive {
@@ -865,6 +920,10 @@ function formatDateTime(value: string): string {
   .comparison-grid,
   .settled-detail {
     grid-template-columns: 1fr;
+  }
+
+  .archive-actions {
+    justify-content: flex-start;
   }
 }
 
