@@ -2731,18 +2731,19 @@ class LotteryService:
                 continue
             fallback_rows.append(row)
 
-        ordered_rows: list[dict[str, object]] = []
+        primary_rows: list[dict[str, object] | None] = [None, None, None, None, None]
         extra_source_rows: list[dict[str, object]] = []
         fallback_index = 0
         for source_rank in range(1, 6):
             if source_rank in rows_by_source_rank:
-                ordered_rows.append(rows_by_source_rank[source_rank][0])
+                primary_rows[source_rank - 1] = rows_by_source_rank[source_rank][0]
                 extra_source_rows.extend(rows_by_source_rank[source_rank][1:])
                 continue
             while fallback_index < len(fallback_rows):
-                ordered_rows.append(fallback_rows[fallback_index])
+                primary_rows[source_rank - 1] = fallback_rows[fallback_index]
                 fallback_index += 1
                 break
+        ordered_rows = [row for row in primary_rows if row is not None]
         ordered_rows.extend(extra_source_rows)
         ordered_rows.extend(fallback_rows[fallback_index:])
 
