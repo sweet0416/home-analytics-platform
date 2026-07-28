@@ -43,7 +43,7 @@
       <div class="ocr-result">
         <p v-for="warning in ocrResult.warnings" :key="warning">{{ warning }}</p>
         <p v-if="ocrResult.combinations.length">
-          已识别 {{ ocrResult.combinations.length }} 注，已填入下方号码球，请确认后再生成。
+          识别到 {{ ocrResult.combinations.length }} 个候选，已填入前 {{ ocrPrefillCount }} 注，请确认后再生成。
         </p>
         <details v-if="ocrResult.raw_text">
           <summary>查看 OCR 原文</summary>
@@ -301,6 +301,10 @@ const ocrStatusText = computed(() => {
   if (ocrResult.value.status === 'timeout') return '识别超时';
   return '需要人工校对';
 });
+const ocrPrefillCount = computed(() => {
+  if (!ocrResult.value) return 0;
+  return Math.min(ocrResult.value.combinations.length, tickets.value.length);
+});
 
 const InfoBlock = defineComponent({
   name: 'InfoBlock',
@@ -377,7 +381,12 @@ async function handleTicketImageSelected(event: Event): Promise<void> {
     const result = await lottery.recognizeRandomTicketImage(file);
     if (result.combinations.length) {
       applyOcrCombinations(result.combinations);
-      ElMessage.success(`识别到 ${result.combinations.length} 注，请确认号码后再生成`);
+      ElMessage.success(
+        `识别到 ${result.combinations.length} 个候选，已填入前 ${Math.min(
+          result.combinations.length,
+          tickets.value.length,
+        )} 注`,
+      );
       return;
     }
     ElMessage.warning(result.warnings[0] ?? '没有识别出完整号码，请手动输入');
