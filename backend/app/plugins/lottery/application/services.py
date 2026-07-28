@@ -2671,7 +2671,7 @@ class LotteryService:
             if position >= len(digits):
                 return
 
-            if selected:
+            if selected or digits[position] == "4":
                 skip_penalty = 1 if digits[position] == "4" else 4
                 search(position + 1, selected, penalty + skip_penalty)
 
