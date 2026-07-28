@@ -12,12 +12,25 @@ def test_health_check_returns_standard_response(client: TestClient) -> None:
     assert "x-trace-id" in response.headers
 
 
-def test_plugins_endpoint_returns_lottery_plugin(client: TestClient) -> None:
+def test_plugins_endpoint_returns_registered_plugins(client: TestClient) -> None:
     response = client.get("/api/v1/plugins")
 
     assert response.status_code == 200
     plugins = response.json()["data"]
     assert any(plugin["name"] == "lottery" for plugin in plugins)
+    assert any(plugin["name"] == "fund" for plugin in plugins)
+
+
+def test_fund_status_endpoint_returns_scaffold_contract(client: TestClient) -> None:
+    response = client.get("/api/v1/fund/status")
+
+    assert response.status_code == 200
+    body = response.json()["data"]
+    assert body["plugin"] == "fund"
+    assert body["status"] == "scaffolded"
+    assert body["data_source_status"] == "not_configured"
+    assert body["storage_status"] == "not_created"
+    assert len(body["modules"]) >= 4
 
 
 def test_current_dlt_rule_contract(client: TestClient) -> None:

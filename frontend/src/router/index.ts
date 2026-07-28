@@ -5,6 +5,7 @@ import DashboardView from '@/views/DashboardView.vue';
 import PlaceholderView from '@/views/PlaceholderView.vue';
 import ReportsView from '@/views/ReportsView.vue';
 import SettingsView from '@/views/SettingsView.vue';
+import { fundRoutes } from '@/plugins/fund/routes';
 import { lotteryRoutes } from '@/plugins/lottery/routes';
 
 const routes: RouteRecordRaw[] = [
@@ -18,12 +19,7 @@ const routes: RouteRecordRaw[] = [
         component: DashboardView,
       },
       ...lotteryRoutes,
-      {
-        path: 'fund',
-        name: 'fund-placeholder',
-        component: PlaceholderView,
-        meta: { title: 'Fund', subtitle: 'ETF、QDII、资产配置和收益分析模块' },
-      },
+      ...fundRoutes,
       {
         path: 'stocks',
         name: 'stocks-placeholder',
