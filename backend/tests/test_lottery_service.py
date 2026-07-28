@@ -229,6 +229,16 @@ def test_lottery_service_parses_compact_random_ticket_ocr_text() -> None:
     ]
 
 
+def test_lottery_service_strips_row_index_from_compact_ocr_line() -> None:
+    row = LotteryService._parse_compact_random_ticket_line("5 45418420431432 07411")
+
+    assert row == {
+        "rank": 0,
+        "front_numbers": [15, 18, 20, 31, 32],
+        "back_numbers": [7, 11],
+    }
+
+
 def test_lottery_randomness_diagnostics_can_filter_by_rule_stage(db_session: Session) -> None:
     repository = LotteryRepository(db_session)
     repository.ensure_dlt_seed_data()

@@ -2581,35 +2581,43 @@ class LotteryService:
         if len(groups) < 2:
             return None
 
-        candidates: list[dict[str, object]] = []
-        for split_index in range(1, len(groups)):
-            front_text = "".join(groups[:split_index])
-            back_text = "".join(groups[split_index:])
-            if len(front_text) < 5 or len(back_text) < 2:
-                continue
-            front_numbers = cls._decode_compact_ocr_numbers(
-                front_text,
-                count=5,
-                max_number=35,
-            )
-            back_numbers = cls._decode_compact_ocr_numbers(
-                back_text,
-                count=2,
-                max_number=12,
-            )
-            if front_numbers is None or back_numbers is None:
-                continue
-            candidates.append(
-                {
-                    "rank": 0,
-                    "front_numbers": front_numbers,
-                    "back_numbers": back_numbers,
-                }
-            )
+        group_sets: list[tuple[int, list[str]]] = [(2, groups)]
+        if groups[0].isdigit() and 1 <= int(groups[0]) <= 20:
+            group_sets.insert(0, (0, groups[1:]))
+
+        candidates: list[tuple[int, dict[str, object]]] = []
+        for base_penalty, candidate_groups in group_sets:
+            for split_index in range(1, len(candidate_groups)):
+                front_text = "".join(candidate_groups[:split_index])
+                back_text = "".join(candidate_groups[split_index:])
+                if len(front_text) < 5 or len(back_text) < 2:
+                    continue
+                front_numbers = cls._decode_compact_ocr_numbers(
+                    front_text,
+                    count=5,
+                    max_number=35,
+                )
+                back_numbers = cls._decode_compact_ocr_numbers(
+                    back_text,
+                    count=2,
+                    max_number=12,
+                )
+                if front_numbers is None or back_numbers is None:
+                    continue
+                candidates.append(
+                    (
+                        base_penalty,
+                        {
+                            "rank": 0,
+                            "front_numbers": front_numbers,
+                            "back_numbers": back_numbers,
+                        },
+                    )
+                )
 
         if not candidates:
             return None
-        return candidates[0]
+        return min(candidates, key=lambda item: item[0])[1]
 
     @staticmethod
     def _decode_compact_ocr_numbers(
