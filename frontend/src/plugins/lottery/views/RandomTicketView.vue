@@ -239,6 +239,62 @@
               meta="系统生成五注"
             />
           </div>
+          <div v-if="run.comparison.status === 'settled'" class="settled-detail">
+            <section>
+              <h3>老板原始五注</h3>
+              <div
+                v-for="item in run.comparison.input_items"
+                :key="`archive-input-${run.id}-${item.rank}`"
+                class="match-row"
+              >
+                <span>#{{ item.rank }}</span>
+                <div class="match-numbers">
+                  <LotteryBall
+                    v-for="number in item.front_numbers"
+                    :key="`archive-input-front-${run.id}-${item.rank}-${number}`"
+                    area="front"
+                    :class="{ matched: item.front_matches.includes(number) }"
+                    :value="number"
+                  />
+                  <LotteryBall
+                    v-for="number in item.back_numbers"
+                    :key="`archive-input-back-${run.id}-${item.rank}-${number}`"
+                    area="back"
+                    :class="{ matched: item.back_matches.includes(number) }"
+                    :value="number"
+                  />
+                </div>
+                <strong>{{ formatMatchResult(item) }}</strong>
+              </div>
+            </section>
+            <section>
+              <h3>系统二次候选</h3>
+              <div
+                v-for="item in run.comparison.recommendation_items"
+                :key="`archive-recommendation-${run.id}-${item.rank}`"
+                class="match-row"
+              >
+                <span>#{{ item.rank }}</span>
+                <div class="match-numbers">
+                  <LotteryBall
+                    v-for="number in item.front_numbers"
+                    :key="`archive-recommendation-front-${run.id}-${item.rank}-${number}`"
+                    area="front"
+                    :class="{ matched: item.front_matches.includes(number) }"
+                    :value="number"
+                  />
+                  <LotteryBall
+                    v-for="number in item.back_numbers"
+                    :key="`archive-recommendation-back-${run.id}-${item.rank}-${number}`"
+                    area="back"
+                    :class="{ matched: item.back_matches.includes(number) }"
+                    :value="number"
+                  />
+                </div>
+                <strong>{{ formatMatchResult(item) }}</strong>
+              </div>
+            </section>
+          </div>
         </article>
       </div>
     </section>
@@ -470,6 +526,11 @@ function formatBestMatch(item: LotteryRandomTicketComparisonItem | null): string
   return `${item.match_key}${tier}`;
 }
 
+function formatMatchResult(item: LotteryRandomTicketComparisonItem): string {
+  const tier = item.prize_tier ? `${item.prize_tier}等奖` : '未中奖';
+  return `${item.match_key} · ${tier}`;
+}
+
 function formatDateTime(value: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
@@ -692,6 +753,62 @@ function formatDateTime(value: string): string {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.settled-detail {
+  border-top: 1px solid rgba(148, 163, 184, 0.12);
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 2px;
+  padding-top: 12px;
+}
+
+.settled-detail section {
+  display: grid;
+  gap: 8px;
+}
+
+.settled-detail h3 {
+  color: var(--color-text);
+  font-size: 13px;
+  margin: 0;
+}
+
+.match-row {
+  align-items: center;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 32px minmax(0, 1fr) 76px;
+}
+
+.match-row > span {
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
+.match-row > strong {
+  color: var(--color-text);
+  font-size: 12px;
+  justify-self: end;
+  white-space: nowrap;
+}
+
+.match-numbers {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.match-numbers :deep(.lottery-ball) {
+  height: 24px;
+  width: 24px;
+}
+
+.match-numbers :deep(.lottery-ball.matched) {
+  box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.52), 0 0 16px rgba(34, 197, 94, 0.3);
+  color: #dcfce7;
+}
+
 .info-block {
   border: 1px solid rgba(148, 163, 184, 0.14);
   border-radius: 8px;
@@ -719,7 +836,8 @@ function formatDateTime(value: string): string {
 @media (max-width: 980px) {
   .ticket-workspace,
   .summary-grid,
-  .comparison-grid {
+  .comparison-grid,
+  .settled-detail {
     grid-template-columns: 1fr;
   }
 }
