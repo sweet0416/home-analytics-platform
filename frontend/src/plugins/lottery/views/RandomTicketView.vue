@@ -45,6 +45,19 @@
         <p v-if="ocrResult.combinations.length">
           识别到 {{ ocrResult.combinations.length }} 个候选，已填入前 {{ ocrPrefillCount }} 注，请确认后再生成。
         </p>
+        <div v-if="ocrResult.combinations.length" class="ocr-candidates">
+          <div
+            v-for="(item, index) in ocrResult.combinations"
+            :key="`ocr-candidate-${index}`"
+            class="ocr-candidate"
+            :class="{ muted: index >= ocrPrefillCount }"
+          >
+            <span>{{ index + 1 }}</span>
+            <strong>{{ formatNumbers(item.front_numbers) }}</strong>
+            <strong>{{ formatNumbers(item.back_numbers) }}</strong>
+            <small>{{ index < ocrPrefillCount ? '已填入' : '备用' }}</small>
+          </div>
+        </div>
         <details v-if="ocrResult.raw_text">
           <summary>查看 OCR 原文</summary>
           <pre>{{ ocrResult.raw_text }}</pre>
@@ -509,6 +522,42 @@ function formatDateTime(value: string): string {
   color: var(--color-muted);
   font-size: 13px;
   margin: 0;
+}
+
+.ocr-candidates {
+  display: grid;
+  gap: 6px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.ocr-candidate {
+  align-items: center;
+  background: rgba(15, 23, 42, 0.5);
+  border: 1px solid rgba(56, 189, 248, 0.18);
+  border-radius: 8px;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 22px minmax(0, 1fr) 60px 48px;
+  padding: 8px 10px;
+}
+
+.ocr-candidate span,
+.ocr-candidate small {
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
+.ocr-candidate strong {
+  color: var(--color-text);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+
+.ocr-candidate.muted {
+  border-color: rgba(148, 163, 184, 0.12);
+  opacity: 0.68;
 }
 
 .ocr-result summary {
