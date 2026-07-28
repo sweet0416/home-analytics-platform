@@ -240,6 +240,31 @@ def test_lottery_service_strips_row_index_from_compact_ocr_line() -> None:
     }
 
 
+def test_lottery_service_can_preserve_ocr_source_rank_between_variants() -> None:
+    raw_text = """4 04418419423427 07409
+5 45418420431432 07411"""
+
+    rows = LotteryService._parse_random_ticket_ocr_text(
+        raw_text,
+        preserve_source_rank=True,
+    )
+
+    assert rows == [
+        {
+            "rank": 1,
+            "front_numbers": [4, 18, 19, 23, 27],
+            "back_numbers": [7, 9],
+            "source_rank": 4,
+        },
+        {
+            "rank": 2,
+            "front_numbers": [15, 18, 20, 31, 32],
+            "back_numbers": [7, 11],
+            "source_rank": 5,
+        },
+    ]
+
+
 def test_lottery_service_prioritizes_source_ranked_ocr_rows() -> None:
     rows = LotteryService._rank_random_ticket_rows(
         [

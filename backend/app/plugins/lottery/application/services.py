@@ -85,7 +85,12 @@ class LotteryService:
                 variant_text = completed.stdout.strip()
                 if variant_text:
                     raw_text_parts.append(f"[{variant_name}]\n{variant_text}")
-                    parsed_rows.extend(self._parse_random_ticket_ocr_text(variant_text))
+                    parsed_rows.extend(
+                        self._parse_random_ticket_ocr_text(
+                            variant_text,
+                            preserve_source_rank=True,
+                        )
+                    )
                 if completed.returncode != 0:
                     stderr = completed.stderr.strip()
                     warnings.append(
@@ -2522,7 +2527,12 @@ class LotteryService:
         ]
 
     @classmethod
-    def _parse_random_ticket_ocr_text(cls, raw_text: str) -> list[dict[str, object]]:
+    def _parse_random_ticket_ocr_text(
+        cls,
+        raw_text: str,
+        *,
+        preserve_source_rank: bool = False,
+    ) -> list[dict[str, object]]:
         rows: list[dict[str, object]] = []
         front_rows: list[list[int]] = []
         back_rows: list[list[int]] = []
@@ -2544,10 +2554,16 @@ class LotteryService:
             if back_row is not None:
                 back_rows.append(back_row)
             if len(rows) >= 20:
-                return cls._rank_random_ticket_rows(rows)
+                return cls._rank_random_ticket_rows(
+                    rows,
+                    preserve_source_rank=preserve_source_rank,
+                )
 
         if rows:
-            return cls._rank_random_ticket_rows(rows)
+            return cls._rank_random_ticket_rows(
+                rows,
+                preserve_source_rank=preserve_source_rank,
+            )
 
         if front_rows and back_rows:
             return cls._rank_random_ticket_rows(
@@ -2558,7 +2574,8 @@ class LotteryService:
                         "back_numbers": back_rows[index],
                     }
                     for index, front_numbers in enumerate(front_rows[: len(back_rows)])
-                ]
+                ],
+                preserve_source_rank=preserve_source_rank,
             )
 
         tokens = cls._extract_ocr_number_tokens(raw_text)
@@ -2569,7 +2586,10 @@ class LotteryService:
                 chunked_rows.append(parsed)
             if len(chunked_rows) >= 20:
                 break
-        return cls._rank_random_ticket_rows(chunked_rows)
+        return cls._rank_random_ticket_rows(
+            chunked_rows,
+            preserve_source_rank=preserve_source_rank,
+        )
 
     @staticmethod
     def _extract_ocr_number_tokens(text: str) -> list[int]:
@@ -2719,7 +2739,11 @@ class LotteryService:
         return back_numbers
 
     @staticmethod
-    def _rank_random_ticket_rows(rows: list[dict[str, object]]) -> list[dict[str, object]]:
+    def _rank_random_ticket_rows(
+        rows: list[dict[str, object]],
+        *,
+        preserve_source_rank: bool = False,
+    ) -> list[dict[str, object]]:
         ranked: list[dict[str, object]] = []
         seen: set[str] = set()
         rows_by_source_rank: dict[int, list[dict[str, object]]] = {}
@@ -2754,13 +2778,15 @@ class LotteryService:
             if signature in seen:
                 continue
             seen.add(signature)
-            ranked.append(
-                {
-                    "rank": len(ranked) + 1,
-                    "front_numbers": front_numbers,
-                    "back_numbers": back_numbers,
-                }
-            )
+            ranked_row: dict[str, object] = {
+                "rank": len(ranked) + 1,
+                "front_numbers": front_numbers,
+                "back_numbers": back_numbers,
+            }
+            source_rank = row.get("source_rank")
+            if preserve_source_rank and isinstance(source_rank, int):
+                ranked_row["source_rank"] = source_rank
+            ranked.append(ranked_row)
         return ranked
 
     def _serialize_random_ticket_run(
