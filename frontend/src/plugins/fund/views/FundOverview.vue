@@ -8,11 +8,119 @@
     </RevealContent>
 
     <div class="grid metrics">
-      <MetricCard label="Plugin" :value="statusLabel" meta="Fund module" :delay="80" />
-      <MetricCard label="Data Source" :value="dataSourceLabel" meta="行情源" :delay="140" />
-      <MetricCard label="Storage" :value="storageLabel" meta="数据库模型" :delay="200" />
-      <MetricCard label="Version" :value="fundStatus?.version ?? '--'" meta="Plugin release" :delay="260" />
+      <MetricCard label="持仓数量" :value="String(summary?.position_count ?? 0)" meta="已录入记录" :delay="80" />
+      <MetricCard label="基金数量" :value="String(summary?.fund_count ?? 0)" meta="去重基金" :delay="140" />
+      <MetricCard label="总成本" :value="formatMoney(summary?.total_cost)" meta="手动持仓" :delay="200" />
+      <MetricCard label="浮盈亏" :value="formatMoney(summary?.unrealized_profit)" :meta="returnRateMeta" :delay="260" />
     </div>
+
+    <RevealContent as="section" class="panel fund-panel" :delay="300">
+      <div class="panel-header">
+        <div>
+          <h2 class="panel-title">录入持仓</h2>
+          <span class="panel-meta">先记录你的真实持仓，行情和净值后续再接入</span>
+        </div>
+      </div>
+      <div class="panel-body">
+        <div class="position-form">
+          <label>
+            <span>基金代码</span>
+            <el-input v-model="form.fund_code" placeholder="例如 513100" />
+          </label>
+          <label>
+            <span>基金名称</span>
+            <el-input v-model="form.fund_name" placeholder="例如 纳指 ETF" />
+          </label>
+          <label>
+            <span>基金类型</span>
+            <el-select v-model="form.fund_type">
+              <el-option label="ETF" value="ETF" />
+              <el-option label="QDII" value="QDII" />
+              <el-option label="指数基金" value="指数基金" />
+              <el-option label="混合型" value="混合型" />
+              <el-option label="债券型" value="债券型" />
+              <el-option label="货币型" value="货币型" />
+              <el-option label="其他" value="其他" />
+            </el-select>
+          </label>
+          <label>
+            <span>账户</span>
+            <el-input v-model="form.account_name" placeholder="默认账户" />
+          </label>
+          <label>
+            <span>持有份额</span>
+            <el-input-number v-model="form.shares" :min="0" :precision="4" :step="100" />
+          </label>
+          <label>
+            <span>成本净值</span>
+            <el-input-number v-model="form.cost_price" :min="0" :precision="4" :step="0.01" />
+          </label>
+          <label>
+            <span>总成本</span>
+            <el-input-number v-model="form.total_cost" :min="0" :precision="2" :step="100" />
+          </label>
+          <label>
+            <span>当前净值</span>
+            <el-input-number v-model="form.current_nav" :min="0" :precision="4" :step="0.01" />
+          </label>
+          <label>
+            <span>买入日期</span>
+            <el-date-picker v-model="form.opened_at" type="date" value-format="YYYY-MM-DD" />
+          </label>
+          <label>
+            <span>标签</span>
+            <el-input v-model="form.tags" placeholder="A股, 海外, 长期" />
+          </label>
+          <label class="wide">
+            <span>备注</span>
+            <el-input v-model="form.note" placeholder="定投、波段、核心仓等" />
+          </label>
+          <div class="form-actions">
+            <el-button plain @click="resetForm">清空</el-button>
+            <el-button type="primary" :loading="saving" @click="savePosition">保存持仓</el-button>
+          </div>
+        </div>
+      </div>
+    </RevealContent>
+
+    <RevealContent as="section" class="panel fund-panel" :delay="340">
+      <div class="panel-header">
+        <div>
+          <h2 class="panel-title">当前持仓</h2>
+          <span class="panel-meta">当前净值未填写时，只统计成本，不计算浮盈亏</span>
+        </div>
+      </div>
+      <div class="panel-body">
+        <div v-if="positions.length" class="position-table">
+          <div class="position-row table-head">
+            <span>基金</span>
+            <span>类型</span>
+            <span>份额</span>
+            <span>成本</span>
+            <span>当前估值</span>
+            <span>浮盈亏</span>
+          </div>
+          <div v-for="position in positions" :key="position.id" class="position-row">
+            <span>
+              <strong>{{ position.fund_name }}</strong>
+              <small>{{ position.fund_code }} · {{ position.account_name }}</small>
+            </span>
+            <span>{{ position.fund_type }}</span>
+            <span>{{ formatNumber(position.shares, 4) }}</span>
+            <span>{{ formatMoney(position.total_cost) }}</span>
+            <span>{{ formatMoney(position.current_value) }}</span>
+            <span :class="profitClass(position.unrealized_profit)">
+              {{ formatMoney(position.unrealized_profit) }}
+            </span>
+          </div>
+        </div>
+        <EmptyState
+          v-else
+          title="还没有持仓"
+          description="先录入一只基金，HAP 才能开始做收益、配置和日报分析。"
+        />
+      </div>
+    </RevealContent>
 
     <RevealContent as="section" class="panel fund-panel" :delay="320">
       <div class="panel-header">
@@ -48,34 +156,136 @@
 </template>
 
 <script setup lang="ts">
+import { ElMessage } from 'element-plus';
 import { computed, onMounted, ref } from 'vue';
 
+import EmptyState from '@/components/common/EmptyState.vue';
 import RevealContent from '@/components/common/RevealContent.vue';
 import MetricCard from '@/components/metric/MetricCard.vue';
-import { fetchFundStatus, type FundStatus } from '@/plugins/fund/api';
+import {
+  createFundPosition,
+  fetchFundHoldingSummary,
+  fetchFundPositions,
+  fetchFundStatus,
+  type FundHoldingSummary,
+  type FundPosition,
+  type FundPositionCreate,
+  type FundStatus,
+} from '@/plugins/fund/api';
 
 const fundStatus = ref<FundStatus | null>(null);
+const positions = ref<FundPosition[]>([]);
+const summary = ref<FundHoldingSummary | null>(null);
 const isLoading = ref(false);
+const saving = ref(false);
 const errorMessage = ref('');
+const form = ref<FundPositionCreate>({
+  fund_code: '',
+  fund_name: '',
+  fund_type: 'ETF',
+  account_name: '默认账户',
+  shares: 0,
+  cost_price: 0,
+  total_cost: null,
+  current_nav: null,
+  opened_at: null,
+  tags: '',
+  note: '',
+});
 
 const labelMap: Record<string, string> = {
   scaffolded: '已接入',
   planned: '规划中',
+  in_progress: '进行中',
   not_configured: '未配置',
   not_created: '未创建',
+  created: '已创建',
 };
 
 const statusText = (status: string): string => labelMap[status] ?? status;
 
-const statusLabel = computed(() => statusText(fundStatus.value?.status ?? 'planned'));
-const dataSourceLabel = computed(() => statusText(fundStatus.value?.data_source_status ?? 'not_configured'));
-const storageLabel = computed(() => statusText(fundStatus.value?.storage_status ?? 'not_created'));
+const returnRateMeta = computed(() => {
+  if (!summary.value?.unrealized_return_rate) return '等待当前净值';
+  return `${(Number(summary.value.unrealized_return_rate) * 100).toFixed(2)}%`;
+});
+
+function formatMoney(value: string | number | null | undefined): string {
+  if (value === null || value === undefined) return '--';
+  const numberValue = Number(value);
+  if (!Number.isFinite(numberValue)) return '--';
+  return `¥${numberValue.toLocaleString('zh-CN', { maximumFractionDigits: 2 })}`;
+}
+
+function formatNumber(value: string | number, digits = 2): string {
+  const numberValue = Number(value);
+  if (!Number.isFinite(numberValue)) return '--';
+  return numberValue.toLocaleString('zh-CN', { maximumFractionDigits: digits });
+}
+
+function profitClass(value: string | null): string {
+  const numberValue = Number(value ?? 0);
+  if (numberValue > 0) return 'profit positive';
+  if (numberValue < 0) return 'profit negative';
+  return 'profit';
+}
+
+function resetForm(): void {
+  form.value = {
+    fund_code: '',
+    fund_name: '',
+    fund_type: 'ETF',
+    account_name: '默认账户',
+    shares: 0,
+    cost_price: 0,
+    total_cost: null,
+    current_nav: null,
+    opened_at: null,
+    tags: '',
+    note: '',
+  };
+}
+
+async function loadHoldings(): Promise<void> {
+  const [nextPositions, nextSummary] = await Promise.all([
+    fetchFundPositions(),
+    fetchFundHoldingSummary(),
+  ]);
+  positions.value = nextPositions;
+  summary.value = nextSummary;
+}
+
+async function savePosition(): Promise<void> {
+  if (!form.value.fund_code.trim() || !form.value.fund_name.trim()) {
+    ElMessage.warning('基金代码和名称不能为空');
+    return;
+  }
+  if (form.value.shares <= 0 || form.value.cost_price <= 0) {
+    ElMessage.warning('份额和成本净值必须大于 0');
+    return;
+  }
+  saving.value = true;
+  try {
+    await createFundPosition({
+      ...form.value,
+      total_cost: form.value.total_cost && form.value.total_cost > 0 ? form.value.total_cost : null,
+      current_nav: form.value.current_nav && form.value.current_nav > 0 ? form.value.current_nav : null,
+    });
+    ElMessage.success('持仓已保存');
+    resetForm();
+    await loadHoldings();
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : '持仓保存失败');
+  } finally {
+    saving.value = false;
+  }
+}
 
 onMounted(async () => {
   isLoading.value = true;
   errorMessage.value = '';
   try {
     fundStatus.value = await fetchFundStatus();
+    await loadHoldings();
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : '基金模块状态加载失败';
   } finally {
@@ -87,6 +297,82 @@ onMounted(async () => {
 <style scoped>
 .fund-panel {
   margin-top: 16px;
+}
+
+.panel-meta {
+  color: var(--color-muted);
+  font-size: 13px;
+}
+
+.position-form {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.position-form label {
+  display: grid;
+  gap: 7px;
+}
+
+.position-form label span {
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
+.position-form .wide {
+  grid-column: span 2;
+}
+
+.form-actions {
+  align-items: end;
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.position-table {
+  display: grid;
+  gap: 8px;
+}
+
+.position-row {
+  align-items: center;
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 1.6fr 0.7fr repeat(4, 0.8fr);
+  padding: 11px 12px;
+}
+
+.position-row span {
+  color: var(--color-muted);
+  font-size: 13px;
+}
+
+.position-row strong {
+  color: var(--color-text);
+  display: block;
+}
+
+.position-row small {
+  display: block;
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.table-head {
+  background: rgba(15, 23, 42, 0.45);
+  font-weight: 700;
+}
+
+.profit.positive {
+  color: #86efac;
+}
+
+.profit.negative {
+  color: #fca5a5;
 }
 
 .fund-roadmap {
@@ -134,6 +420,19 @@ onMounted(async () => {
 }
 
 @media (max-width: 720px) {
+  .position-form,
+  .position-row {
+    grid-template-columns: 1fr;
+  }
+
+  .position-form .wide {
+    grid-column: auto;
+  }
+
+  .form-actions {
+    justify-content: flex-start;
+  }
+
   .roadmap-item {
     align-items: flex-start;
     flex-direction: column;

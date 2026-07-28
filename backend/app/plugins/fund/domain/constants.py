@@ -5,7 +5,7 @@ FUND_MODULES = [
         "code": "watchlist",
         "name": "基金观察池",
         "description": "管理 ETF、QDII 和主动基金的基础档案与关注列表。",
-        "status": "planned",
+        "status": "in_progress",
     },
     {
         "code": "nav",

@@ -6,6 +6,7 @@ from sqlalchemy import engine_from_config, pool
 from app.core.config.settings import get_settings
 from app.core.backup import models as backup_models  # noqa: F401
 from app.core.database.base import Base
+from app.plugins.fund.infrastructure.persistence import models as fund_models  # noqa: F401
 from app.plugins.lottery.infrastructure.persistence import models  # noqa: F401
 
 config = context.config

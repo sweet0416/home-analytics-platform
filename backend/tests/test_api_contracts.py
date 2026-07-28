@@ -29,8 +29,46 @@ def test_fund_status_endpoint_returns_scaffold_contract(client: TestClient) -> N
     assert body["plugin"] == "fund"
     assert body["status"] == "scaffolded"
     assert body["data_source_status"] == "not_configured"
-    assert body["storage_status"] == "not_created"
+    assert body["storage_status"] == "created"
     assert len(body["modules"]) >= 4
+
+
+def test_fund_positions_can_be_created_and_summarized(client: TestClient) -> None:
+    empty_summary_response = client.get("/api/v1/fund/holdings/summary")
+    assert empty_summary_response.status_code == 200
+    assert empty_summary_response.json()["data"]["position_count"] == 0
+
+    payload = {
+        "fund_code": "513100",
+        "fund_name": "纳指 ETF",
+        "fund_type": "QDII",
+        "account_name": "默认账户",
+        "shares": "1000",
+        "cost_price": "1.2000",
+        "current_nav": "1.3000",
+        "opened_at": "2026-07-01",
+        "tags": "海外,指数",
+        "note": "contract test",
+    }
+    create_response = client.post("/api/v1/fund/positions", json=payload)
+    assert create_response.status_code == 200
+    created = create_response.json()["data"]
+    assert created["fund_code"] == "513100"
+    assert created["total_cost"] == "1200.00"
+    assert created["current_value"] == "1300.0000"
+    assert created["unrealized_profit"] == "100.0000"
+
+    list_response = client.get("/api/v1/fund/positions")
+    assert list_response.status_code == 200
+    assert len(list_response.json()["data"]) == 1
+
+    summary_response = client.get("/api/v1/fund/holdings/summary")
+    assert summary_response.status_code == 200
+    summary = summary_response.json()["data"]
+    assert summary["position_count"] == 1
+    assert summary["fund_count"] == 1
+    assert summary["total_cost"] == "1200.00"
+    assert summary["current_value"] == "1300.0000"
 
 
 def test_current_dlt_rule_contract(client: TestClient) -> None:
