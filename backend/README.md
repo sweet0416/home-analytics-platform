@@ -15,7 +15,7 @@ Run locally after installing dependencies:
 
 ```powershell
 cd backend
-python -m pip install -r requirements-dev.txt
+.\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
 uvicorn app.main:app --reload
 ```
 
@@ -23,8 +23,7 @@ Run backend checks:
 
 ```powershell
 cd backend
-python -m pytest
-python -m ruff check app tests
+scripts\test-backend.cmd
 ```
 
 Run with Docker:

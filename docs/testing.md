@@ -6,7 +6,14 @@ Quality gates:
 
 ```powershell
 cd backend
-python -m pip install -e ".[dev]"
+scripts\test-backend.cmd
+```
+
+Manual equivalent:
+
+```powershell
+cd backend
+python -m pip install -r requirements-dev.txt
 python -m compileall app tests alembic
 python -m pytest
 python -m ruff check app tests
