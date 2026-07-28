@@ -6,6 +6,7 @@ import tempfile
 from collections import Counter
 from dataclasses import replace
 from decimal import Decimal
+from io import BytesIO
 from itertools import combinations
 from math import ceil, comb, erf, log2, sqrt
 from pathlib import Path
@@ -72,25 +73,24 @@ class LotteryService:
             suffix = ".png"
 
         warnings: list[str] = []
+        raw_text_parts: list[str] = []
+        parsed_rows: list[dict[str, object]] = []
         try:
-            with tempfile.NamedTemporaryFile(suffix=suffix, delete=True) as image_file:
-                image_file.write(payload)
-                image_file.flush()
-                completed = subprocess.run(
-                    [
-                        "tesseract",
-                        image_file.name,
-                        "stdout",
-                        "--psm",
-                        "6",
-                        "-c",
-                        "tessedit_char_whitelist=0123456789 ",
-                    ],
-                    check=False,
-                    capture_output=True,
-                    text=True,
-                    timeout=20,
+            variants = self._build_random_ticket_ocr_image_variants(payload, suffix=suffix)
+            for variant_name, variant_payload in variants:
+                completed = self._run_random_ticket_tesseract(
+                    variant_payload,
+                    suffix=".png" if variant_name != "original" else suffix,
                 )
+                variant_text = completed.stdout.strip()
+                if variant_text:
+                    raw_text_parts.append(f"[{variant_name}]\n{variant_text}")
+                    parsed_rows.extend(self._parse_random_ticket_ocr_text(variant_text))
+                if completed.returncode != 0:
+                    stderr = completed.stderr.strip()
+                    warnings.append(
+                        stderr[:300] if stderr else f"OCR variant {variant_name} failed."
+                    )
         except FileNotFoundError:
             return {
                 "filename": filename,
@@ -112,12 +112,13 @@ class LotteryService:
                 "warnings": ["OCR 识别超时，请裁剪票面号码区域后重试。"],
             }
 
-        raw_text = completed.stdout.strip()
-        if completed.returncode != 0:
-            stderr = completed.stderr.strip()
-            warnings.append(stderr[:300] if stderr else "OCR 引擎返回失败状态。")
+        raw_text = "\n\n".join(raw_text_parts).strip()
 
-        combinations = self._parse_random_ticket_ocr_text(raw_text)
+        combinations = self._rank_random_ticket_rows(parsed_rows)
+        if combinations and len(combinations) < 5:
+            warnings.append(
+                f"仅自动识别 {len(combinations)} 注；蓝色选中行、反光或模糊行可能需要手动校对。"
+            )
         if not combinations:
             warnings.append("没有识别出完整的 5 个前区 + 2 个后区，请手动校对或裁剪后重试。")
 
@@ -129,6 +130,86 @@ class LotteryService:
             "combinations": combinations,
             "warnings": warnings,
         }
+
+    @staticmethod
+    def _run_random_ticket_tesseract(
+        payload: bytes,
+        *,
+        suffix: str,
+    ) -> subprocess.CompletedProcess[str]:
+        with tempfile.NamedTemporaryFile(suffix=suffix, delete=True) as image_file:
+            image_file.write(payload)
+            image_file.flush()
+            return subprocess.run(
+                [
+                    "tesseract",
+                    image_file.name,
+                    "stdout",
+                    "--psm",
+                    "6",
+                    "-c",
+                    "tessedit_char_whitelist=0123456789 ",
+                ],
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=20,
+            )
+
+    @staticmethod
+    def _build_random_ticket_ocr_image_variants(
+        payload: bytes,
+        *,
+        suffix: str,
+    ) -> list[tuple[str, bytes]]:
+        variants: list[tuple[str, bytes]] = [("original", payload)]
+        try:
+            from PIL import Image, ImageEnhance, ImageFilter, ImageOps
+        except ImportError:
+            logger.warning(
+                "Pillow is not installed; random ticket OCR will use the original image only."
+            )
+            return variants
+
+        try:
+            image = Image.open(BytesIO(payload))
+            image = ImageOps.exif_transpose(image).convert("RGB")
+        except Exception as exc:  # pragma: no cover - defensive guard for malformed uploads.
+            logger.warning("Unable to preprocess random ticket OCR image: {}", exc)
+            return variants
+
+        width, height = image.size
+        crop_boxes = [
+            ("table", (0, int(height * 0.32), width, int(height * 0.78))),
+            ("selected_row", (0, int(height * 0.62), width, int(height * 0.76))),
+            ("number_columns", (int(width * 0.07), int(height * 0.34), width, int(height * 0.76))),
+        ]
+
+        def encode_png(name: str, variant_image: object) -> None:
+            output = BytesIO()
+            variant_image.save(output, format="PNG", optimize=True)
+            variants.append((name, output.getvalue()))
+
+        def enhance_for_digits(variant_image: object, *, invert: bool = False) -> object:
+            gray = ImageOps.grayscale(variant_image)
+            gray = ImageOps.autocontrast(gray)
+            if invert:
+                gray = ImageOps.invert(gray)
+            gray = ImageEnhance.Contrast(gray).enhance(2.4)
+            gray = ImageEnhance.Sharpness(gray).enhance(1.8)
+            gray = gray.resize((gray.width * 2, gray.height * 2), Image.Resampling.LANCZOS)
+            gray = gray.filter(ImageFilter.SHARPEN)
+            return gray
+
+        encode_png("enhanced_full", enhance_for_digits(image))
+        encode_png("inverted_full", enhance_for_digits(image, invert=True))
+
+        for crop_name, box in crop_boxes:
+            cropped = image.crop(box)
+            encode_png(f"enhanced_{crop_name}", enhance_for_digits(cropped))
+            encode_png(f"inverted_{crop_name}", enhance_for_digits(cropped, invert=True))
+
+        return variants
 
     def get_current_rule(self) -> dict[str, object]:
         rule = self.repository.get_current_rule()
