@@ -60,6 +60,44 @@ class FundRepository:
         self.db.flush()
         return position
 
+    def get_position(self, position_id: int) -> FundPositionModel | None:
+        return self.db.scalar(
+            select(FundPositionModel)
+            .options(selectinload(FundPositionModel.fund))
+            .where(FundPositionModel.id == position_id)
+        )
+
+    def update_position(
+        self,
+        position: FundPositionModel,
+        *,
+        fund: FundModel,
+        account_name: str,
+        shares: Decimal,
+        cost_price: Decimal,
+        total_cost: Decimal,
+        current_nav: Decimal | None,
+        opened_at: date | None,
+        tags: str,
+        note: str,
+    ) -> FundPositionModel:
+        position.fund = fund
+        position.account_name = account_name
+        position.shares = shares
+        position.cost_price = cost_price
+        position.total_cost = total_cost
+        position.current_nav = current_nav
+        position.opened_at = opened_at
+        position.tags = tags
+        position.note = note
+        position.updated_at = datetime.utcnow()
+        self.db.flush()
+        return position
+
+    def delete_position(self, position: FundPositionModel) -> None:
+        self.db.delete(position)
+        self.db.flush()
+
     def list_positions(self) -> list[FundPositionModel]:
         return list(
             self.db.scalars(

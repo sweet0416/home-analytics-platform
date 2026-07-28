@@ -28,6 +28,10 @@ class FundPositionCreate(BaseModel):
         return value.quantize(Decimal("0.01"))
 
 
+class FundPositionUpdate(FundPositionCreate):
+    pass
+
+
 class FundPositionRead(BaseModel):
     id: int
     fund_id: int

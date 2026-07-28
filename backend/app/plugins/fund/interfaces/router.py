@@ -9,6 +9,7 @@ from app.plugins.fund.interfaces.schemas import (
     FundHoldingSummaryRead,
     FundPositionCreate,
     FundPositionRead,
+    FundPositionUpdate,
     FundStatusRead,
 )
 from app.shared.responses.schemas import ApiResponse, ok
@@ -50,6 +51,24 @@ def create_fund_position(
     service: FundService = Depends(get_fund_service),
 ) -> ApiResponse[FundPositionRead]:
     return ok(service.create_position(payload))
+
+
+@router.put("/positions/{position_id}", response_model=ApiResponse[FundPositionRead])
+def update_fund_position(
+    position_id: int,
+    payload: FundPositionUpdate,
+    service: FundService = Depends(get_fund_service),
+) -> ApiResponse[FundPositionRead]:
+    return ok(service.update_position(position_id, payload))
+
+
+@router.delete("/positions/{position_id}", response_model=ApiResponse[dict[str, object]])
+def delete_fund_position(
+    position_id: int,
+    service: FundService = Depends(get_fund_service),
+) -> ApiResponse[dict[str, object]]:
+    service.delete_position(position_id)
+    return ok({"deleted": True, "id": position_id})
 
 
 @router.get("/holdings/summary", response_model=ApiResponse[FundHoldingSummaryRead])

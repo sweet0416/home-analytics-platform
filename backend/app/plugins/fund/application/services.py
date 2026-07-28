@@ -6,7 +6,10 @@ from app.plugins.fund.interfaces.schemas import (
     FundHoldingSummaryRead,
     FundPositionCreate,
     FundPositionRead,
+    FundPositionUpdate,
 )
+from app.shared.exceptions.base import AppError
+from app.shared.exceptions.codes import ErrorCode
 
 
 class FundService:
@@ -35,6 +38,46 @@ class FundService:
         )
         self.repository.commit()
         return self._to_position_read(position)
+
+    def update_position(self, position_id: int, payload: FundPositionUpdate) -> FundPositionRead:
+        position = self.repository.get_position(position_id)
+        if position is None:
+            raise AppError(
+                code=ErrorCode.not_found,
+                message="Fund position was not found.",
+                status_code=404,
+            )
+
+        fund = self.repository.upsert_fund(
+            code=payload.fund_code,
+            name=payload.fund_name,
+            fund_type=payload.fund_type,
+        )
+        updated = self.repository.update_position(
+            position,
+            fund=fund,
+            account_name=payload.account_name,
+            shares=payload.shares,
+            cost_price=payload.cost_price,
+            total_cost=payload.normalized_total_cost,
+            current_nav=payload.current_nav,
+            opened_at=payload.opened_at,
+            tags=payload.tags,
+            note=payload.note,
+        )
+        self.repository.commit()
+        return self._to_position_read(updated)
+
+    def delete_position(self, position_id: int) -> None:
+        position = self.repository.get_position(position_id)
+        if position is None:
+            raise AppError(
+                code=ErrorCode.not_found,
+                message="Fund position was not found.",
+                status_code=404,
+            )
+        self.repository.delete_position(position)
+        self.repository.commit()
 
     def get_holding_summary(self) -> FundHoldingSummaryRead:
         positions = self.repository.list_positions()

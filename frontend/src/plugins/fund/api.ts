@@ -1,4 +1,4 @@
-import { getApiData, postApiData } from '@/api/client';
+import { apiClient, getApiData, postApiData, type ApiResponse } from '@/api/client';
 
 export interface FundModule {
   code: string;
@@ -76,6 +76,24 @@ export function fetchFundPositions(): Promise<FundPosition[]> {
 
 export function createFundPosition(payload: FundPositionCreate): Promise<FundPosition> {
   return postApiData<FundPosition, FundPositionCreate>('/fund/positions', payload);
+}
+
+export async function updateFundPosition(
+  positionId: number,
+  payload: FundPositionCreate,
+): Promise<FundPosition> {
+  const response = await apiClient.put<ApiResponse<FundPosition>>(
+    `/fund/positions/${positionId}`,
+    payload,
+  );
+  return response.data.data;
+}
+
+export async function deleteFundPosition(positionId: number): Promise<{ deleted: boolean; id: number }> {
+  const response = await apiClient.delete<ApiResponse<{ deleted: boolean; id: number }>>(
+    `/fund/positions/${positionId}`,
+  );
+  return response.data.data;
 }
 
 export function fetchFundHoldingSummary(): Promise<FundHoldingSummary> {

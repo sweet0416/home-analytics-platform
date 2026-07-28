@@ -70,6 +70,24 @@ def test_fund_positions_can_be_created_and_summarized(client: TestClient) -> Non
     assert summary["total_cost"] == "1200.00"
     assert summary["current_value"] == "1300.0000"
 
+    update_response = client.put(
+        f"/api/v1/fund/positions/{created['id']}",
+        json={**payload, "current_nav": "1.4000", "note": "updated"},
+    )
+    assert update_response.status_code == 200
+    updated = update_response.json()["data"]
+    assert updated["current_value"] == "1400.0000"
+    assert updated["unrealized_profit"] == "200.0000"
+    assert updated["note"] == "updated"
+
+    delete_response = client.delete(f"/api/v1/fund/positions/{created['id']}")
+    assert delete_response.status_code == 200
+    assert delete_response.json()["data"] == {"deleted": True, "id": created["id"]}
+
+    final_summary_response = client.get("/api/v1/fund/holdings/summary")
+    assert final_summary_response.status_code == 200
+    assert final_summary_response.json()["data"]["position_count"] == 0
+
 
 def test_current_dlt_rule_contract(client: TestClient) -> None:
     response = client.get("/api/v1/lottery/dlt/rules/current")

@@ -23,6 +23,9 @@
       </div>
       <div class="panel-body">
         <div class="position-form">
+          <div v-if="editingPositionId !== null" class="edit-banner wide">
+            正在编辑持仓 #{{ editingPositionId }}
+          </div>
           <label>
             <span>基金代码</span>
             <el-input v-model="form.fund_code" placeholder="例如 513100" />
@@ -76,8 +79,10 @@
             <el-input v-model="form.note" placeholder="定投、波段、核心仓等" />
           </label>
           <div class="form-actions">
-            <el-button plain @click="resetForm">清空</el-button>
-            <el-button type="primary" :loading="saving" @click="savePosition">保存持仓</el-button>
+            <el-button plain @click="resetForm">{{ editingPositionId === null ? '清空' : '取消编辑' }}</el-button>
+            <el-button type="primary" :loading="saving" @click="savePosition">
+              {{ editingPositionId === null ? '保存持仓' : '更新持仓' }}
+            </el-button>
           </div>
         </div>
       </div>
@@ -99,6 +104,7 @@
             <span>成本</span>
             <span>当前估值</span>
             <span>浮盈亏</span>
+            <span>操作</span>
           </div>
           <div v-for="position in positions" :key="position.id" class="position-row">
             <span>
@@ -111,6 +117,10 @@
             <span>{{ formatMoney(position.current_value) }}</span>
             <span :class="profitClass(position.unrealized_profit)">
               {{ formatMoney(position.unrealized_profit) }}
+            </span>
+            <span class="row-actions">
+              <el-button text size="small" @click="editPosition(position)">编辑</el-button>
+              <el-button text size="small" type="danger" @click="removePosition(position)">删除</el-button>
             </span>
           </div>
         </div>
@@ -164,6 +174,7 @@ import RevealContent from '@/components/common/RevealContent.vue';
 import MetricCard from '@/components/metric/MetricCard.vue';
 import {
   createFundPosition,
+  deleteFundPosition,
   fetchFundHoldingSummary,
   fetchFundPositions,
   fetchFundStatus,
@@ -171,6 +182,7 @@ import {
   type FundPosition,
   type FundPositionCreate,
   type FundStatus,
+  updateFundPosition,
 } from '@/plugins/fund/api';
 
 const fundStatus = ref<FundStatus | null>(null);
@@ -179,6 +191,7 @@ const summary = ref<FundHoldingSummary | null>(null);
 const isLoading = ref(false);
 const saving = ref(false);
 const errorMessage = ref('');
+const editingPositionId = ref<number | null>(null);
 const form = ref<FundPositionCreate>({
   fund_code: '',
   fund_name: '',
@@ -230,6 +243,7 @@ function profitClass(value: string | null): string {
 }
 
 function resetForm(): void {
+  editingPositionId.value = null;
   form.value = {
     fund_code: '',
     fund_name: '',
@@ -265,18 +279,57 @@ async function savePosition(): Promise<void> {
   }
   saving.value = true;
   try {
-    await createFundPosition({
+    const payload = {
       ...form.value,
       total_cost: form.value.total_cost && form.value.total_cost > 0 ? form.value.total_cost : null,
       current_nav: form.value.current_nav && form.value.current_nav > 0 ? form.value.current_nav : null,
-    });
-    ElMessage.success('持仓已保存');
+    };
+    if (editingPositionId.value === null) {
+      await createFundPosition(payload);
+      ElMessage.success('持仓已保存');
+    } else {
+      await updateFundPosition(editingPositionId.value, payload);
+      ElMessage.success('持仓已更新');
+    }
     resetForm();
     await loadHoldings();
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : '持仓保存失败');
   } finally {
     saving.value = false;
+  }
+}
+
+function editPosition(position: FundPosition): void {
+  editingPositionId.value = position.id;
+  form.value = {
+    fund_code: position.fund_code,
+    fund_name: position.fund_name,
+    fund_type: position.fund_type,
+    account_name: position.account_name,
+    shares: Number(position.shares),
+    cost_price: Number(position.cost_price),
+    total_cost: Number(position.total_cost),
+    current_nav: position.current_nav === null ? null : Number(position.current_nav),
+    opened_at: position.opened_at,
+    tags: position.tags,
+    note: position.note,
+  };
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+async function removePosition(position: FundPosition): Promise<void> {
+  const confirmed = window.confirm(`删除 ${position.fund_name}（${position.fund_code}）这条持仓？`);
+  if (!confirmed) return;
+  try {
+    await deleteFundPosition(position.id);
+    if (editingPositionId.value === position.id) {
+      resetForm();
+    }
+    ElMessage.success('持仓已删除');
+    await loadHoldings();
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : '持仓删除失败');
   }
 }
 
@@ -324,6 +377,14 @@ onMounted(async () => {
   grid-column: span 2;
 }
 
+.edit-banner {
+  border: 1px solid rgba(56, 189, 248, 0.28);
+  border-radius: 8px;
+  color: #7dd3fc;
+  font-size: 13px;
+  padding: 10px 12px;
+}
+
 .form-actions {
   align-items: end;
   display: flex;
@@ -342,7 +403,7 @@ onMounted(async () => {
   border-radius: 8px;
   display: grid;
   gap: 12px;
-  grid-template-columns: 1.6fr 0.7fr repeat(4, 0.8fr);
+  grid-template-columns: 1.5fr 0.65fr repeat(4, 0.8fr) 0.95fr;
   padding: 11px 12px;
 }
 
@@ -373,6 +434,12 @@ onMounted(async () => {
 
 .profit.negative {
   color: #fca5a5;
+}
+
+.row-actions {
+  align-items: center;
+  display: flex;
+  gap: 6px;
 }
 
 .fund-roadmap {
