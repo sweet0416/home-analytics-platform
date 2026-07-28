@@ -2654,12 +2654,17 @@ class LotteryService:
 
         best: tuple[int, list[int]] | None = None
 
-        def search(position: int, selected: list[int], penalty: int) -> None:
+        def search(
+            candidate_digits: str,
+            position: int,
+            selected: list[int],
+            penalty: int,
+        ) -> None:
             nonlocal best
             if best is not None and penalty >= best[0]:
                 return
             if len(selected) == count:
-                remainder = digits[position:]
+                remainder = candidate_digits[position:]
                 if remainder and any(char != "4" for char in remainder):
                     return
                 extra_penalty = len(remainder)
@@ -2668,17 +2673,17 @@ class LotteryService:
                     return
                 best = (penalty + extra_penalty, result)
                 return
-            if position >= len(digits):
+            if position >= len(candidate_digits):
                 return
 
-            if selected or digits[position] == "4":
-                skip_penalty = 1 if digits[position] == "4" else 4
-                search(position + 1, selected, penalty + skip_penalty)
+            if selected or candidate_digits[position] == "4":
+                skip_penalty = 1 if candidate_digits[position] == "4" else 4
+                search(candidate_digits, position + 1, selected, penalty + skip_penalty)
 
             for width in (2, 1):
-                if position + width > len(digits):
+                if position + width > len(candidate_digits):
                     continue
-                raw_number = digits[position : position + width]
+                raw_number = candidate_digits[position : position + width]
                 number = int(raw_number)
                 if number < 1 or number > max_number:
                     continue
@@ -2687,9 +2692,18 @@ class LotteryService:
                 if selected and number <= selected[-1]:
                     continue
                 width_penalty = 0 if width == 2 else 2
-                search(position + width, [*selected, number], penalty + width_penalty)
+                search(
+                    candidate_digits,
+                    position + width,
+                    [*selected, number],
+                    penalty + width_penalty,
+                )
 
-        search(0, [], 0)
+        digit_variants: list[tuple[str, int]] = [(digits, 0)]
+        if max_number == 35 and digits.startswith("4") and len(digits) > 1:
+            digit_variants.append(("1" + digits[1:], 1))
+        for candidate_digits, variant_penalty in digit_variants:
+            search(candidate_digits, 0, [], variant_penalty)
         return best[1] if best is not None else None
 
     @staticmethod
