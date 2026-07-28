@@ -350,16 +350,21 @@ const tickets = ref<EditableTicket[]>(cloneDefaults());
 const frontNumbers = Array.from({ length: 35 }, (_, index) => index + 1);
 const backNumbers = Array.from({ length: 12 }, (_, index) => index + 1);
 const fallbackDisclaimer = '本结果仅基于历史统计分析，仅供娱乐，不代表未来开奖结果。';
-const archiveStatusOptions = [
-  { label: '全部', value: 'all' },
-  { label: '等待开奖', value: 'pending' },
-  { label: '已对比', value: 'settled' },
-];
 
 const analysis = computed(() => lottery.randomTicket);
 const activeTicket = computed(() => tickets.value[activeIndex.value] ?? tickets.value[0]);
 const stageOptions = computed(() => lottery.dataStageReport?.stages ?? []);
 const archiveRuns = computed(() => lottery.randomTicketRuns);
+const archiveCounts = computed(() => ({
+  all: archiveRuns.value.length,
+  pending: archiveRuns.value.filter((run) => run.comparison.status === 'pending').length,
+  settled: archiveRuns.value.filter((run) => run.comparison.status === 'settled').length,
+}));
+const archiveStatusOptions = computed(() => [
+  { label: `全部 ${archiveCounts.value.all}`, value: 'all' },
+  { label: `等待开奖 ${archiveCounts.value.pending}`, value: 'pending' },
+  { label: `已对比 ${archiveCounts.value.settled}`, value: 'settled' },
+]);
 const filteredArchiveRuns = computed(() => {
   if (archiveStatus.value === 'all') return archiveRuns.value;
   return archiveRuns.value.filter((run) => run.comparison.status === archiveStatus.value);
