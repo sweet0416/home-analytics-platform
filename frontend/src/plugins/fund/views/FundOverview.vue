@@ -120,7 +120,15 @@
             </span>
             <span class="row-actions">
               <el-button text size="small" @click="editPosition(position)">编辑</el-button>
-              <el-button text size="small" type="danger" @click="removePosition(position)">删除</el-button>
+              <el-button
+                text
+                size="small"
+                type="danger"
+                :loading="deletingPositionId === position.id"
+                @click="removePosition(position)"
+              >
+                删除
+              </el-button>
             </span>
           </div>
         </div>
@@ -166,7 +174,7 @@
 </template>
 
 <script setup lang="ts">
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import { computed, onMounted, ref } from 'vue';
 
 import EmptyState from '@/components/common/EmptyState.vue';
@@ -190,6 +198,7 @@ const positions = ref<FundPosition[]>([]);
 const summary = ref<FundHoldingSummary | null>(null);
 const isLoading = ref(false);
 const saving = ref(false);
+const deletingPositionId = ref<number | null>(null);
 const errorMessage = ref('');
 const editingPositionId = ref<number | null>(null);
 const form = ref<FundPositionCreate>({
@@ -319,8 +328,21 @@ function editPosition(position: FundPosition): void {
 }
 
 async function removePosition(position: FundPosition): Promise<void> {
-  const confirmed = window.confirm(`删除 ${position.fund_name}（${position.fund_code}）这条持仓？`);
-  if (!confirmed) return;
+  try {
+    await ElMessageBox.confirm(
+      `删除 ${position.fund_name}（${position.fund_code}）这条持仓？`,
+      '确认删除持仓',
+      {
+        confirmButtonText: '删除',
+        cancelButtonText: '取消',
+        type: 'warning',
+      },
+    );
+  } catch {
+    return;
+  }
+
+  deletingPositionId.value = position.id;
   try {
     await deleteFundPosition(position.id);
     if (editingPositionId.value === position.id) {
@@ -330,6 +352,8 @@ async function removePosition(position: FundPosition): Promise<void> {
     await loadHoldings();
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : '持仓删除失败');
+  } finally {
+    deletingPositionId.value = null;
   }
 }
 
