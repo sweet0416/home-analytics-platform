@@ -199,12 +199,12 @@
       </div>
     </section>
 
-    <section v-if="archiveRuns.length" class="panel random-ticket-panel">
+    <section class="panel random-ticket-panel">
       <div class="panel-header">
         <h2 class="panel-title">样本存档</h2>
         <span class="panel-meta">开奖同步后会自动对比老板原始五注和二次候选五注</span>
       </div>
-      <div class="archive-list">
+      <div v-if="archiveRuns.length" class="archive-list">
         <article v-for="run in archiveRuns" :key="run.id" class="archive-card">
           <div class="archive-head">
             <strong>目标 {{ run.target_issue_no }}</strong>
@@ -296,6 +296,10 @@
             </section>
           </div>
         </article>
+      </div>
+      <div v-else class="empty-archive">
+        <strong>暂无样本存档</strong>
+        <span>生成二次候选后会自动保存，期开奖同步后这里会显示老板原始五注和系统二次候选的逐条命中对比。</span>
       </div>
     </section>
   </div>
@@ -684,6 +688,28 @@ function formatDateTime(value: string): string {
   display: grid;
   gap: 8px;
   padding: 12px;
+}
+
+.empty-archive {
+  align-items: center;
+  border: 1px dashed rgba(148, 163, 184, 0.24);
+  border-radius: 8px;
+  color: var(--color-muted);
+  display: grid;
+  gap: 8px;
+  justify-items: center;
+  min-height: 112px;
+  padding: 20px;
+  text-align: center;
+}
+
+.empty-archive strong {
+  color: var(--color-text);
+  font-size: 15px;
+}
+
+.empty-archive span {
+  max-width: 520px;
 }
 
 .ticket-row {
