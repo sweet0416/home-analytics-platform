@@ -1,8 +1,8 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any, Literal
 
-from loguru import logger
 import requests
+from loguru import logger
 from sqlalchemy import desc, func, select
 
 from app.core.config.settings import Settings
@@ -236,7 +236,7 @@ class NotificationService:
                 "source": "home-analytics-platform",
                 "title": title,
                 "message": message,
-                "sent_at": datetime.now(timezone.utc).isoformat(),
+                "sent_at": datetime.now(UTC).isoformat(),
             },
             timeout=self._settings.notification_timeout_seconds,
         )
@@ -367,7 +367,7 @@ class NotificationService:
             channel=channel,
             status="sent",
             message=message,
-            sent_at=datetime.now(timezone.utc),
+            sent_at=datetime.now(UTC),
             provider_message_id=provider_message_id,
         )
 

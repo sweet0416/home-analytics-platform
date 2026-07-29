@@ -14,7 +14,7 @@ def test_lottery_service_serializes_current_rule(db_session: Session) -> None:
 
     rule = LotteryService(db_session).get_current_rule()
 
-    assert rule["rule_code"] == "dlt-current-official"
+    assert rule["rule_code"] == "dlt-2026-official"
     assert rule["front"]["max"] == 35
     assert rule["back"]["max"] == 12
     assert len(rule["prize_tiers"]) == 13
@@ -126,7 +126,7 @@ def test_lottery_service_reports_data_stage_quality(db_session: Session) -> None
     report = LotteryService(db_session).get_data_stage_report()
 
     assert report["sample_size"] == 1
-    assert report["stages"][0]["stage_code"] == "dlt-current-official"
+    assert report["stages"][0]["stage_code"] == "unbound-rule"
     assert report["stages"][0]["earliest_issue_no"] == "25001"
     assert report["source_summary"][0]["source"] == "datachart.500.com"
     assert report["quality"]["sales_present_rate"] == 1

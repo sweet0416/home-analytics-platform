@@ -3,9 +3,11 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+$env:PYTHONUTF8 = "1"
 
 $BackendRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $VenvPython = Join-Path $BackendRoot ".venv\Scripts\python.exe"
+$FailedChecks = @()
 
 function Stop-WithMessage {
     param(
@@ -43,6 +45,36 @@ function Test-PythonModule {
     return $LASTEXITCODE -eq 0
 }
 
+function Invoke-SetupCommand {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Description,
+        [Parameter(Mandatory = $true)]
+        [string[]]$Arguments
+    )
+
+    & $VenvPython @Arguments
+    if ($LASTEXITCODE -ne 0) {
+        Stop-WithMessage "$Description failed with exit code $LASTEXITCODE."
+    }
+}
+
+function Invoke-BackendCheck {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Name,
+        [Parameter(Mandatory = $true)]
+        [string[]]$Arguments
+    )
+
+    Write-Host ""
+    Write-Host "==> $Name"
+    & $VenvPython @Arguments
+    if ($LASTEXITCODE -ne 0) {
+        $script:FailedChecks += $Name
+    }
+}
+
 Push-Location $BackendRoot
 try {
     if (-not (Test-Path $VenvPython)) {
@@ -50,8 +82,14 @@ try {
     }
 
     if (-not $SkipInstall) {
-        & $VenvPython -m pip install --upgrade pip
-        & $VenvPython -m pip install -r requirements-dev.txt
+        Invoke-SetupCommand "pip upgrade" @("-m", "pip", "install", "--upgrade", "pip")
+        Invoke-SetupCommand "dependency installation" @(
+            "-m",
+            "pip",
+            "install",
+            "-r",
+            "requirements-dev.txt"
+        )
     }
 
     if (-not (Test-PythonModule "pytest")) {
@@ -62,9 +100,16 @@ try {
         Stop-WithMessage "ruff is not installed in backend\.venv. Run scripts\test-backend.cmd without -SkipInstall."
     }
 
-    & $VenvPython -m compileall app tests alembic
-    & $VenvPython -m pytest
-    & $VenvPython -m ruff check app tests
+    Invoke-BackendCheck "Python syntax" @("-m", "compileall", "-q", "app", "tests", "alembic")
+    Invoke-BackendCheck "Pytest" @("-m", "pytest")
+    Invoke-BackendCheck "Ruff" @("-m", "ruff", "check", "app", "tests")
+
+    if ($FailedChecks.Count -gt 0) {
+        Stop-WithMessage "Backend checks failed: $($FailedChecks -join ', ')."
+    }
+
+    Write-Host ""
+    Write-Host "All backend checks passed."
 }
 finally {
     Pop-Location

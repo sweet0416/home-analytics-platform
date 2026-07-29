@@ -1,7 +1,6 @@
 from app.core.plugins.contracts import PluginManifest
 from app.plugins.fund.interfaces.router import router
 
-
 fund_plugin = PluginManifest(
     name="fund",
     display_name="Fund",

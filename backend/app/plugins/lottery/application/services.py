@@ -1287,7 +1287,7 @@ class LotteryService:
         back_counts = {number: 0 for number in range(1, 13)}
         generated_sets: list[dict[str, object]] = []
 
-        for index in range(simulations):
+        for _index in range(simulations):
             front_numbers = sorted(rng.sample(range(1, 36), 5))
             back_numbers = sorted(rng.sample(range(1, 13), 2))
             for number in front_numbers:

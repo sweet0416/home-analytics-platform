@@ -4,7 +4,7 @@ from loguru import logger
 
 from app.core.config.settings import get_settings
 from app.core.database.session import SessionLocal
-from app.plugins.lottery.application.notification import DltNotificationService, SCHEDULED_TRIGGER
+from app.plugins.lottery.application.notification import SCHEDULED_TRIGGER, DltNotificationService
 from app.plugins.lottery.application.services import LotteryService
 from app.plugins.lottery.domain.sync import DrawSyncCommand
 

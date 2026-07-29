@@ -6,10 +6,10 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
+from app.core.backup import models as backup_models  # noqa: F401
 from app.core.database.base import Base
 from app.core.database.session import get_db
 from app.main import create_app
-from app.core.backup import models as backup_models  # noqa: F401
 from app.plugins.fund.infrastructure.persistence import models as fund_models  # noqa: F401
 from app.plugins.lottery.infrastructure.persistence import models  # noqa: F401
 from app.plugins.lottery.infrastructure.persistence.repositories import LotteryRepository

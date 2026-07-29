@@ -14,7 +14,7 @@ def test_seed_current_dlt_rule_is_idempotent() -> None:
 
         assert rule is not None
         assert rule.game_code == "dlt"
-        assert rule.rule_name == "超级大乐透当前官方有效规则"
+        assert rule.rule_name == "超级大乐透 2026 当前规则阶段"
         assert rule.front_count == 5
         assert rule.front_min == 1
         assert rule.front_max == 35

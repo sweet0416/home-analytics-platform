@@ -1,5 +1,5 @@
-from pydantic import BaseModel
 from fastapi import APIRouter
+from pydantic import BaseModel
 
 from app.core.plugins.registry import plugin_registry
 from app.shared.responses.schemas import ApiResponse, ok

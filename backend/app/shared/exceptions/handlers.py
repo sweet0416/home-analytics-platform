@@ -1,4 +1,5 @@
 from fastapi import FastAPI, Request
+from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from loguru import logger
@@ -22,14 +23,22 @@ def register_exception_handlers(app: FastAPI) -> None:
         )
 
     @app.exception_handler(RequestValidationError)
-    async def validation_error_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
+    async def validation_error_handler(
+        request: Request,
+        exc: RequestValidationError,
+    ) -> JSONResponse:
         return JSONResponse(
             status_code=422,
             content={
                 "success": False,
                 "code": ErrorCode.validation_error.value,
                 "message": "Validation error",
-                "details": {"errors": exc.errors()},
+                "details": {
+                    "errors": jsonable_encoder(
+                        exc.errors(),
+                        custom_encoder={Exception: str},
+                    )
+                },
                 "trace_id": getattr(request.state, "trace_id", None),
             },
         )
@@ -47,4 +56,3 @@ def register_exception_handlers(app: FastAPI) -> None:
                 "trace_id": getattr(request.state, "trace_id", None),
             },
         )
-
