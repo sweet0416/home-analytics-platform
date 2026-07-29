@@ -7,9 +7,14 @@
           按已保存的持仓、观察池和净值生成，不代表实时行情
         </span>
       </div>
-      <el-button :icon="Refresh" :loading="loading" @click="loadReport">
-        刷新
-      </el-button>
+      <div class="report-actions">
+        <el-button :icon="Bell" :loading="pushing" @click="pushReport">
+          推送到 Bark
+        </el-button>
+        <el-button :icon="Refresh" :loading="loading" @click="loadReport">
+          刷新
+        </el-button>
+      </div>
     </div>
     <div class="panel-body">
       <div v-if="report" class="report-content">
@@ -101,7 +106,7 @@
 </template>
 
 <script setup lang="ts">
-import { InfoFilled, Refresh } from '@element-plus/icons-vue';
+import { Bell, InfoFilled, Refresh } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
 import { computed, onMounted, ref, watch } from 'vue';
 
@@ -109,6 +114,7 @@ import EmptyState from '@/components/common/EmptyState.vue';
 import RevealContent from '@/components/common/RevealContent.vue';
 import {
   fetchFundDailyReport,
+  pushFundDailyReport,
   type FundDailyReport,
 } from '@/plugins/fund/api';
 
@@ -118,6 +124,7 @@ const props = defineProps<{
 
 const report = ref<FundDailyReport | null>(null);
 const loading = ref(false);
+const pushing = ref(false);
 
 const profitClass = computed(() => {
   const value = Number(report.value?.holding_summary.unrealized_profit ?? 0);
@@ -134,6 +141,23 @@ async function loadReport(): Promise<void> {
     ElMessage.error(error instanceof Error ? error.message : '基金日报加载失败');
   } finally {
     loading.value = false;
+  }
+}
+
+async function pushReport(): Promise<void> {
+  pushing.value = true;
+  try {
+    const result = await pushFundDailyReport();
+    const bark = result.results.find((item) => item.channel === 'bark');
+    if (bark?.status === 'sent') {
+      ElMessage.success('基金日报已推送到 Bark');
+      return;
+    }
+    ElMessage.warning(bark?.message ?? 'Bark 推送未发送');
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : '基金日报推送失败');
+  } finally {
+    pushing.value = false;
   }
 }
 
@@ -205,6 +229,11 @@ watch(
   align-items: center;
   display: flex;
   gap: 10px;
+}
+
+.report-actions {
+  display: flex;
+  gap: 8px;
 }
 
 .report-time strong {
@@ -305,6 +334,7 @@ watch(
 
 @media (max-width: 640px) {
   .panel-header,
+  .report-actions,
   .report-time {
     align-items: stretch;
     flex-direction: column;

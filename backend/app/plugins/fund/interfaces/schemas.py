@@ -4,6 +4,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
 
+from app.core.notification.schemas import NotificationChannel
+
 
 class FundWatchlistCreate(BaseModel):
     fund_code: str = Field(min_length=1, max_length=16)
@@ -258,6 +260,10 @@ class FundDailyReportRead(BaseModel):
     valuation_complete: bool
     nav_age_days: int | None
     alerts: list[FundDailyAlertRead]
+
+
+class FundDailyPushRequest(BaseModel):
+    channel: NotificationChannel = NotificationChannel.bark
 
 
 class FundModuleRead(BaseModel):

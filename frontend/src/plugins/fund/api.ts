@@ -231,6 +231,17 @@ export interface FundDailyReport {
   alerts: FundDailyAlert[];
 }
 
+export interface FundDailyPushResult {
+  requested_channel: 'all' | 'bark' | 'wecom' | 'whatsapp' | 'custom_webhook';
+  results: Array<{
+    channel: 'all' | 'bark' | 'wecom' | 'whatsapp' | 'custom_webhook';
+    status: 'sent' | 'skipped' | 'failed';
+    message: string;
+    sent_at: string | null;
+    provider_message_id: string | null;
+  }>;
+}
+
 export function fetchFundStatus(): Promise<FundStatus> {
   return getApiData<FundStatus>('/fund/status');
 }
@@ -360,4 +371,11 @@ export function fetchFundNavSummary(): Promise<FundNavSummary> {
 
 export function fetchFundDailyReport(): Promise<FundDailyReport> {
   return getApiData<FundDailyReport>('/fund/reports/daily');
+}
+
+export function pushFundDailyReport(): Promise<FundDailyPushResult> {
+  return postApiData<FundDailyPushResult, { channel: 'bark' }>(
+    '/fund/reports/daily/push',
+    { channel: 'bark' },
+  );
 }

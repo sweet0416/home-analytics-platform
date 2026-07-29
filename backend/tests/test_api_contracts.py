@@ -429,6 +429,62 @@ def test_fund_daily_report_summarizes_data_quality(client: TestClient) -> None:
     }
 
 
+def test_fund_daily_report_can_be_pushed(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.core.notification.schemas import (
+        NotificationChannel,
+        NotificationSendResult,
+        NotificationTestResult,
+    )
+
+    captured: dict[str, object] = {}
+
+    def fake_send_test(
+        self: object,
+        channel: NotificationChannel,
+        title: str,
+        message: str,
+        source: str = "manual_test",
+    ) -> NotificationTestResult:
+        captured.update(
+            channel=channel,
+            title=title,
+            message=message,
+            source=source,
+        )
+        return NotificationTestResult(
+            requested_channel=channel,
+            results=[
+                NotificationSendResult(
+                    channel=channel,
+                    status="sent",
+                    message="sent",
+                )
+            ],
+        )
+
+    monkeypatch.setattr(
+        "app.core.notification.service.NotificationService.send_test",
+        fake_send_test,
+    )
+
+    response = client.post(
+        "/api/v1/fund/reports/daily/push",
+        json={"channel": "bark"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()["data"]
+    assert body["requested_channel"] == "bark"
+    assert body["results"][0]["status"] == "sent"
+    assert captured["channel"] == NotificationChannel.bark
+    assert captured["source"] == "fund_daily_report"
+    assert "持仓：0 条" in str(captured["message"])
+    assert "不代表实时行情或投资建议" in str(captured["message"])
+
+
 def test_fund_watchlist_can_be_created_updated_and_deleted(client: TestClient) -> None:
     empty_summary_response = client.get("/api/v1/fund/watchlist/summary")
     assert empty_summary_response.status_code == 200

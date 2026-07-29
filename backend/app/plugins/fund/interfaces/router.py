@@ -3,11 +3,14 @@ from sqlalchemy.orm import Session
 
 from app.core.config.settings import Settings, get_settings
 from app.core.database.session import get_db
-from app.plugins.fund.domain.constants import FUND_MODULES, FUND_PLUGIN_CODE
+from app.core.notification.schemas import NotificationTestResult
+from app.plugins.fund.application.notification import FundDailyNotificationService
 from app.plugins.fund.application.services import FundService
+from app.plugins.fund.domain.constants import FUND_MODULES, FUND_PLUGIN_CODE
 from app.plugins.fund.infrastructure.persistence.repositories import FundRepository
 from app.plugins.fund.interfaces.schemas import (
     FundAllocationRead,
+    FundDailyPushRequest,
     FundDailyReportRead,
     FundHoldingSummaryRead,
     FundLatestNavRead,
@@ -220,3 +223,19 @@ def get_fund_daily_report(
     service: FundService = Depends(get_fund_service),
 ) -> ApiResponse[FundDailyReportRead]:
     return ok(service.get_daily_report())
+
+
+@router.post(
+    "/reports/daily/push",
+    response_model=ApiResponse[NotificationTestResult],
+)
+def push_fund_daily_report(
+    payload: FundDailyPushRequest,
+    service: FundService = Depends(get_fund_service),
+    settings: Settings = Depends(get_settings),
+) -> ApiResponse[NotificationTestResult]:
+    result = FundDailyNotificationService(settings=settings).send(
+        report=service.get_daily_report(),
+        channel=payload.channel,
+    )
+    return ok(result, message="fund daily report push finished")
