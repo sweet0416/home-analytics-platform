@@ -213,6 +213,24 @@ export interface FundNavSummary {
   sources: string[];
 }
 
+export interface FundDailyAlert {
+  code: string;
+  level: 'info' | 'warning';
+  message: string;
+}
+
+export interface FundDailyReport {
+  report_date: string;
+  generated_at: string;
+  holding_summary: FundHoldingSummary;
+  allocation: FundAllocation;
+  watchlist_summary: FundWatchlistSummary;
+  nav_summary: FundNavSummary;
+  valuation_complete: boolean;
+  nav_age_days: number | null;
+  alerts: FundDailyAlert[];
+}
+
 export function fetchFundStatus(): Promise<FundStatus> {
   return getApiData<FundStatus>('/fund/status');
 }
@@ -338,4 +356,8 @@ export function fetchFundWatchlistSummary(): Promise<FundWatchlistSummary> {
 
 export function fetchFundNavSummary(): Promise<FundNavSummary> {
   return getApiData<FundNavSummary>('/fund/nav-records/summary');
+}
+
+export function fetchFundDailyReport(): Promise<FundDailyReport> {
+  return getApiData<FundDailyReport>('/fund/reports/daily');
 }

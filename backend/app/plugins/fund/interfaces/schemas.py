@@ -242,6 +242,24 @@ class FundNavSummaryRead(BaseModel):
     sources: list[str]
 
 
+class FundDailyAlertRead(BaseModel):
+    code: str
+    level: Literal["info", "warning"]
+    message: str
+
+
+class FundDailyReportRead(BaseModel):
+    report_date: date
+    generated_at: datetime
+    holding_summary: FundHoldingSummaryRead
+    allocation: FundAllocationRead
+    watchlist_summary: FundWatchlistSummaryRead
+    nav_summary: FundNavSummaryRead
+    valuation_complete: bool
+    nav_age_days: int | None
+    alerts: list[FundDailyAlertRead]
+
+
 class FundModuleRead(BaseModel):
     code: str
     name: str

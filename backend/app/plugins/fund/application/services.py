@@ -1,5 +1,7 @@
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
 from decimal import Decimal
+from zoneinfo import ZoneInfo
 
 from loguru import logger
 
@@ -19,6 +21,8 @@ from app.plugins.fund.interfaces.schemas import (
     FundAllocationGroupRead,
     FundAllocationHoldingRead,
     FundAllocationRead,
+    FundDailyAlertRead,
+    FundDailyReportRead,
     FundHoldingSummaryRead,
     FundLatestNavRead,
     FundNavHistorySyncRead,
@@ -398,10 +402,14 @@ class FundService:
             (position.shares * position.current_nav for position in valued_positions),
             Decimal("0"),
         )
-        unrealized_profit = current_value - total_cost if valued_positions else None
+        valued_cost = sum(
+            (position.total_cost for position in valued_positions),
+            Decimal("0"),
+        )
+        unrealized_profit = current_value - valued_cost if valued_positions else None
         unrealized_return_rate = (
-            unrealized_profit / total_cost
-            if unrealized_profit is not None and total_cost > 0
+            unrealized_profit / valued_cost
+            if unrealized_profit is not None and valued_cost > 0
             else None
         )
         fund_types = sorted({position.fund.fund_type for position in positions})
@@ -503,6 +511,97 @@ class FundService:
             fund_count=fund_count,
             latest_nav_date=latest_nav_date,
             sources=sources,
+        )
+
+    def get_daily_report(self) -> FundDailyReportRead:
+        now = datetime.now(ZoneInfo("Asia/Shanghai"))
+        holding_summary = self.get_holding_summary()
+        allocation = self.get_allocation()
+        watchlist_summary = self.get_watchlist_summary()
+        nav_summary = self.get_nav_summary()
+        nav_age_days = (
+            (now.date() - nav_summary.latest_nav_date).days
+            if nav_summary.latest_nav_date is not None
+            else None
+        )
+        valuation_complete = (
+            holding_summary.position_count > 0
+            and allocation.cost_fallback_count == 0
+        )
+        alerts: list[FundDailyAlertRead] = []
+
+        if holding_summary.position_count == 0:
+            alerts.append(
+                FundDailyAlertRead(
+                    code="no_positions",
+                    level="info",
+                    message="还没有录入持仓，日报暂时只能展示数据准备情况。",
+                )
+            )
+        elif allocation.cost_fallback_count:
+            alerts.append(
+                FundDailyAlertRead(
+                    code="valuation_incomplete",
+                    level="warning",
+                    message=(
+                        f"{allocation.cost_fallback_count} 条持仓缺少当前净值，"
+                        "配置金额暂按成本估算。"
+                    ),
+                )
+            )
+
+        if nav_summary.latest_nav_date is None:
+            alerts.append(
+                FundDailyAlertRead(
+                    code="nav_missing",
+                    level="warning",
+                    message="数据库里还没有基金净值，收益和估值无法核对。",
+                )
+            )
+        elif nav_age_days is not None and nav_age_days > 5:
+            alerts.append(
+                FundDailyAlertRead(
+                    code="nav_stale",
+                    level="warning",
+                    message=f"最新净值距今天已有 {nav_age_days} 个自然日，请先同步数据。",
+                )
+            )
+
+        if (
+            allocation.top_holding_weight is not None
+            and allocation.top_holding_weight >= Decimal("0.4")
+        ):
+            alerts.append(
+                FundDailyAlertRead(
+                    code="holding_concentration",
+                    level="info",
+                    message=(
+                        "最大单一基金占比达到 "
+                        f"{allocation.top_holding_weight * 100:.2f}%，"
+                        "请结合自己的配置目标判断是否过于集中。"
+                    ),
+                )
+            )
+
+        if watchlist_summary.item_count == 0:
+            alerts.append(
+                FundDailyAlertRead(
+                    code="watchlist_empty",
+                    level="info",
+                    message="观察池为空，暂时没有需要跟踪的候选基金。",
+                )
+            )
+
+        return FundDailyReportRead(
+            report_date=now.date(),
+            generated_at=now,
+            holding_summary=holding_summary,
+            allocation=allocation,
+            watchlist_summary=watchlist_summary,
+            nav_summary=nav_summary,
+            valuation_complete=valuation_complete,
+            nav_age_days=nav_age_days,
+            alerts=alerts,
         )
 
     def _to_nav_record_read(self, record: FundNavRecordModel) -> FundNavRecordRead:

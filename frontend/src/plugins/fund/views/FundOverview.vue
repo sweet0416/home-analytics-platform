@@ -348,6 +348,8 @@
 
     <FundAllocation :refresh-key="allocationRefreshKey" />
 
+    <FundDailyReport :refresh-key="dailyReportRefreshKey" />
+
     <RevealContent as="section" class="panel fund-panel" :delay="380">
       <div class="panel-header">
         <div>
@@ -381,6 +383,7 @@ import EmptyState from '@/components/common/EmptyState.vue';
 import RevealContent from '@/components/common/RevealContent.vue';
 import MetricCard from '@/components/metric/MetricCard.vue';
 import FundAllocation from '@/plugins/fund/components/FundAllocation.vue';
+import FundDailyReport from '@/plugins/fund/components/FundDailyReport.vue';
 import FundNavTrend from '@/plugins/fund/components/FundNavTrend.vue';
 import {
   createFundNavRecord,
@@ -424,6 +427,7 @@ const summary = ref<FundHoldingSummary | null>(null);
 const watchSummary = ref<FundWatchlistSummary | null>(null);
 const navSummary = ref<FundNavSummary | null>(null);
 const allocationRefreshKey = ref(0);
+const dailyReportRefreshKey = ref(0);
 const isLoading = ref(false);
 const saving = ref(false);
 const savingWatch = ref(false);
@@ -586,6 +590,7 @@ async function loadHoldings(): Promise<void> {
   positions.value = nextPositions;
   summary.value = nextSummary;
   allocationRefreshKey.value += 1;
+  dailyReportRefreshKey.value += 1;
 }
 
 async function loadWatchlist(): Promise<void> {
@@ -595,6 +600,7 @@ async function loadWatchlist(): Promise<void> {
   ]);
   watchItems.value = nextItems;
   watchSummary.value = nextSummary;
+  dailyReportRefreshKey.value += 1;
 }
 
 async function loadNavRecords(): Promise<void> {
@@ -604,6 +610,7 @@ async function loadNavRecords(): Promise<void> {
   ]);
   navRecords.value = nextRecords;
   navSummary.value = nextSummary;
+  dailyReportRefreshKey.value += 1;
 }
 
 async function handleHistorySynced(): Promise<void> {

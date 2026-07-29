@@ -8,6 +8,7 @@ from app.plugins.fund.application.services import FundService
 from app.plugins.fund.infrastructure.persistence.repositories import FundRepository
 from app.plugins.fund.interfaces.schemas import (
     FundAllocationRead,
+    FundDailyReportRead,
     FundHoldingSummaryRead,
     FundLatestNavRead,
     FundNavHistorySyncRead,
@@ -212,3 +213,10 @@ def get_fund_allocation(
     service: FundService = Depends(get_fund_service),
 ) -> ApiResponse[FundAllocationRead]:
     return ok(service.get_allocation())
+
+
+@router.get("/reports/daily", response_model=ApiResponse[FundDailyReportRead])
+def get_fund_daily_report(
+    service: FundService = Depends(get_fund_service),
+) -> ApiResponse[FundDailyReportRead]:
+    return ok(service.get_daily_report())
