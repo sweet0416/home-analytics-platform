@@ -223,6 +223,8 @@
       </div>
     </RevealContent>
 
+    <FundNavTrend @synced="handleHistorySynced" />
+
     <RevealContent as="section" class="panel fund-panel" :delay="300">
       <div class="panel-header">
         <div>
@@ -376,6 +378,7 @@ import { computed, onMounted, ref } from 'vue';
 import EmptyState from '@/components/common/EmptyState.vue';
 import RevealContent from '@/components/common/RevealContent.vue';
 import MetricCard from '@/components/metric/MetricCard.vue';
+import FundNavTrend from '@/plugins/fund/components/FundNavTrend.vue';
 import {
   createFundNavRecord,
   createFundPosition,
@@ -591,11 +594,15 @@ async function loadWatchlist(): Promise<void> {
 
 async function loadNavRecords(): Promise<void> {
   const [nextRecords, nextSummary] = await Promise.all([
-    fetchFundNavRecords(),
+    fetchFundNavRecords(10),
     fetchFundNavSummary(),
   ]);
   navRecords.value = nextRecords;
   navSummary.value = nextSummary;
+}
+
+async function handleHistorySynced(): Promise<void> {
+  await Promise.all([loadNavRecords(), loadHoldings()]);
 }
 
 async function syncWatchlistNavs(): Promise<void> {

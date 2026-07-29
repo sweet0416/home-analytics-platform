@@ -18,6 +18,8 @@ from app.plugins.fund.infrastructure.sources.eastmoney import (
 from app.plugins.fund.interfaces.schemas import (
     FundHoldingSummaryRead,
     FundLatestNavRead,
+    FundNavHistorySyncRead,
+    FundNavHistorySyncRequest,
     FundNavRecordCreate,
     FundNavRecordRead,
     FundNavSyncLatestRequest,
@@ -60,6 +62,16 @@ class FundService:
             for record in self.repository.list_nav_records(limit=bounded_limit)
         ]
 
+    def list_nav_history(self, fund_code: str, limit: int = 365) -> list[FundNavRecordRead]:
+        bounded_limit = max(2, min(limit, 500))
+        return [
+            self._to_nav_record_read(record)
+            for record in self.repository.list_nav_history(
+                fund_code=fund_code.strip(),
+                limit=bounded_limit,
+            )
+        ]
+
     def create_nav_record(self, payload: FundNavRecordCreate) -> FundNavRecordRead:
         fund = self.repository.upsert_fund(
             code=payload.fund_code,
@@ -82,6 +94,47 @@ class FundService:
         source = self.nav_source or self._build_default_nav_source()
         latest = source.fetch_latest(fund_code=payload.fund_code, fund_type=payload.fund_type)
         return self._persist_latest_nav(latest)
+
+    def sync_nav_history(self, payload: FundNavHistorySyncRequest) -> FundNavHistorySyncRead:
+        source = self.nav_source or self._build_default_nav_source()
+        history = source.fetch_history(
+            fund_code=payload.fund_code,
+            fund_type=payload.fund_type,
+            limit=payload.limit,
+        )
+        latest = history[-1]
+        fund = self.repository.upsert_fund(
+            code=latest.fund_code,
+            name=latest.fund_name,
+            fund_type=latest.fund_type,
+        )
+        self.repository.upsert_nav_records(
+            fund=fund,
+            records=[
+                (
+                    item.nav_date,
+                    item.unit_nav,
+                    item.accumulated_nav,
+                    item.source,
+                    f"source_url={item.source_url}",
+                )
+                for item in history
+            ],
+        )
+        self.repository.update_position_navs(
+            fund_id=fund.id,
+            current_nav=latest.unit_nav,
+        )
+        self.repository.commit()
+        return FundNavHistorySyncRead(
+            fund_code=latest.fund_code,
+            fund_name=latest.fund_name,
+            fund_type=latest.fund_type,
+            synced_count=len(history),
+            earliest_date=history[0].nav_date,
+            latest_date=latest.nav_date,
+            source=latest.source,
+        )
 
     def sync_watchlist_navs(self) -> FundWatchlistNavSyncRead:
         items = self.repository.list_watchlist_items()
@@ -373,12 +426,14 @@ class FundService:
         )
 
     def get_nav_summary(self) -> FundNavSummaryRead:
-        records = self.repository.list_nav_records(limit=200)
+        record_count, fund_count, latest_nav_date, sources = (
+            self.repository.get_nav_summary_data()
+        )
         return FundNavSummaryRead(
-            record_count=len(records),
-            fund_count=len({record.fund_id for record in records}),
-            latest_nav_date=max((record.nav_date for record in records), default=None),
-            sources=sorted({record.source for record in records}),
+            record_count=record_count,
+            fund_count=fund_count,
+            latest_nav_date=latest_nav_date,
+            sources=sources,
         )
 
     def _to_nav_record_read(self, record: FundNavRecordModel) -> FundNavRecordRead:

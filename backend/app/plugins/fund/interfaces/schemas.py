@@ -79,6 +79,20 @@ class FundNavSyncLatestRequest(BaseModel):
         return value.strip()
 
 
+class FundNavHistorySyncRequest(FundNavSyncLatestRequest):
+    limit: int = Field(default=365, ge=2, le=500)
+
+
+class FundNavHistorySyncRead(BaseModel):
+    fund_code: str
+    fund_name: str
+    fund_type: str
+    synced_count: int
+    earliest_date: date
+    latest_date: date
+    source: str
+
+
 class FundLatestNavRead(BaseModel):
     fund_code: str
     fund_name: str

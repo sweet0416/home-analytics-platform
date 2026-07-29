@@ -30,6 +30,37 @@ def test_eastmoney_fund_nav_source_parses_latest_record() -> None:
     assert latest.fund_type == "ETF"
 
 
+def test_eastmoney_fund_nav_source_parses_history() -> None:
+    source = EastmoneyFundNavSource()
+    content = """
+    var fS_name = "History Fund";
+    var fS_code = "513199";
+    var Data_netWorthTrend = [
+      {"x":1785196800000,"y":1.2000},
+      {"x":1785283200000,"y":1.3000},
+      {"x":1785369600000,"y":1.2500}
+    ];
+    var Data_ACWorthTrend = [
+      [1785196800000,1.5000],
+      [1785283200000,1.6000],
+      [1785369600000,1.5500]
+    ];
+    """
+
+    history = source.parse_history_script(
+        content,
+        source_url="https://fund.eastmoney.com/pingzhongdata/513199.js",
+        fund_code="513199",
+        fund_type="ETF",
+        limit=2,
+    )
+
+    assert len(history) == 2
+    assert history[0].nav_date < history[1].nav_date
+    assert str(history[0].unit_nav) == "1.3000"
+    assert str(history[1].accumulated_nav) == "1.5500"
+
+
 def test_fund_lookup_latest_nav_does_not_persist(
     client: TestClient,
     monkeypatch: pytest.MonkeyPatch,
@@ -139,6 +170,63 @@ def test_fund_watchlist_nav_sync_isolates_source_failures(
     nav_records = client.get("/api/v1/fund/nav-records").json()["data"]
     assert len(nav_records) == 1
     assert nav_records[0]["fund_code"] == "513199"
+
+
+def test_fund_nav_history_sync_persists_ordered_series(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from datetime import date
+    from decimal import Decimal
+
+    class FakeHistorySource:
+        def fetch_history(
+            self,
+            fund_code: str,
+            fund_type: str = "unknown",
+            limit: int = 365,
+        ) -> list[FundLatestNav]:
+            return [
+                FundLatestNav(
+                    fund_code=fund_code,
+                    fund_name="History Fund",
+                    fund_type=fund_type,
+                    nav_date=date(2026, 7, day),
+                    unit_nav=Decimal(nav),
+                    accumulated_nav=Decimal(nav),
+                    source="fake",
+                    source_url="https://example.test/history.js",
+                )
+                for day, nav in ((27, "1.1000"), (28, "1.2000"), (29, "1.3000"))
+            ][-limit:]
+
+    monkeypatch.setattr(
+        "app.plugins.fund.application.services.FundService._build_default_nav_source",
+        lambda self: FakeHistorySource(),
+    )
+
+    response = client.post(
+        "/api/v1/fund/nav-records/sync-history",
+        json={"fund_code": "513199", "fund_type": "ETF", "limit": 3},
+    )
+
+    assert response.status_code == 200
+    body = response.json()["data"]
+    assert body["synced_count"] == 3
+    assert body["earliest_date"] == "2026-07-27"
+    assert body["latest_date"] == "2026-07-29"
+
+    history_response = client.get(
+        "/api/v1/fund/nav-records/history",
+        params={"fund_code": "513199", "limit": 3},
+    )
+    assert history_response.status_code == 200
+    history = history_response.json()["data"]
+    assert [item["nav_date"] for item in history] == [
+        "2026-07-27",
+        "2026-07-28",
+        "2026-07-29",
+    ]
 
 
 def test_health_check_returns_standard_response(client: TestClient) -> None:

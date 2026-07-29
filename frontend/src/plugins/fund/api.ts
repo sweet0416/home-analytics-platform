@@ -101,6 +101,20 @@ export interface FundNavSyncLatestRequest {
   fund_type: string;
 }
 
+export interface FundNavHistorySyncRequest extends FundNavSyncLatestRequest {
+  limit: number;
+}
+
+export interface FundNavHistorySyncResult {
+  fund_code: string;
+  fund_name: string;
+  fund_type: string;
+  synced_count: number;
+  earliest_date: string;
+  latest_date: string;
+  source: string;
+}
+
 export interface FundLatestNav {
   fund_code: string;
   fund_name: string;
@@ -201,6 +215,24 @@ export function createFundNavRecord(payload: FundNavRecordCreate): Promise<FundN
 
 export function syncLatestFundNav(payload: FundNavSyncLatestRequest): Promise<FundNavRecord> {
   return postApiData<FundNavRecord, FundNavSyncLatestRequest>('/fund/nav-records/sync-latest', payload);
+}
+
+export function fetchFundNavHistory(fundCode: string, limit = 365): Promise<FundNavRecord[]> {
+  const query = new URLSearchParams({
+    fund_code: fundCode,
+    limit: String(limit),
+  });
+  return getApiData<FundNavRecord[]>(`/fund/nav-records/history?${query.toString()}`);
+}
+
+export function syncFundNavHistory(
+  payload: FundNavHistorySyncRequest,
+): Promise<FundNavHistorySyncResult> {
+  return postApiData<FundNavHistorySyncResult, FundNavHistorySyncRequest>(
+    '/fund/nav-records/sync-history',
+    payload,
+    { timeout: 120000 },
+  );
 }
 
 export function lookupLatestFundNav(payload: FundNavSyncLatestRequest): Promise<FundLatestNav> {

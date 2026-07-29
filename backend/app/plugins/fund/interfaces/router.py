@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.core.config.settings import Settings, get_settings
@@ -9,6 +9,8 @@ from app.plugins.fund.infrastructure.persistence.repositories import FundReposit
 from app.plugins.fund.interfaces.schemas import (
     FundHoldingSummaryRead,
     FundLatestNavRead,
+    FundNavHistorySyncRead,
+    FundNavHistorySyncRequest,
     FundNavRecordCreate,
     FundNavRecordRead,
     FundNavSyncLatestRequest,
@@ -110,6 +112,23 @@ def sync_latest_fund_nav_record(
     service: FundService = Depends(get_fund_service),
 ) -> ApiResponse[FundNavRecordRead]:
     return ok(service.sync_latest_nav(payload))
+
+
+@router.post("/nav-records/sync-history", response_model=ApiResponse[FundNavHistorySyncRead])
+def sync_fund_nav_history(
+    payload: FundNavHistorySyncRequest,
+    service: FundService = Depends(get_fund_service),
+) -> ApiResponse[FundNavHistorySyncRead]:
+    return ok(service.sync_nav_history(payload))
+
+
+@router.get("/nav-records/history", response_model=ApiResponse[list[FundNavRecordRead]])
+def get_fund_nav_history(
+    fund_code: str,
+    limit: int = Query(default=365, ge=2, le=500),
+    service: FundService = Depends(get_fund_service),
+) -> ApiResponse[list[FundNavRecordRead]]:
+    return ok(service.list_nav_history(fund_code=fund_code, limit=limit))
 
 
 @router.post("/lookup/latest-nav", response_model=ApiResponse[FundLatestNavRead])

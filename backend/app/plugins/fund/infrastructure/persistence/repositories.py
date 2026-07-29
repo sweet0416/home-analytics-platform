@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import select
+from sqlalchemy import distinct, func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.plugins.fund.infrastructure.persistence.models import (
@@ -215,6 +215,44 @@ class FundRepository:
         self.db.flush()
         return record
 
+    def upsert_nav_records(
+        self,
+        *,
+        fund: FundModel,
+        records: list[tuple[date, Decimal, Decimal | None, str, str]],
+    ) -> list[FundNavRecordModel]:
+        dates = [record[0] for record in records]
+        existing_records = self.db.scalars(
+            select(FundNavRecordModel).where(
+                FundNavRecordModel.fund_id == fund.id,
+                FundNavRecordModel.nav_date.in_(dates),
+            )
+        )
+        existing_by_date = {record.nav_date: record for record in existing_records}
+        now = datetime.utcnow()
+        saved: list[FundNavRecordModel] = []
+        for nav_date, unit_nav, accumulated_nav, source, note in records:
+            record = existing_by_date.get(nav_date)
+            if record is None:
+                record = FundNavRecordModel(
+                    fund=fund,
+                    nav_date=nav_date,
+                    unit_nav=unit_nav,
+                    accumulated_nav=accumulated_nav,
+                    source=source,
+                    note=note,
+                )
+                self.db.add(record)
+            else:
+                record.unit_nav = unit_nav
+                record.accumulated_nav = accumulated_nav
+                record.source = source
+                record.note = note
+                record.updated_at = now
+            saved.append(record)
+        self.db.flush()
+        return saved
+
     def get_nav_record(self, record_id: int) -> FundNavRecordModel | None:
         return self.db.scalar(
             select(FundNavRecordModel)
@@ -245,6 +283,43 @@ class FundRepository:
                 .limit(limit)
             )
         )
+
+    def list_nav_history(
+        self,
+        *,
+        fund_code: str,
+        limit: int,
+    ) -> list[FundNavRecordModel]:
+        records = list(
+            self.db.scalars(
+                select(FundNavRecordModel)
+                .join(FundModel)
+                .options(selectinload(FundNavRecordModel.fund))
+                .where(FundModel.code == fund_code)
+                .order_by(FundNavRecordModel.nav_date.desc())
+                .limit(limit)
+            )
+        )
+        return list(reversed(records))
+
+    def get_nav_summary_data(
+        self,
+    ) -> tuple[int, int, date | None, list[str]]:
+        record_count, fund_count, latest_nav_date = self.db.execute(
+            select(
+                func.count(FundNavRecordModel.id),
+                func.count(distinct(FundNavRecordModel.fund_id)),
+                func.max(FundNavRecordModel.nav_date),
+            )
+        ).one()
+        sources = list(
+            self.db.scalars(
+                select(FundNavRecordModel.source)
+                .distinct()
+                .order_by(FundNavRecordModel.source)
+            )
+        )
+        return record_count, fund_count, latest_nav_date, sources
 
     def list_watchlist_items(self) -> list[FundWatchlistItemModel]:
         return list(

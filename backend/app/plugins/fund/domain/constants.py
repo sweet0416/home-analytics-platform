@@ -11,7 +11,7 @@ FUND_MODULES = [
         "code": "nav",
         "name": "净值与走势",
         "description": "同步历史净值、估算收益曲线，并展示阶段涨跌幅。",
-        "status": "planned",
+        "status": "in_progress",
     },
     {
         "code": "allocation",

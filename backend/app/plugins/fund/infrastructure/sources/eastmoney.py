@@ -40,29 +40,11 @@ class EastmoneyFundNavSource:
 
     def fetch_latest(self, fund_code: str, fund_type: str = "unknown") -> FundLatestNav:
         normalized_code = fund_code.strip()
-        source_url = self._build_source_url(normalized_code)
-        try:
-            response = self.session.get(
-                source_url,
-                headers={
-                    "Accept": "*/*",
-                    "Referer": self.referer_template.format(fund_code=normalized_code),
-                    "User-Agent": "Mozilla/5.0 HAP/1.1",
-                },
-                timeout=self.timeout_seconds,
-            )
-            response.raise_for_status()
-        except requests.RequestException as exc:
-            raise AppError(
-                code=ErrorCode.fund_nav_source_unavailable,
-                message=f"Eastmoney fund NAV source is unavailable: {exc}",
-                status_code=502,
-            ) from exc
-
+        content, source_url = self._fetch_script(normalized_code)
         try:
             return self.parse_script(
-                response.text,
-                source_url=response.url,
+                content,
+                source_url=source_url,
                 fund_code=normalized_code,
                 fund_type=fund_type,
             )
@@ -74,6 +56,52 @@ class EastmoneyFundNavSource:
                 message=f"Eastmoney fund NAV response could not be parsed: {exc}",
                 status_code=502,
             ) from exc
+
+    def fetch_history(
+        self,
+        fund_code: str,
+        fund_type: str = "unknown",
+        limit: int = 365,
+    ) -> list[FundLatestNav]:
+        normalized_code = fund_code.strip()
+        content, source_url = self._fetch_script(normalized_code)
+        try:
+            return self.parse_history_script(
+                content,
+                source_url=source_url,
+                fund_code=normalized_code,
+                fund_type=fund_type,
+                limit=limit,
+            )
+        except AppError:
+            raise
+        except Exception as exc:
+            raise AppError(
+                code=ErrorCode.fund_nav_parse_failed,
+                message=f"Eastmoney fund NAV history could not be parsed: {exc}",
+                status_code=502,
+            ) from exc
+
+    def _fetch_script(self, fund_code: str) -> tuple[str, str]:
+        source_url = self._build_source_url(fund_code)
+        try:
+            response = self.session.get(
+                source_url,
+                headers={
+                    "Accept": "*/*",
+                    "Referer": self.referer_template.format(fund_code=fund_code),
+                    "User-Agent": "Mozilla/5.0 HAP/1.1",
+                },
+                timeout=self.timeout_seconds,
+            )
+            response.raise_for_status()
+        except requests.RequestException as exc:
+            raise AppError(
+                code=ErrorCode.fund_nav_source_unavailable,
+                message=f"Eastmoney fund NAV source is unavailable: {exc}",
+                status_code=502,
+            ) from exc
+        return response.text, response.url
 
     def parse_script(
         self,
@@ -115,6 +143,51 @@ class EastmoneyFundNavSource:
             source=self.source,
             source_url=source_url,
         )
+
+    def parse_history_script(
+        self,
+        content: str,
+        *,
+        source_url: str,
+        fund_code: str,
+        fund_type: str,
+        limit: int,
+    ) -> list[FundLatestNav]:
+        parsed_code = self._extract_string(content, "fS_code") or fund_code
+        fund_name = self._extract_string(content, "fS_name")
+        if not fund_name:
+            raise AppError(
+                code=ErrorCode.fund_nav_parse_failed,
+                message="Eastmoney response did not include fund name.",
+                status_code=502,
+            )
+
+        net_worth = self._extract_json_assignment(content, "Data_netWorthTrend")
+        if not net_worth:
+            raise AppError(
+                code=ErrorCode.fund_nav_parse_failed,
+                message="Eastmoney response did not include unit NAV trend.",
+                status_code=502,
+            )
+        accumulated_by_timestamp = {
+            int(row[0]): self._parse_decimal(row[1])
+            for row in self._extract_json_assignment(content, "Data_ACWorthTrend")
+            if isinstance(row, list) and len(row) >= 2
+        }
+        selected = sorted(net_worth, key=lambda item: int(item["x"]))[-limit:]
+        return [
+            FundLatestNav(
+                fund_code=parsed_code,
+                fund_name=fund_name,
+                fund_type=fund_type or "unknown",
+                nav_date=datetime.fromtimestamp(int(item["x"]) / 1000, tz=UTC).date(),
+                unit_nav=self._parse_decimal(item["y"]),
+                accumulated_nav=accumulated_by_timestamp.get(int(item["x"])),
+                source=self.source,
+                source_url=source_url,
+            )
+            for item in selected
+        ]
 
     def _build_source_url(self, fund_code: str) -> str:
         separator = "&" if "?" in self.url_template else "?"
