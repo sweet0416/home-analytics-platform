@@ -56,6 +56,7 @@ class Settings(BaseSettings):
         "https://datachart.500.com/dlt/history/newinc/history.php"
     )
     fund_nav_sync_timeout_seconds: int = Field(default=20, ge=5, le=120)
+    fund_nav_sync_max_workers: int = Field(default=4, ge=1, le=10)
     fund_eastmoney_pingzhongdata_url: str = (
         "https://fund.eastmoney.com/pingzhongdata/{fund_code}.js"
     )

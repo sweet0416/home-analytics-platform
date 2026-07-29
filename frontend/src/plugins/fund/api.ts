@@ -112,6 +112,22 @@ export interface FundLatestNav {
   source_url: string;
 }
 
+export interface FundWatchlistNavSyncItem {
+  fund_code: string;
+  fund_name: string;
+  status: 'succeeded' | 'failed';
+  nav_date: string | null;
+  unit_nav: string | null;
+  message: string;
+}
+
+export interface FundWatchlistNavSyncResult {
+  total: number;
+  succeeded: number;
+  failed: number;
+  items: FundWatchlistNavSyncItem[];
+}
+
 export interface FundPositionCreate {
   fund_code: string;
   fund_name: string;
@@ -189,6 +205,14 @@ export function syncLatestFundNav(payload: FundNavSyncLatestRequest): Promise<Fu
 
 export function lookupLatestFundNav(payload: FundNavSyncLatestRequest): Promise<FundLatestNav> {
   return postApiData<FundLatestNav, FundNavSyncLatestRequest>('/fund/lookup/latest-nav', payload);
+}
+
+export function syncFundWatchlistNavs(): Promise<FundWatchlistNavSyncResult> {
+  return postApiData<FundWatchlistNavSyncResult, Record<string, never>>(
+    '/fund/watchlist/sync-nav',
+    {},
+    { timeout: 120000 },
+  );
 }
 
 export async function deleteFundNavRecord(

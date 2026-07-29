@@ -19,6 +19,9 @@ class FundRepository:
     def commit(self) -> None:
         self.db.commit()
 
+    def rollback(self) -> None:
+        self.db.rollback()
+
     def get_fund_by_code(self, code: str) -> FundModel | None:
         return self.db.scalar(select(FundModel).where(FundModel.code == code))
 

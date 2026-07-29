@@ -18,6 +18,7 @@ from app.plugins.fund.interfaces.schemas import (
     FundPositionUpdate,
     FundStatusRead,
     FundWatchlistCreate,
+    FundWatchlistNavSyncRead,
     FundWatchlistRead,
     FundWatchlistSummaryRead,
     FundWatchlistUpdate,
@@ -78,6 +79,13 @@ def get_fund_watchlist_summary(
     service: FundService = Depends(get_fund_service),
 ) -> ApiResponse[FundWatchlistSummaryRead]:
     return ok(service.get_watchlist_summary())
+
+
+@router.post("/watchlist/sync-nav", response_model=ApiResponse[FundWatchlistNavSyncRead])
+def sync_fund_watchlist_navs(
+    service: FundService = Depends(get_fund_service),
+) -> ApiResponse[FundWatchlistNavSyncRead]:
+    return ok(service.sync_watchlist_navs())
 
 
 @router.get("/nav-records", response_model=ApiResponse[list[FundNavRecordRead]])

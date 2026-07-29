@@ -21,6 +21,14 @@
           <h2 class="panel-title">基金观察池</h2>
           <span class="panel-meta">先记录想关注的基金，后续净值、估值和日报会从这里展开</span>
         </div>
+        <el-button
+          :icon="Refresh"
+          :loading="syncingWatchlist"
+          :disabled="watchItems.length === 0"
+          @click="syncWatchlistNavs"
+        >
+          同步观察池净值
+        </el-button>
       </div>
       <div class="panel-body">
         <div class="watchlist-form">
@@ -361,6 +369,7 @@
 </template>
 
 <script setup lang="ts">
+import { Refresh } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { computed, onMounted, ref } from 'vue';
 
@@ -382,6 +391,7 @@ import {
   fetchFundWatchlist,
   fetchFundWatchlistSummary,
   lookupLatestFundNav,
+  syncFundWatchlistNavs,
   syncLatestFundNav,
   type FundHoldingSummary,
   type FundLatestNav,
@@ -415,6 +425,7 @@ const lookingUpWatch = ref(false);
 const lookingUpNav = ref(false);
 const lookingUpPosition = ref(false);
 const syncingNav = ref(false);
+const syncingWatchlist = ref(false);
 const deletingPositionId = ref<number | null>(null);
 const deletingWatchId = ref<number | null>(null);
 const deletingNavId = ref<number | null>(null);
@@ -585,6 +596,33 @@ async function loadNavRecords(): Promise<void> {
   ]);
   navRecords.value = nextRecords;
   navSummary.value = nextSummary;
+}
+
+async function syncWatchlistNavs(): Promise<void> {
+  if (!watchItems.value.length) {
+    ElMessage.warning('请先添加观察基金');
+    return;
+  }
+  syncingWatchlist.value = true;
+  try {
+    const result = await syncFundWatchlistNavs();
+    if (result.failed === 0) {
+      ElMessage.success(`已同步 ${result.succeeded} 只观察基金的最新净值`);
+    } else {
+      const failedCodes = result.items
+        .filter((item) => item.status === 'failed')
+        .map((item) => item.fund_code)
+        .join('、');
+      ElMessage.warning(
+        `同步完成：成功 ${result.succeeded}，失败 ${result.failed}（${failedCodes}）`,
+      );
+    }
+    await Promise.all([loadNavRecords(), loadHoldings()]);
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : '观察池净值同步失败');
+  } finally {
+    syncingWatchlist.value = false;
+  }
 }
 
 async function saveNavRecord(): Promise<void> {

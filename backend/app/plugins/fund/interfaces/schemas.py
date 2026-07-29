@@ -90,6 +90,22 @@ class FundLatestNavRead(BaseModel):
     source_url: str
 
 
+class FundWatchlistNavSyncItemRead(BaseModel):
+    fund_code: str
+    fund_name: str
+    status: str
+    nav_date: date | None = None
+    unit_nav: Decimal | None = None
+    message: str = ""
+
+
+class FundWatchlistNavSyncRead(BaseModel):
+    total: int
+    succeeded: int
+    failed: int
+    items: list[FundWatchlistNavSyncItemRead]
+
+
 class FundNavRecordRead(BaseModel):
     id: int
     fund_id: int

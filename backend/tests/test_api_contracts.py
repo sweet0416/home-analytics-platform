@@ -78,6 +78,69 @@ def test_fund_lookup_latest_nav_does_not_persist(
     assert nav_records_response.json()["data"] == []
 
 
+def test_fund_watchlist_nav_sync_isolates_source_failures(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from datetime import date
+    from decimal import Decimal
+
+    for fund_code in ("513199", "000404"):
+        response = client.post(
+            "/api/v1/fund/watchlist",
+            json={
+                "fund_code": fund_code,
+                "fund_name": f"Fund {fund_code}",
+                "fund_type": "ETF",
+                "priority": 3,
+                "status": "watching",
+                "watch_reason": "",
+                "risk_level": "medium",
+                "target_position": "",
+                "tags": "",
+                "note": "",
+            },
+        )
+        assert response.status_code == 200
+
+    class FakeNavSource:
+        def fetch_latest(
+            self,
+            fund_code: str,
+            fund_type: str = "unknown",
+        ) -> FundLatestNav:
+            if fund_code == "000404":
+                raise RuntimeError("source unavailable")
+            return FundLatestNav(
+                fund_code=fund_code,
+                fund_name=f"Fund {fund_code}",
+                fund_type=fund_type,
+                nav_date=date(2026, 7, 29),
+                unit_nav=Decimal("1.2300"),
+                accumulated_nav=Decimal("1.5600"),
+                source="fake",
+                source_url="https://example.test/fund.js",
+            )
+
+    monkeypatch.setattr(
+        "app.plugins.fund.application.services.FundService._build_default_nav_source",
+        lambda self: FakeNavSource(),
+    )
+
+    response = client.post("/api/v1/fund/watchlist/sync-nav")
+
+    assert response.status_code == 200
+    body = response.json()["data"]
+    assert body["total"] == 2
+    assert body["succeeded"] == 1
+    assert body["failed"] == 1
+    assert {item["status"] for item in body["items"]} == {"succeeded", "failed"}
+
+    nav_records = client.get("/api/v1/fund/nav-records").json()["data"]
+    assert len(nav_records) == 1
+    assert nav_records[0]["fund_code"] == "513199"
+
+
 def test_health_check_returns_standard_response(client: TestClient) -> None:
     response = client.get("/api/v1/system/health")
 
