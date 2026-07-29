@@ -22,6 +22,7 @@ from app.plugins.fund.interfaces.schemas import (
     FundAllocationGroupRead,
     FundAllocationHoldingRead,
     FundAllocationRead,
+    FundCashFlowPerformanceRead,
     FundDailyAlertRead,
     FundDailyReportRead,
     FundHoldingSummaryRead,
@@ -30,8 +31,8 @@ from app.plugins.fund.interfaces.schemas import (
     FundNavHistorySyncRequest,
     FundNavRecordCreate,
     FundNavRecordRead,
-    FundNavSyncLatestRequest,
     FundNavSummaryRead,
+    FundNavSyncLatestRequest,
     FundPositionCreate,
     FundPositionRead,
     FundPositionUpdate,
@@ -466,6 +467,71 @@ class FundService:
             net_cash_flow=net_cash_flow,
         )
 
+    def get_cash_flow_performance(self) -> FundCashFlowPerformanceRead:
+        transactions = self.repository.list_transactions(limit=None)
+        positions = self.repository.list_positions()
+        cash_flows = [self._transaction_cash_flow(item) for item in transactions]
+        invested_cash = sum(
+            (-cash_flow for cash_flow in cash_flows if cash_flow < 0),
+            Decimal("0"),
+        )
+        recovered_cash = sum(
+            (cash_flow for cash_flow in cash_flows if cash_flow > 0),
+            Decimal("0"),
+        )
+        valued_positions = [
+            position for position in positions if position.current_nav is not None
+        ]
+        valuation_complete = len(valued_positions) == len(positions)
+        current_value = (
+            sum(
+                (
+                    position.shares * position.current_nav
+                    for position in valued_positions
+                    if position.current_nav is not None
+                ),
+                Decimal("0"),
+            )
+            if valuation_complete
+            else None
+        )
+        calculation_available = (
+            bool(transactions)
+            and invested_cash > 0
+            and valuation_complete
+        )
+        net_profit = (
+            current_value + recovered_cash - invested_cash
+            if calculation_available and current_value is not None
+            else None
+        )
+        simple_return_rate = (
+            net_profit / invested_cash
+            if net_profit is not None and invested_cash > 0
+            else None
+        )
+        trade_dates = [transaction.trade_date for transaction in transactions]
+        warning = self._cash_flow_performance_warning(
+            transaction_count=len(transactions),
+            invested_cash=invested_cash,
+            valuation_complete=valuation_complete,
+        )
+        return FundCashFlowPerformanceRead(
+            transaction_count=len(transactions),
+            position_count=len(positions),
+            valuation_complete=valuation_complete,
+            calculation_available=calculation_available,
+            invested_cash=invested_cash,
+            recovered_cash=recovered_cash,
+            current_value=current_value,
+            net_profit=net_profit,
+            simple_return_rate=simple_return_rate,
+            earliest_trade_date=min(trade_dates) if trade_dates else None,
+            latest_trade_date=max(trade_dates) if trade_dates else None,
+            calculation_basis="已录入现金流 + 当前持仓市值",
+            warning=warning,
+        )
+
     def get_holding_summary(self) -> FundHoldingSummaryRead:
         positions = self.repository.list_positions()
         total_cost = sum((position.total_cost for position in positions), Decimal("0"))
@@ -787,6 +853,21 @@ class FundService:
         if transaction.transaction_type == "dividend":
             return transaction.amount
         return -transaction.amount
+
+    @staticmethod
+    def _cash_flow_performance_warning(
+        *,
+        transaction_count: int,
+        invested_cash: Decimal,
+        valuation_complete: bool,
+    ) -> str:
+        if transaction_count == 0:
+            return "尚未录入交易流水，暂时无法计算现金流收益。"
+        if invested_cash <= 0:
+            return "流水中没有有效资金投入，暂时无法计算收益率。"
+        if not valuation_complete:
+            return "部分持仓缺少当前净值，补齐估值后才能计算现金流收益。"
+        return "结果依赖交易流水完整性；若流水从中途开始录入，请勿视为完整历史收益。"
 
     @staticmethod
     def _build_allocation_groups(

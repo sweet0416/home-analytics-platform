@@ -248,6 +248,22 @@ class FundTransactionSummaryRead(BaseModel):
     net_cash_flow: Decimal
 
 
+class FundCashFlowPerformanceRead(BaseModel):
+    transaction_count: int
+    position_count: int
+    valuation_complete: bool
+    calculation_available: bool
+    invested_cash: Decimal
+    recovered_cash: Decimal
+    current_value: Decimal | None
+    net_profit: Decimal | None
+    simple_return_rate: Decimal | None
+    earliest_trade_date: date | None
+    latest_trade_date: date | None
+    calculation_basis: str
+    warning: str
+
+
 class FundHoldingSummaryRead(BaseModel):
     position_count: int
     fund_count: int

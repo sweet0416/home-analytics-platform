@@ -364,6 +364,8 @@
       </div>
     </RevealContent>
 
+    <FundCashFlowPerformance :refresh-key="cashFlowPerformanceRefreshKey" />
+
     <FundAllocation :refresh-key="allocationRefreshKey" />
 
     <FundDailyReport :refresh-key="dailyReportRefreshKey" />
@@ -401,6 +403,7 @@ import EmptyState from '@/components/common/EmptyState.vue';
 import RevealContent from '@/components/common/RevealContent.vue';
 import MetricCard from '@/components/metric/MetricCard.vue';
 import FundAllocation from '@/plugins/fund/components/FundAllocation.vue';
+import FundCashFlowPerformance from '@/plugins/fund/components/FundCashFlowPerformance.vue';
 import FundDailyReport from '@/plugins/fund/components/FundDailyReport.vue';
 import FundNavTrend from '@/plugins/fund/components/FundNavTrend.vue';
 import FundTransactions from '@/plugins/fund/components/FundTransactions.vue';
@@ -462,6 +465,7 @@ const summary = ref<FundHoldingSummary | null>(null);
 const watchSummary = ref<FundWatchlistSummary | null>(null);
 const navSummary = ref<FundNavSummary | null>(null);
 const allocationRefreshKey = ref(0);
+const cashFlowPerformanceRefreshKey = ref(0);
 const dailyReportRefreshKey = ref(0);
 const isLoading = ref(false);
 const saving = ref(false);
@@ -662,6 +666,7 @@ async function loadHoldings(): Promise<void> {
   positions.value = nextPositions;
   summary.value = nextSummary;
   allocationRefreshKey.value += 1;
+  cashFlowPerformanceRefreshKey.value += 1;
   dailyReportRefreshKey.value += 1;
 }
 
@@ -690,6 +695,7 @@ async function handleHistorySynced(): Promise<void> {
 }
 
 function handleTransactionChanged(): void {
+  cashFlowPerformanceRefreshKey.value += 1;
   dailyReportRefreshKey.value += 1;
 }
 

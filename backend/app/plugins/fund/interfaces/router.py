@@ -10,6 +10,7 @@ from app.plugins.fund.domain.constants import FUND_MODULES, FUND_PLUGIN_CODE
 from app.plugins.fund.infrastructure.persistence.repositories import FundRepository
 from app.plugins.fund.interfaces.schemas import (
     FundAllocationRead,
+    FundCashFlowPerformanceRead,
     FundDailyPushRequest,
     FundDailyReportRead,
     FundHoldingSummaryRead,
@@ -18,8 +19,8 @@ from app.plugins.fund.interfaces.schemas import (
     FundNavHistorySyncRequest,
     FundNavRecordCreate,
     FundNavRecordRead,
-    FundNavSyncLatestRequest,
     FundNavSummaryRead,
+    FundNavSyncLatestRequest,
     FundPositionCreate,
     FundPositionRead,
     FundPositionUpdate,
@@ -93,6 +94,16 @@ def get_fund_transaction_summary(
     service: FundService = Depends(get_fund_service),
 ) -> ApiResponse[FundTransactionSummaryRead]:
     return ok(service.get_transaction_summary())
+
+
+@router.get(
+    "/performance/cash-flow",
+    response_model=ApiResponse[FundCashFlowPerformanceRead],
+)
+def get_fund_cash_flow_performance(
+    service: FundService = Depends(get_fund_service),
+) -> ApiResponse[FundCashFlowPerformanceRead]:
+    return ok(service.get_cash_flow_performance())
 
 
 @router.delete(

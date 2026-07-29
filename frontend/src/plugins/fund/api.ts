@@ -200,6 +200,22 @@ export interface FundTransactionSummary {
   net_cash_flow: string;
 }
 
+export interface FundCashFlowPerformance {
+  transaction_count: number;
+  position_count: number;
+  valuation_complete: boolean;
+  calculation_available: boolean;
+  invested_cash: string;
+  recovered_cash: string;
+  current_value: string | null;
+  net_profit: string | null;
+  simple_return_rate: string | null;
+  earliest_trade_date: string | null;
+  latest_trade_date: string | null;
+  calculation_basis: string;
+  warning: string;
+}
+
 export interface FundHoldingSummary {
   position_count: number;
   fund_count: number;
@@ -314,6 +330,10 @@ export function createFundTransaction(
 
 export function fetchFundTransactionSummary(): Promise<FundTransactionSummary> {
   return getApiData<FundTransactionSummary>('/fund/transactions/summary');
+}
+
+export function fetchFundCashFlowPerformance(): Promise<FundCashFlowPerformance> {
+  return getApiData<FundCashFlowPerformance>('/fund/performance/cash-flow');
 }
 
 export async function deleteFundTransaction(

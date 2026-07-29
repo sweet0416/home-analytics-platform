@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -283,8 +285,8 @@ def test_fund_positions_can_be_created_and_summarized(client: TestClient) -> Non
     created = create_response.json()["data"]
     assert created["fund_code"] == "513100"
     assert created["total_cost"] == "1200.00"
-    assert created["current_value"] == "1300.0000"
-    assert created["unrealized_profit"] == "100.0000"
+    assert Decimal(created["current_value"]) == Decimal("1300")
+    assert Decimal(created["unrealized_profit"]) == Decimal("100")
 
     list_response = client.get("/api/v1/fund/positions")
     assert list_response.status_code == 200
@@ -296,7 +298,7 @@ def test_fund_positions_can_be_created_and_summarized(client: TestClient) -> Non
     assert summary["position_count"] == 1
     assert summary["fund_count"] == 1
     assert summary["total_cost"] == "1200.00"
-    assert summary["current_value"] == "1300.0000"
+    assert Decimal(summary["current_value"]) == Decimal("1300")
 
     update_response = client.put(
         f"/api/v1/fund/positions/{created['id']}",
@@ -304,8 +306,8 @@ def test_fund_positions_can_be_created_and_summarized(client: TestClient) -> Non
     )
     assert update_response.status_code == 200
     updated = update_response.json()["data"]
-    assert updated["current_value"] == "1400.0000"
-    assert updated["unrealized_profit"] == "200.0000"
+    assert Decimal(updated["current_value"]) == Decimal("1400")
+    assert Decimal(updated["unrealized_profit"]) == Decimal("200")
     assert updated["note"] == "updated"
 
     delete_response = client.delete(f"/api/v1/fund/positions/{created['id']}")
@@ -361,7 +363,7 @@ def test_fund_allocation_uses_nav_and_cost_fallback(client: TestClient) -> None:
     assert response.status_code == 200
     body = response.json()["data"]
     assert body["position_count"] == 3
-    assert body["total_amount"] == "500.0000"
+    assert Decimal(body["total_amount"]) == Decimal("500")
     assert body["current_nav_count"] == 2
     assert body["cost_fallback_count"] == 1
     assert body["top_holding_weight"] == "0.6"
@@ -416,9 +418,9 @@ def test_fund_daily_report_summarizes_data_quality(client: TestClient) -> None:
     assert response.status_code == 200
     body = response.json()["data"]
     assert body["holding_summary"]["position_count"] == 2
-    assert body["holding_summary"]["unrealized_profit"] == "100.0000"
-    assert body["holding_summary"]["unrealized_return_rate"] == "1"
-    assert body["allocation"]["total_amount"] == "400.0000"
+    assert Decimal(body["holding_summary"]["unrealized_profit"]) == Decimal("100")
+    assert Decimal(body["holding_summary"]["unrealized_return_rate"]) == Decimal("1")
+    assert Decimal(body["allocation"]["total_amount"]) == Decimal("400")
     assert body["valuation_complete"] is False
     assert body["nav_age_days"] is None
     assert {alert["code"] for alert in body["alerts"]} == {
@@ -518,6 +520,113 @@ def test_fund_buy_transaction_requires_shares_and_price(client: TestClient) -> N
     )
 
     assert response.status_code == 422
+
+
+def test_fund_cash_flow_performance_uses_transactions_and_current_value(
+    client: TestClient,
+) -> None:
+    position_response = client.post(
+        "/api/v1/fund/positions",
+        json={
+            "fund_code": "110022",
+            "fund_name": "Consumer Fund",
+            "fund_type": "混合型",
+            "account_name": "Account A",
+            "shares": "100",
+            "cost_price": "1.0000",
+            "current_nav": "1.2000",
+            "tags": "",
+            "note": "",
+        },
+    )
+    assert position_response.status_code == 200
+    transactions = [
+        {
+            "fund_code": "110022",
+            "fund_name": "Consumer Fund",
+            "fund_type": "混合型",
+            "account_name": "Account A",
+            "transaction_type": "buy",
+            "trade_date": "2026-07-01",
+            "shares": "100",
+            "unit_price": "1.0000",
+            "fee": "0",
+            "note": "",
+        },
+        {
+            "fund_code": "110022",
+            "fund_name": "Consumer Fund",
+            "fund_type": "混合型",
+            "account_name": "Account A",
+            "transaction_type": "dividend",
+            "trade_date": "2026-07-20",
+            "amount": "10",
+            "fee": "0",
+            "note": "",
+        },
+    ]
+    for payload in transactions:
+        assert client.post("/api/v1/fund/transactions", json=payload).status_code == 200
+
+    response = client.get("/api/v1/fund/performance/cash-flow")
+
+    assert response.status_code == 200
+    body = response.json()["data"]
+    assert body["transaction_count"] == 2
+    assert body["position_count"] == 1
+    assert body["valuation_complete"] is True
+    assert body["calculation_available"] is True
+    assert Decimal(body["invested_cash"]) == Decimal("100")
+    assert Decimal(body["recovered_cash"]) == Decimal("10")
+    assert Decimal(body["current_value"]) == Decimal("120")
+    assert Decimal(body["net_profit"]) == Decimal("30")
+    assert Decimal(body["simple_return_rate"]) == Decimal("0.3")
+    assert body["earliest_trade_date"] == "2026-07-01"
+    assert body["latest_trade_date"] == "2026-07-20"
+
+
+def test_fund_cash_flow_performance_requires_complete_valuation(
+    client: TestClient,
+) -> None:
+    assert client.post(
+        "/api/v1/fund/positions",
+        json={
+            "fund_code": "110022",
+            "fund_name": "Consumer Fund",
+            "fund_type": "混合型",
+            "account_name": "Account A",
+            "shares": "100",
+            "cost_price": "1.0000",
+            "tags": "",
+            "note": "",
+        },
+    ).status_code == 200
+    assert client.post(
+        "/api/v1/fund/transactions",
+        json={
+            "fund_code": "110022",
+            "fund_name": "Consumer Fund",
+            "fund_type": "混合型",
+            "account_name": "Account A",
+            "transaction_type": "buy",
+            "trade_date": "2026-07-01",
+            "shares": "100",
+            "unit_price": "1.0000",
+            "fee": "0",
+            "note": "",
+        },
+    ).status_code == 200
+
+    response = client.get("/api/v1/fund/performance/cash-flow")
+
+    assert response.status_code == 200
+    body = response.json()["data"]
+    assert body["valuation_complete"] is False
+    assert body["calculation_available"] is False
+    assert body["current_value"] is None
+    assert body["net_profit"] is None
+    assert body["simple_return_rate"] is None
+    assert "缺少当前净值" in body["warning"]
 
 
 def test_fund_daily_report_can_be_pushed(
@@ -668,8 +777,8 @@ def test_fund_nav_record_updates_matching_position_nav(client: TestClient) -> No
     summary_response = client.get("/api/v1/fund/holdings/summary")
     assert summary_response.status_code == 200
     summary = summary_response.json()["data"]
-    assert summary["current_value"] == "1250.0000"
-    assert summary["unrealized_profit"] == "250.0000"
+    assert Decimal(summary["current_value"]) == Decimal("1250")
+    assert Decimal(summary["unrealized_profit"]) == Decimal("250")
 
     upsert_response = client.post(
         "/api/v1/fund/nav-records",
