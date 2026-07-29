@@ -13,6 +13,7 @@ from app.plugins.fund.interfaces.schemas import (
     FundCashFlowPerformanceRead,
     FundDailyPushRequest,
     FundDailyReportRead,
+    FundHoldingRiskRead,
     FundHoldingSummaryRead,
     FundLatestNavRead,
     FundNavHistorySyncRead,
@@ -278,6 +279,14 @@ def get_fund_allocation(
     service: FundService = Depends(get_fund_service),
 ) -> ApiResponse[FundAllocationRead]:
     return ok(service.get_allocation())
+
+
+@router.get("/holdings/risk", response_model=ApiResponse[FundHoldingRiskRead])
+def get_fund_holding_risk(
+    limit: int = Query(default=365, ge=2, le=500),
+    service: FundService = Depends(get_fund_service),
+) -> ApiResponse[FundHoldingRiskRead]:
+    return ok(service.get_holding_risk(limit=limit))
 
 
 @router.get("/reports/daily", response_model=ApiResponse[FundDailyReportRead])

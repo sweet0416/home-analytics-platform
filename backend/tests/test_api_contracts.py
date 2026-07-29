@@ -401,6 +401,85 @@ def test_fund_allocation_uses_nav_and_cost_fallback(client: TestClient) -> None:
     }
 
 
+def test_fund_holding_risk_compares_unique_funds(client: TestClient) -> None:
+    positions = [
+        {
+            "fund_code": "510300",
+            "fund_name": "Core ETF",
+            "fund_type": "ETF",
+            "account_name": account,
+            "shares": "100",
+            "cost_price": "1.0000",
+            "current_nav": current_nav,
+            "tags": "",
+            "note": "",
+        }
+        for account, current_nav in (("Account A", "2.0000"), ("Account B", "1.0000"))
+    ]
+    positions.append(
+        {
+            "fund_code": "513100",
+            "fund_name": "Overseas Fund",
+            "fund_type": "QDII",
+            "account_name": "Account B",
+            "shares": "100",
+            "cost_price": "2.0000",
+            "current_nav": "2.0000",
+            "tags": "",
+            "note": "",
+        }
+    )
+    for payload in positions:
+        assert client.post("/api/v1/fund/positions", json=payload).status_code == 200
+
+    for nav_date, unit_nav in (
+        ("2026-07-27", "1.0000"),
+        ("2026-07-28", "1.1000"),
+        ("2026-07-29", "0.9900"),
+    ):
+        response = client.post(
+            "/api/v1/fund/nav-records",
+            json={
+                "fund_code": "510300",
+                "fund_name": "Core ETF",
+                "fund_type": "ETF",
+                "nav_date": nav_date,
+                "unit_nav": unit_nav,
+                "source": "test",
+                "note": "",
+            },
+        )
+        assert response.status_code == 200
+    assert client.post(
+        "/api/v1/fund/nav-records",
+        json={
+            "fund_code": "513100",
+            "fund_name": "Overseas Fund",
+            "fund_type": "QDII",
+            "nav_date": "2026-07-29",
+            "unit_nav": "2.0000",
+            "source": "test",
+            "note": "",
+        },
+    ).status_code == 200
+
+    response = client.get("/api/v1/fund/holdings/risk", params={"limit": 60})
+
+    assert response.status_code == 200
+    body = response.json()["data"]
+    assert body["fund_count"] == 2
+    assert body["analyzed_fund_count"] == 1
+    assert body["sample_limit"] == 60
+    weights = [Decimal(item["allocation_weight"]) for item in body["items"]]
+    assert weights == sorted(weights, reverse=True)
+    items_by_code = {item["fund_code"]: item for item in body["items"]}
+    assert items_by_code["510300"]["position_count"] == 2
+    assert items_by_code["510300"]["sample_count"] == 3
+    assert items_by_code["510300"]["maximum_drawdown"] == "-0.100000"
+    assert items_by_code["510300"]["calculation_available"] is True
+    assert items_by_code["513100"]["calculation_available"] is False
+
+
 def test_fund_daily_report_summarizes_data_quality(client: TestClient) -> None:
     empty_response = client.get("/api/v1/fund/reports/daily")
     assert empty_response.status_code == 200

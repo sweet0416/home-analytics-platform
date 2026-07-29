@@ -323,6 +323,30 @@ class FundAllocationRead(BaseModel):
     holdings: list[FundAllocationHoldingRead]
 
 
+class FundHoldingRiskItemRead(BaseModel):
+    fund_code: str
+    fund_name: str
+    fund_type: str
+    position_count: int
+    allocation_weight: Decimal
+    sample_count: int
+    start_date: date | None
+    end_date: date | None
+    cumulative_return: Decimal | None
+    annualized_volatility: Decimal | None
+    maximum_drawdown: Decimal | None
+    positive_day_ratio: Decimal | None
+    calculation_available: bool
+
+
+class FundHoldingRiskRead(BaseModel):
+    fund_count: int
+    analyzed_fund_count: int
+    sample_limit: int
+    items: list[FundHoldingRiskItemRead]
+    warning: str
+
+
 class FundWatchlistSummaryRead(BaseModel):
     item_count: int
     fund_count: int

@@ -26,6 +26,8 @@ from app.plugins.fund.interfaces.schemas import (
     FundCashFlowPerformanceRead,
     FundDailyAlertRead,
     FundDailyReportRead,
+    FundHoldingRiskItemRead,
+    FundHoldingRiskRead,
     FundHoldingSummaryRead,
     FundLatestNavRead,
     FundNavHistorySyncRead,
@@ -668,6 +670,57 @@ class FundService:
                 group_by="account",
             ),
             holdings=holdings,
+        )
+
+    def get_holding_risk(self, limit: int = 365) -> FundHoldingRiskRead:
+        bounded_limit = max(2, min(limit, 500))
+        allocation = self.get_allocation()
+        grouped: dict[str, dict[str, str | int | Decimal]] = {}
+        for holding in allocation.holdings:
+            entry = grouped.setdefault(
+                holding.fund_code,
+                {
+                    "fund_name": holding.fund_name,
+                    "fund_type": holding.fund_type,
+                    "position_count": 0,
+                    "allocation_weight": Decimal("0"),
+                },
+            )
+            entry["position_count"] = int(entry["position_count"]) + 1
+            entry["allocation_weight"] = (
+                Decimal(entry["allocation_weight"]) + holding.weight
+            )
+
+        items: list[FundHoldingRiskItemRead] = []
+        for fund_code, entry in grouped.items():
+            risk = self.get_nav_risk(fund_code=fund_code, limit=bounded_limit)
+            items.append(
+                FundHoldingRiskItemRead(
+                    fund_code=fund_code,
+                    fund_name=str(entry["fund_name"]),
+                    fund_type=str(entry["fund_type"]),
+                    position_count=int(entry["position_count"]),
+                    allocation_weight=Decimal(entry["allocation_weight"]),
+                    sample_count=risk.sample_count,
+                    start_date=risk.start_date,
+                    end_date=risk.end_date,
+                    cumulative_return=risk.cumulative_return,
+                    annualized_volatility=risk.annualized_volatility,
+                    maximum_drawdown=risk.maximum_drawdown,
+                    positive_day_ratio=risk.positive_day_ratio,
+                    calculation_available=risk.calculation_available,
+                )
+            )
+        items.sort(key=lambda item: (-item.allocation_weight, item.fund_code))
+        return FundHoldingRiskRead(
+            fund_count=len(items),
+            analyzed_fund_count=sum(item.calculation_available for item in items),
+            sample_limit=bounded_limit,
+            items=items,
+            warning=(
+                "每只基金按自身最近净值样本独立计算，仓位占比仅用于排序和识别风险暴露；"
+                "本表不是组合波动率，也未计算基金之间的相关性。"
+            ),
         )
 
     def get_watchlist_summary(self) -> FundWatchlistSummaryRead:

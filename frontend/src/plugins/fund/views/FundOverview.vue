@@ -368,6 +368,8 @@
 
     <FundAllocation :refresh-key="allocationRefreshKey" />
 
+    <FundHoldingRisk :refresh-key="holdingRiskRefreshKey" />
+
     <FundDailyReport :refresh-key="dailyReportRefreshKey" />
 
     <RevealContent as="section" class="panel fund-panel" :delay="380">
@@ -405,6 +407,7 @@ import MetricCard from '@/components/metric/MetricCard.vue';
 import FundAllocation from '@/plugins/fund/components/FundAllocation.vue';
 import FundCashFlowPerformance from '@/plugins/fund/components/FundCashFlowPerformance.vue';
 import FundDailyReport from '@/plugins/fund/components/FundDailyReport.vue';
+import FundHoldingRisk from '@/plugins/fund/components/FundHoldingRisk.vue';
 import FundNavTrend from '@/plugins/fund/components/FundNavTrend.vue';
 import FundTransactions from '@/plugins/fund/components/FundTransactions.vue';
 import {
@@ -467,6 +470,7 @@ const navSummary = ref<FundNavSummary | null>(null);
 const allocationRefreshKey = ref(0);
 const cashFlowPerformanceRefreshKey = ref(0);
 const dailyReportRefreshKey = ref(0);
+const holdingRiskRefreshKey = ref(0);
 const isLoading = ref(false);
 const saving = ref(false);
 const savingWatch = ref(false);
@@ -666,6 +670,7 @@ async function loadHoldings(): Promise<void> {
   positions.value = nextPositions;
   summary.value = nextSummary;
   allocationRefreshKey.value += 1;
+  holdingRiskRefreshKey.value += 1;
   cashFlowPerformanceRefreshKey.value += 1;
   dailyReportRefreshKey.value += 1;
 }
