@@ -1,9 +1,22 @@
 from decimal import Decimal
 
 import pytest
+import requests
 from fastapi.testclient import TestClient
 
 from app.plugins.fund.infrastructure.sources.eastmoney import EastmoneyFundNavSource, FundLatestNav
+
+
+def test_eastmoney_fund_nav_source_decodes_utf8_without_charset() -> None:
+    response = requests.Response()
+    response.status_code = 200
+    response._content = 'var fS_name = "易方达消费行业股票";'.encode()
+    response.headers["Content-Type"] = "application/javascript"
+
+    content = EastmoneyFundNavSource._decode_response(response)
+
+    assert "易方达消费行业股票" in content
+    assert "æ" not in content
 
 
 def test_eastmoney_fund_nav_source_parses_latest_record() -> None:

@@ -101,7 +101,15 @@ class EastmoneyFundNavSource:
                 message=f"Eastmoney fund NAV source is unavailable: {exc}",
                 status_code=502,
             ) from exc
-        return response.text, response.url
+        return self._decode_response(response), response.url
+
+    @staticmethod
+    def _decode_response(response: requests.Response) -> str:
+        try:
+            return response.content.decode("utf-8-sig")
+        except UnicodeDecodeError:
+            encoding = response.apparent_encoding or response.encoding or "utf-8"
+            return response.content.decode(encoding)
 
     def parse_script(
         self,
