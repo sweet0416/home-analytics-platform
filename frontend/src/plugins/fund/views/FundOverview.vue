@@ -302,6 +302,22 @@
           <h2 class="panel-title">当前持仓</h2>
           <span class="panel-meta">当前净值未填写时，只统计成本，不计算浮盈亏</span>
         </div>
+        <div v-if="positions.length" class="position-sort">
+          <el-select v-model="positionSortField" aria-label="持仓排序字段">
+            <el-option
+              v-for="option in positionSortOptions"
+              :key="option.value"
+              :label="option.label"
+              :value="option.value"
+            />
+          </el-select>
+          <el-button
+            :icon="positionSortDirection === 'desc' ? SortDown : SortUp"
+            :title="positionSortDirection === 'desc' ? '当前为降序' : '当前为升序'"
+            aria-label="切换持仓排序方向"
+            @click="togglePositionSortDirection"
+          />
+        </div>
       </div>
       <div class="panel-body">
         <div v-if="positions.length" class="position-table">
@@ -314,7 +330,7 @@
             <span>浮盈亏</span>
             <span>操作</span>
           </div>
-          <div v-for="position in positions" :key="position.id" class="position-row">
+          <div v-for="position in sortedPositions" :key="position.id" class="position-row">
             <span>
               <strong>{{ position.fund_name }}</strong>
               <small>{{ position.fund_code }} · {{ position.account_name }}</small>
@@ -377,7 +393,7 @@
 </template>
 
 <script setup lang="ts">
-import { Refresh } from '@element-plus/icons-vue';
+import { Refresh, SortDown, SortUp } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { computed, onMounted, ref } from 'vue';
 
@@ -421,6 +437,22 @@ import {
 } from '@/plugins/fund/api';
 
 const fundTypes = ['ETF', 'QDII', '指数基金', '混合型', '债券型', '货币型', '其他'];
+type PositionSortField =
+  | 'current_value'
+  | 'unrealized_profit'
+  | 'unrealized_return_rate'
+  | 'total_cost'
+  | 'fund_code'
+  | 'account_name';
+
+const positionSortOptions: Array<{ label: string; value: PositionSortField }> = [
+  { label: '按当前估值', value: 'current_value' },
+  { label: '按浮盈亏', value: 'unrealized_profit' },
+  { label: '按收益率', value: 'unrealized_return_rate' },
+  { label: '按总成本', value: 'total_cost' },
+  { label: '按基金代码', value: 'fund_code' },
+  { label: '按账户名称', value: 'account_name' },
+];
 
 const fundStatus = ref<FundStatus | null>(null);
 const positions = ref<FundPosition[]>([]);
@@ -446,6 +478,8 @@ const deletingNavId = ref<number | null>(null);
 const errorMessage = ref('');
 const editingPositionId = ref<number | null>(null);
 const editingWatchId = ref<number | null>(null);
+const positionSortField = ref<PositionSortField>('current_value');
+const positionSortDirection = ref<'asc' | 'desc'>('desc');
 
 const form = ref<FundPositionCreate>({
   fund_code: '',
@@ -513,6 +547,41 @@ const returnRateMeta = computed(() => {
 });
 
 const latestNavMeta = computed(() => navSummary.value?.latest_nav_date ?? '等待净值');
+const sortedPositions = computed(() => {
+  const direction = positionSortDirection.value === 'asc' ? 1 : -1;
+  return [...positions.value].sort((left, right) => {
+    const leftValue = positionSortValue(left, positionSortField.value);
+    const rightValue = positionSortValue(right, positionSortField.value);
+    if (leftValue === null && rightValue === null) return left.id - right.id;
+    if (leftValue === null) return 1;
+    if (rightValue === null) return -1;
+    if (typeof leftValue === 'string' && typeof rightValue === 'string') {
+      const compared = leftValue.localeCompare(rightValue, 'zh-CN', {
+        numeric: true,
+        sensitivity: 'base',
+      });
+      return compared === 0 ? left.id - right.id : compared * direction;
+    }
+    const compared = Number(leftValue) - Number(rightValue);
+    return compared === 0 ? left.id - right.id : compared * direction;
+  });
+});
+
+function positionSortValue(
+  position: FundPosition,
+  field: PositionSortField,
+): number | string | null {
+  if (field === 'fund_code') return position.fund_code;
+  if (field === 'account_name') return position.account_name;
+  const value = position[field];
+  if (value === null) return null;
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : null;
+}
+
+function togglePositionSortDirection(): void {
+  positionSortDirection.value = positionSortDirection.value === 'desc' ? 'asc' : 'desc';
+}
 
 function formatMoney(value: string | number | null | undefined): string {
   if (value === null || value === undefined) return '--';
@@ -1100,6 +1169,16 @@ onMounted(async () => {
   gap: 8px;
 }
 
+.position-sort {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
+.position-sort .el-select {
+  width: 140px;
+}
+
 .nav-table {
   display: grid;
   gap: 8px;
@@ -1236,6 +1315,16 @@ onMounted(async () => {
 }
 
 @media (max-width: 720px) {
+  .position-sort {
+    align-items: stretch;
+    width: 100%;
+  }
+
+  .position-sort .el-select {
+    flex: 1;
+    width: auto;
+  }
+
   .nav-row,
   .position-row {
     grid-template-columns: 1fr;
