@@ -7,6 +7,7 @@ from app.plugins.fund.domain.constants import FUND_MODULES, FUND_PLUGIN_CODE
 from app.plugins.fund.application.services import FundService
 from app.plugins.fund.infrastructure.persistence.repositories import FundRepository
 from app.plugins.fund.interfaces.schemas import (
+    FundAllocationRead,
     FundHoldingSummaryRead,
     FundLatestNavRead,
     FundNavHistorySyncRead,
@@ -204,3 +205,10 @@ def get_fund_holding_summary(
     service: FundService = Depends(get_fund_service),
 ) -> ApiResponse[FundHoldingSummaryRead]:
     return ok(service.get_holding_summary())
+
+
+@router.get("/holdings/allocation", response_model=ApiResponse[FundAllocationRead])
+def get_fund_allocation(
+    service: FundService = Depends(get_fund_service),
+) -> ApiResponse[FundAllocationRead]:
+    return ok(service.get_allocation())

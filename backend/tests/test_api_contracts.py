@@ -317,6 +317,63 @@ def test_fund_positions_can_be_created_and_summarized(client: TestClient) -> Non
     assert final_summary_response.json()["data"]["position_count"] == 0
 
 
+def test_fund_allocation_uses_nav_and_cost_fallback(client: TestClient) -> None:
+    payloads = [
+        {
+            "fund_code": "510300",
+            "fund_name": "Core ETF",
+            "fund_type": "ETF",
+            "account_name": "Account A",
+            "shares": "100",
+            "cost_price": "1.0000",
+            "current_nav": "2.0000",
+            "tags": "",
+            "note": "",
+        },
+        {
+            "fund_code": "510300",
+            "fund_name": "Core ETF",
+            "fund_type": "ETF",
+            "account_name": "Account B",
+            "shares": "100",
+            "cost_price": "1.0000",
+            "tags": "",
+            "note": "",
+        },
+        {
+            "fund_code": "513100",
+            "fund_name": "Overseas Fund",
+            "fund_type": "QDII",
+            "account_name": "Account B",
+            "shares": "100",
+            "cost_price": "2.0000",
+            "current_nav": "2.0000",
+            "tags": "",
+            "note": "",
+        },
+    ]
+    for payload in payloads:
+        response = client.post("/api/v1/fund/positions", json=payload)
+        assert response.status_code == 200
+
+    response = client.get("/api/v1/fund/holdings/allocation")
+
+    assert response.status_code == 200
+    body = response.json()["data"]
+    assert body["position_count"] == 3
+    assert body["total_amount"] == "500.0000"
+    assert body["current_nav_count"] == 2
+    assert body["cost_fallback_count"] == 1
+    assert body["top_holding_weight"] == "0.6"
+    assert body["concentration_hhi"] == "0.52"
+    assert body["by_fund_type"][0]["label"] == "ETF"
+    assert body["by_fund_type"][0]["weight"] == "0.6"
+    assert {holding["valuation_basis"] for holding in body["holdings"]} == {
+        "current_nav",
+        "cost",
+    }
+
+
 def test_fund_watchlist_can_be_created_updated_and_deleted(client: TestClient) -> None:
     empty_summary_response = client.get("/api/v1/fund/watchlist/summary")
     assert empty_summary_response.status_code == 200

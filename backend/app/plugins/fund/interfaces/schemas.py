@@ -1,5 +1,6 @@
 from datetime import date, datetime
 from decimal import Decimal
+from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -194,6 +195,36 @@ class FundHoldingSummaryRead(BaseModel):
     valued_position_count: int
     fund_types: list[str]
     accounts: list[str]
+
+
+class FundAllocationGroupRead(BaseModel):
+    label: str
+    amount: Decimal
+    weight: Decimal
+    position_count: int
+
+
+class FundAllocationHoldingRead(BaseModel):
+    position_id: int
+    fund_code: str
+    fund_name: str
+    fund_type: str
+    account_name: str
+    amount: Decimal
+    weight: Decimal
+    valuation_basis: Literal["current_nav", "cost"]
+
+
+class FundAllocationRead(BaseModel):
+    position_count: int
+    total_amount: Decimal
+    current_nav_count: int
+    cost_fallback_count: int
+    top_holding_weight: Decimal | None
+    concentration_hhi: Decimal | None
+    by_fund_type: list[FundAllocationGroupRead]
+    by_account: list[FundAllocationGroupRead]
+    holdings: list[FundAllocationHoldingRead]
 
 
 class FundWatchlistSummaryRead(BaseModel):

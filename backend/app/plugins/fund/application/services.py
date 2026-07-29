@@ -16,6 +16,9 @@ from app.plugins.fund.infrastructure.sources.eastmoney import (
     FundLatestNav,
 )
 from app.plugins.fund.interfaces.schemas import (
+    FundAllocationGroupRead,
+    FundAllocationHoldingRead,
+    FundAllocationRead,
     FundHoldingSummaryRead,
     FundLatestNavRead,
     FundNavHistorySyncRead,
@@ -415,6 +418,72 @@ class FundService:
             accounts=accounts,
         )
 
+    def get_allocation(self) -> FundAllocationRead:
+        positions = self.repository.list_positions()
+        valued = [
+            (
+                position,
+                position.shares * position.current_nav
+                if position.current_nav is not None
+                else position.total_cost,
+                "current_nav" if position.current_nav is not None else "cost",
+            )
+            for position in positions
+        ]
+        total_amount = sum((amount for _, amount, _ in valued), Decimal("0"))
+
+        holdings = [
+            FundAllocationHoldingRead(
+                position_id=position.id,
+                fund_code=position.fund.code,
+                fund_name=position.fund.name,
+                fund_type=position.fund.fund_type,
+                account_name=position.account_name,
+                amount=amount,
+                weight=amount / total_amount if total_amount > 0 else Decimal("0"),
+                valuation_basis=basis,
+            )
+            for position, amount, basis in valued
+        ]
+        holdings.sort(key=lambda item: (-item.amount, item.fund_code, item.account_name))
+        fund_amounts: dict[str, Decimal] = {}
+        for holding in holdings:
+            fund_amounts[holding.fund_code] = (
+                fund_amounts.get(holding.fund_code, Decimal("0"))
+                + holding.amount
+            )
+        fund_weights = [
+            amount / total_amount if total_amount > 0 else Decimal("0")
+            for amount in fund_amounts.values()
+        ]
+        return FundAllocationRead(
+            position_count=len(positions),
+            total_amount=total_amount,
+            current_nav_count=len(
+                [position for position in positions if position.current_nav is not None]
+            ),
+            cost_fallback_count=len(
+                [position for position in positions if position.current_nav is None]
+            ),
+            top_holding_weight=max(fund_weights, default=None),
+            concentration_hhi=(
+                sum((weight * weight for weight in fund_weights), Decimal("0"))
+                if fund_weights
+                else None
+            ),
+            by_fund_type=self._build_allocation_groups(
+                valued,
+                total_amount=total_amount,
+                group_by="fund_type",
+            ),
+            by_account=self._build_allocation_groups(
+                valued,
+                total_amount=total_amount,
+                group_by="account",
+            ),
+            holdings=holdings,
+        )
+
     def get_watchlist_summary(self) -> FundWatchlistSummaryRead:
         items = self.repository.list_watchlist_items()
         return FundWatchlistSummaryRead(
@@ -509,6 +578,33 @@ class FundService:
             created_at=position.created_at,
             updated_at=position.updated_at,
         )
+
+    @staticmethod
+    def _build_allocation_groups(
+        valued: list[tuple[FundPositionModel, Decimal, str]],
+        *,
+        total_amount: Decimal,
+        group_by: str,
+    ) -> list[FundAllocationGroupRead]:
+        grouped: dict[str, tuple[Decimal, int]] = {}
+        for position, amount, _ in valued:
+            label = (
+                position.fund.fund_type
+                if group_by == "fund_type"
+                else position.account_name
+            )
+            current_amount, count = grouped.get(label, (Decimal("0"), 0))
+            grouped[label] = (current_amount + amount, count + 1)
+        groups = [
+            FundAllocationGroupRead(
+                label=label,
+                amount=amount,
+                weight=amount / total_amount if total_amount > 0 else Decimal("0"),
+                position_count=count,
+            )
+            for label, (amount, count) in grouped.items()
+        ]
+        return sorted(groups, key=lambda item: (-item.amount, item.label))
 
     def _build_default_nav_source(self) -> EastmoneyFundNavSource:
         if self.settings is None:

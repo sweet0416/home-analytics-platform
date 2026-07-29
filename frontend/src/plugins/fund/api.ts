@@ -168,6 +168,36 @@ export interface FundHoldingSummary {
   accounts: string[];
 }
 
+export interface FundAllocationGroup {
+  label: string;
+  amount: string;
+  weight: string;
+  position_count: number;
+}
+
+export interface FundAllocationHolding {
+  position_id: number;
+  fund_code: string;
+  fund_name: string;
+  fund_type: string;
+  account_name: string;
+  amount: string;
+  weight: string;
+  valuation_basis: 'current_nav' | 'cost';
+}
+
+export interface FundAllocation {
+  position_count: number;
+  total_amount: string;
+  current_nav_count: number;
+  cost_fallback_count: number;
+  top_holding_weight: string | null;
+  concentration_hhi: string | null;
+  by_fund_type: FundAllocationGroup[];
+  by_account: FundAllocationGroup[];
+  holdings: FundAllocationHolding[];
+}
+
 export interface FundWatchlistSummary {
   item_count: number;
   fund_count: number;
@@ -296,6 +326,10 @@ export async function deleteFundPosition(positionId: number): Promise<{ deleted:
 
 export function fetchFundHoldingSummary(): Promise<FundHoldingSummary> {
   return getApiData<FundHoldingSummary>('/fund/holdings/summary');
+}
+
+export function fetchFundAllocation(): Promise<FundAllocation> {
+  return getApiData<FundAllocation>('/fund/holdings/allocation');
 }
 
 export function fetchFundWatchlistSummary(): Promise<FundWatchlistSummary> {

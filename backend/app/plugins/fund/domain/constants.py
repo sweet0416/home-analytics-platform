@@ -17,7 +17,7 @@ FUND_MODULES = [
         "code": "allocation",
         "name": "资产配置",
         "description": "按股票、债券、现金、商品、海外资产等维度拆解仓位。",
-        "status": "planned",
+        "status": "in_progress",
     },
     {
         "code": "report",
