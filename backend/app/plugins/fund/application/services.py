@@ -11,6 +11,7 @@ from app.plugins.fund.infrastructure.persistence.repositories import FundReposit
 from app.plugins.fund.infrastructure.sources.eastmoney import EastmoneyFundNavSource
 from app.plugins.fund.interfaces.schemas import (
     FundHoldingSummaryRead,
+    FundLatestNavRead,
     FundNavRecordCreate,
     FundNavRecordRead,
     FundNavSyncLatestRequest,
@@ -88,6 +89,20 @@ class FundService:
         self.repository.update_position_navs(fund_id=fund.id, current_nav=latest.unit_nav)
         self.repository.commit()
         return self._to_nav_record_read(record)
+
+    def lookup_latest_nav(self, payload: FundNavSyncLatestRequest) -> FundLatestNavRead:
+        source = self.nav_source or self._build_default_nav_source()
+        latest = source.fetch_latest(fund_code=payload.fund_code, fund_type=payload.fund_type)
+        return FundLatestNavRead(
+            fund_code=latest.fund_code,
+            fund_name=latest.fund_name,
+            fund_type=latest.fund_type,
+            nav_date=latest.nav_date,
+            unit_nav=latest.unit_nav,
+            accumulated_nav=latest.accumulated_nav,
+            source=latest.source,
+            source_url=latest.source_url,
+        )
 
     def delete_nav_record(self, record_id: int) -> None:
         record = self.repository.get_nav_record(record_id)

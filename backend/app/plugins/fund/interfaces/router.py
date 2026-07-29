@@ -8,6 +8,7 @@ from app.plugins.fund.application.services import FundService
 from app.plugins.fund.infrastructure.persistence.repositories import FundRepository
 from app.plugins.fund.interfaces.schemas import (
     FundHoldingSummaryRead,
+    FundLatestNavRead,
     FundNavRecordCreate,
     FundNavRecordRead,
     FundNavSyncLatestRequest,
@@ -101,6 +102,14 @@ def sync_latest_fund_nav_record(
     service: FundService = Depends(get_fund_service),
 ) -> ApiResponse[FundNavRecordRead]:
     return ok(service.sync_latest_nav(payload))
+
+
+@router.post("/lookup/latest-nav", response_model=ApiResponse[FundLatestNavRead])
+def lookup_latest_fund_nav(
+    payload: FundNavSyncLatestRequest,
+    service: FundService = Depends(get_fund_service),
+) -> ApiResponse[FundLatestNavRead]:
+    return ok(service.lookup_latest_nav(payload))
 
 
 @router.get("/nav-records/summary", response_model=ApiResponse[FundNavSummaryRead])

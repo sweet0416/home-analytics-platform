@@ -79,6 +79,17 @@ class FundNavSyncLatestRequest(BaseModel):
         return value.strip()
 
 
+class FundLatestNavRead(BaseModel):
+    fund_code: str
+    fund_name: str
+    fund_type: str
+    nav_date: date
+    unit_nav: Decimal
+    accumulated_nav: Decimal | None
+    source: str
+    source_url: str
+
+
 class FundNavRecordRead(BaseModel):
     id: int
     fund_id: int

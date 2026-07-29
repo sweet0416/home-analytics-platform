@@ -1,6 +1,7 @@
+import pytest
 from fastapi.testclient import TestClient
 
-from app.plugins.fund.infrastructure.sources.eastmoney import EastmoneyFundNavSource
+from app.plugins.fund.infrastructure.sources.eastmoney import EastmoneyFundNavSource, FundLatestNav
 
 
 def test_eastmoney_fund_nav_source_parses_latest_record() -> None:
@@ -27,6 +28,54 @@ def test_eastmoney_fund_nav_source_parses_latest_record() -> None:
     assert str(latest.unit_nav) == "1.3000"
     assert str(latest.accumulated_nav) == "1.6000"
     assert latest.fund_type == "ETF"
+
+
+def test_fund_lookup_latest_nav_does_not_persist(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FakeNavSource:
+        def fetch_latest(
+            self,
+            fund_code: str,
+            fund_type: str = "unknown",
+        ) -> FundLatestNav:
+            from datetime import date
+            from decimal import Decimal
+
+            return FundLatestNav(
+                fund_code=fund_code,
+                fund_name="测试基金",
+                fund_type=fund_type,
+                nav_date=date(2026, 7, 28),
+                unit_nav=Decimal("1.2300"),
+                accumulated_nav=Decimal("1.5600"),
+                source="fake",
+                source_url="https://example.test/fund.js",
+            )
+
+    def build_fake_source(self: object) -> FakeNavSource:
+        return FakeNavSource()
+
+    monkeypatch.setattr(
+        "app.plugins.fund.application.services.FundService._build_default_nav_source",
+        build_fake_source,
+    )
+
+    response = client.post(
+        "/api/v1/fund/lookup/latest-nav",
+        json={"fund_code": "513199", "fund_type": "ETF"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()["data"]
+    assert body["fund_code"] == "513199"
+    assert body["fund_name"] == "测试基金"
+    assert body["unit_nav"] == "1.2300"
+
+    nav_records_response = client.get("/api/v1/fund/nav-records")
+    assert nav_records_response.status_code == 200
+    assert nav_records_response.json()["data"] == []
 
 
 def test_health_check_returns_standard_response(client: TestClient) -> None:

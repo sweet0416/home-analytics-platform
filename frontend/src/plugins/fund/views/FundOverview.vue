@@ -169,6 +169,7 @@
           </label>
           <div class="form-actions">
             <el-button plain @click="resetNavForm">清空</el-button>
+            <el-button plain :loading="lookingUpNav" @click="lookupLatestNav">查询基金信息</el-button>
             <el-button plain :loading="syncingNav" @click="syncLatestNav">自动获取最新净值</el-button>
             <el-button type="primary" :loading="savingNav" @click="saveNavRecord">保存净值</el-button>
           </div>
@@ -378,6 +379,7 @@ import {
   fetchFundStatus,
   fetchFundWatchlist,
   fetchFundWatchlistSummary,
+  lookupLatestFundNav,
   syncLatestFundNav,
   type FundHoldingSummary,
   type FundNavRecord,
@@ -406,6 +408,7 @@ const isLoading = ref(false);
 const saving = ref(false);
 const savingWatch = ref(false);
 const savingNav = ref(false);
+const lookingUpNav = ref(false);
 const syncingNav = ref(false);
 const deletingPositionId = ref<number | null>(null);
 const deletingWatchId = ref<number | null>(null);
@@ -635,6 +638,35 @@ async function syncLatestNav(): Promise<void> {
     ElMessage.error(error instanceof Error ? error.message : '自动获取净值失败');
   } finally {
     syncingNav.value = false;
+  }
+}
+
+async function lookupLatestNav(): Promise<void> {
+  if (!navForm.value.fund_code.trim()) {
+    ElMessage.warning('请先填写基金代码');
+    return;
+  }
+  lookingUpNav.value = true;
+  try {
+    const latest = await lookupLatestFundNav({
+      fund_code: navForm.value.fund_code,
+      fund_type: navForm.value.fund_type || 'unknown',
+    });
+    navForm.value = {
+      fund_code: latest.fund_code,
+      fund_name: latest.fund_name,
+      fund_type: latest.fund_type,
+      nav_date: latest.nav_date,
+      unit_nav: Number(latest.unit_nav),
+      accumulated_nav: latest.accumulated_nav === null ? null : Number(latest.accumulated_nav),
+      source: latest.source,
+      note: `source_url=${latest.source_url}`,
+    };
+    ElMessage.success(`已查询 ${latest.fund_name} ${latest.nav_date} 净值，尚未保存`);
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : '查询基金信息失败');
+  } finally {
+    lookingUpNav.value = false;
   }
 }
 

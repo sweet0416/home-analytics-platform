@@ -101,6 +101,17 @@ export interface FundNavSyncLatestRequest {
   fund_type: string;
 }
 
+export interface FundLatestNav {
+  fund_code: string;
+  fund_name: string;
+  fund_type: string;
+  nav_date: string;
+  unit_nav: string;
+  accumulated_nav: string | null;
+  source: string;
+  source_url: string;
+}
+
 export interface FundPositionCreate {
   fund_code: string;
   fund_name: string;
@@ -174,6 +185,10 @@ export function createFundNavRecord(payload: FundNavRecordCreate): Promise<FundN
 
 export function syncLatestFundNav(payload: FundNavSyncLatestRequest): Promise<FundNavRecord> {
   return postApiData<FundNavRecord, FundNavSyncLatestRequest>('/fund/nav-records/sync-latest', payload);
+}
+
+export function lookupLatestFundNav(payload: FundNavSyncLatestRequest): Promise<FundLatestNav> {
+  return postApiData<FundLatestNav, FundNavSyncLatestRequest>('/fund/lookup/latest-nav', payload);
 }
 
 export async function deleteFundNavRecord(
