@@ -156,6 +156,50 @@ export interface FundPositionCreate {
   note: string;
 }
 
+export type FundTransactionType = 'buy' | 'sell' | 'dividend' | 'fee';
+
+export interface FundTransactionCreate {
+  fund_code: string;
+  fund_name: string;
+  fund_type: string;
+  account_name: string;
+  transaction_type: FundTransactionType;
+  trade_date: string;
+  shares?: number | null;
+  unit_price?: number | null;
+  amount?: number | null;
+  fee: number;
+  note: string;
+}
+
+export interface FundTransaction {
+  id: number;
+  fund_id: number;
+  fund_code: string;
+  fund_name: string;
+  fund_type: string;
+  account_name: string;
+  transaction_type: FundTransactionType;
+  trade_date: string;
+  shares: string | null;
+  unit_price: string | null;
+  amount: string;
+  fee: string;
+  cash_flow: string;
+  note: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface FundTransactionSummary {
+  transaction_count: number;
+  total_buy: string;
+  total_sell: string;
+  total_dividend: string;
+  total_fee: string;
+  net_cash_flow: string;
+}
+
 export interface FundHoldingSummary {
   position_count: number;
   fund_count: number;
@@ -226,6 +270,7 @@ export interface FundDailyReport {
   allocation: FundAllocation;
   watchlist_summary: FundWatchlistSummary;
   nav_summary: FundNavSummary;
+  transaction_summary: FundTransactionSummary;
   valuation_complete: boolean;
   nav_age_days: number | null;
   alerts: FundDailyAlert[];
@@ -252,6 +297,32 @@ export function fetchFundPositions(): Promise<FundPosition[]> {
 
 export function createFundPosition(payload: FundPositionCreate): Promise<FundPosition> {
   return postApiData<FundPosition, FundPositionCreate>('/fund/positions', payload);
+}
+
+export function fetchFundTransactions(limit = 100): Promise<FundTransaction[]> {
+  return getApiData<FundTransaction[]>(`/fund/transactions?limit=${limit}`);
+}
+
+export function createFundTransaction(
+  payload: FundTransactionCreate,
+): Promise<FundTransaction> {
+  return postApiData<FundTransaction, FundTransactionCreate>(
+    '/fund/transactions',
+    payload,
+  );
+}
+
+export function fetchFundTransactionSummary(): Promise<FundTransactionSummary> {
+  return getApiData<FundTransactionSummary>('/fund/transactions/summary');
+}
+
+export async function deleteFundTransaction(
+  transactionId: number,
+): Promise<{ deleted: boolean; id: number }> {
+  const response = await apiClient.delete<ApiResponse<{ deleted: boolean; id: number }>>(
+    `/fund/transactions/${transactionId}`,
+  );
+  return response.data.data;
 }
 
 export function fetchFundWatchlist(): Promise<FundWatchlistItem[]> {

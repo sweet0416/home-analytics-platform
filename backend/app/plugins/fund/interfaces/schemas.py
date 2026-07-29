@@ -2,7 +2,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.core.notification.schemas import NotificationChannel
 
@@ -187,6 +187,67 @@ class FundPositionRead(BaseModel):
     updated_at: datetime
 
 
+class FundTransactionCreate(BaseModel):
+    fund_code: str = Field(min_length=1, max_length=16)
+    fund_name: str = Field(min_length=1, max_length=128)
+    fund_type: str = Field(default="unknown", max_length=64)
+    account_name: str = Field(default="默认账户", max_length=64)
+    transaction_type: Literal["buy", "sell", "dividend", "fee"]
+    trade_date: date
+    shares: Decimal | None = Field(default=None, gt=0)
+    unit_price: Decimal | None = Field(default=None, gt=0)
+    amount: Decimal | None = Field(default=None, gt=0)
+    fee: Decimal = Field(default=Decimal("0"), ge=0)
+    note: str = ""
+
+    @model_validator(mode="after")
+    def validate_transaction_values(self) -> "FundTransactionCreate":
+        if self.transaction_type in {"buy", "sell"}:
+            if self.shares is None or self.unit_price is None:
+                raise ValueError("Buy and sell transactions require shares and unit_price.")
+        elif self.amount is None:
+            raise ValueError("Dividend and fee transactions require amount.")
+        return self
+
+    @property
+    def normalized_amount(self) -> Decimal:
+        if self.transaction_type in {"buy", "sell"}:
+            if self.shares is None or self.unit_price is None:
+                raise ValueError("Transaction amount cannot be calculated.")
+            return self.shares * self.unit_price
+        if self.amount is None:
+            raise ValueError("Transaction amount is required.")
+        return self.amount
+
+
+class FundTransactionRead(BaseModel):
+    id: int
+    fund_id: int
+    fund_code: str
+    fund_name: str
+    fund_type: str
+    account_name: str
+    transaction_type: Literal["buy", "sell", "dividend", "fee"]
+    trade_date: date
+    shares: Decimal | None
+    unit_price: Decimal | None
+    amount: Decimal
+    fee: Decimal
+    cash_flow: Decimal
+    note: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class FundTransactionSummaryRead(BaseModel):
+    transaction_count: int
+    total_buy: Decimal
+    total_sell: Decimal
+    total_dividend: Decimal
+    total_fee: Decimal
+    net_cash_flow: Decimal
+
+
 class FundHoldingSummaryRead(BaseModel):
     position_count: int
     fund_count: int
@@ -257,6 +318,7 @@ class FundDailyReportRead(BaseModel):
     allocation: FundAllocationRead
     watchlist_summary: FundWatchlistSummaryRead
     nav_summary: FundNavSummaryRead
+    transaction_summary: FundTransactionSummaryRead
     valuation_complete: bool
     nav_age_days: int | None
     alerts: list[FundDailyAlertRead]

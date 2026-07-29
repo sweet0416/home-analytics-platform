@@ -225,6 +225,8 @@
 
     <FundNavTrend @synced="handleHistorySynced" />
 
+    <FundTransactions @changed="handleTransactionChanged" />
+
     <RevealContent as="section" class="panel fund-panel" :delay="300">
       <div class="panel-header">
         <div>
@@ -385,6 +387,7 @@ import MetricCard from '@/components/metric/MetricCard.vue';
 import FundAllocation from '@/plugins/fund/components/FundAllocation.vue';
 import FundDailyReport from '@/plugins/fund/components/FundDailyReport.vue';
 import FundNavTrend from '@/plugins/fund/components/FundNavTrend.vue';
+import FundTransactions from '@/plugins/fund/components/FundTransactions.vue';
 import {
   createFundNavRecord,
   createFundPosition,
@@ -615,6 +618,10 @@ async function loadNavRecords(): Promise<void> {
 
 async function handleHistorySynced(): Promise<void> {
   await Promise.all([loadNavRecords(), loadHoldings()]);
+}
+
+function handleTransactionChanged(): void {
+  dailyReportRefreshKey.value += 1;
 }
 
 async function syncWatchlistNavs(): Promise<void> {

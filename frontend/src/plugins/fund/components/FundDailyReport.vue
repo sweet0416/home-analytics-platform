@@ -73,6 +73,16 @@
             <span>集中度 HHI</span>
             <strong>{{ formatHhi(report.allocation.concentration_hhi) }}</strong>
           </div>
+          <div>
+            <span>交易流水</span>
+            <strong>{{ report.transaction_summary.transaction_count }} 条</strong>
+          </div>
+          <div>
+            <span>净现金流</span>
+            <strong>
+              {{ formatSignedMoney(report.transaction_summary.net_cash_flow) }}
+            </strong>
+          </div>
         </div>
 
         <div v-if="report.alerts.length" class="report-alerts">

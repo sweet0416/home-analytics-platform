@@ -429,6 +429,97 @@ def test_fund_daily_report_summarizes_data_quality(client: TestClient) -> None:
     }
 
 
+def test_fund_transactions_track_cash_flows(client: TestClient) -> None:
+    base_payload = {
+        "fund_code": "110022",
+        "fund_name": "Consumer Fund",
+        "fund_type": "混合型",
+        "account_name": "Account A",
+        "trade_date": "2026-07-29",
+        "note": "contract test",
+    }
+    payloads = [
+        {
+            **base_payload,
+            "transaction_type": "buy",
+            "shares": "100",
+            "unit_price": "1.2000",
+            "fee": "1.00",
+        },
+        {
+            **base_payload,
+            "transaction_type": "sell",
+            "shares": "50",
+            "unit_price": "1.5000",
+            "fee": "0.50",
+        },
+        {
+            **base_payload,
+            "transaction_type": "dividend",
+            "amount": "10.00",
+            "fee": "0",
+        },
+        {
+            **base_payload,
+            "transaction_type": "fee",
+            "amount": "2.00",
+            "fee": "0",
+        },
+    ]
+    created_ids: list[int] = []
+    for payload in payloads:
+        response = client.post("/api/v1/fund/transactions", json=payload)
+        assert response.status_code == 200
+        created_ids.append(response.json()["data"]["id"])
+
+    list_response = client.get("/api/v1/fund/transactions")
+    assert list_response.status_code == 200
+    transactions = list_response.json()["data"]
+    assert len(transactions) == 4
+    assert {item["transaction_type"] for item in transactions} == {
+        "buy",
+        "sell",
+        "dividend",
+        "fee",
+    }
+
+    summary_response = client.get("/api/v1/fund/transactions/summary")
+    assert summary_response.status_code == 200
+    summary = summary_response.json()["data"]
+    assert summary["transaction_count"] == 4
+    assert summary["total_buy"] == "120.00"
+    assert summary["total_sell"] == "75.00"
+    assert summary["total_dividend"] == "10.00"
+    assert summary["total_fee"] == "3.50"
+    assert summary["net_cash_flow"] == "-38.50"
+
+    report = client.get("/api/v1/fund/reports/daily").json()["data"]
+    assert report["transaction_summary"]["transaction_count"] == 4
+    assert report["transaction_summary"]["net_cash_flow"] == "-38.50"
+
+    delete_response = client.delete(f"/api/v1/fund/transactions/{created_ids[-1]}")
+    assert delete_response.status_code == 200
+    assert delete_response.json()["data"]["deleted"] is True
+
+
+def test_fund_buy_transaction_requires_shares_and_price(client: TestClient) -> None:
+    response = client.post(
+        "/api/v1/fund/transactions",
+        json={
+            "fund_code": "110022",
+            "fund_name": "Consumer Fund",
+            "fund_type": "混合型",
+            "account_name": "Account A",
+            "transaction_type": "buy",
+            "trade_date": "2026-07-29",
+            "fee": "0",
+            "note": "",
+        },
+    )
+
+    assert response.status_code == 422
+
+
 def test_fund_daily_report_can_be_pushed(
     client: TestClient,
     monkeypatch: pytest.MonkeyPatch,

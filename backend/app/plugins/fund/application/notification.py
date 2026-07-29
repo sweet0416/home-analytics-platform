@@ -42,6 +42,11 @@ class FundDailyNotificationService:
             f"最大单基金：{cls._format_percent(allocation.top_holding_weight)}",
             f"最新净值：{nav.latest_nav_date or '--'}",
             f"观察池：{report.watchlist_summary.item_count} 只",
+            f"交易流水：{report.transaction_summary.transaction_count} 条",
+            (
+                "净现金流："
+                f"{cls._format_money(report.transaction_summary.net_cash_flow, signed=True)}"
+            ),
         ]
         if report.alerts:
             lines.extend(["", "数据提醒："])

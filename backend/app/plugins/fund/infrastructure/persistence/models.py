@@ -19,6 +19,7 @@ class FundModel(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     positions: Mapped[list["FundPositionModel"]] = relationship(back_populates="fund")
+    transactions: Mapped[list["FundTransactionModel"]] = relationship(back_populates="fund")
     watchlist_items: Mapped[list["FundWatchlistItemModel"]] = relationship(back_populates="fund")
     nav_records: Mapped[list["FundNavRecordModel"]] = relationship(back_populates="fund")
 
@@ -86,3 +87,27 @@ class FundPositionModel(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     fund: Mapped[FundModel] = relationship(back_populates="positions")
+
+
+class FundTransactionModel(Base):
+    __tablename__ = "fund_transactions"
+    __table_args__ = (
+        Index("ix_fund_transactions_fund_date", "fund_id", "trade_date"),
+        Index("ix_fund_transactions_account_date", "account_name", "trade_date"),
+        Index("ix_fund_transactions_type_date", "transaction_type", "trade_date"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    fund_id: Mapped[int] = mapped_column(ForeignKey("funds.id"), index=True)
+    account_name: Mapped[str] = mapped_column(String(64), default="默认账户")
+    transaction_type: Mapped[str] = mapped_column(String(32))
+    trade_date: Mapped[date] = mapped_column(Date)
+    shares: Mapped[Decimal | None] = mapped_column(Numeric(18, 4), nullable=True)
+    unit_price: Mapped[Decimal | None] = mapped_column(Numeric(18, 4), nullable=True)
+    amount: Mapped[Decimal] = mapped_column(Numeric(18, 2))
+    fee: Mapped[Decimal] = mapped_column(Numeric(18, 2), default=Decimal("0"))
+    note: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    fund: Mapped[FundModel] = relationship(back_populates="transactions")

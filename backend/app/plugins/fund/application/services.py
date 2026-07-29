@@ -10,6 +10,7 @@ from app.plugins.fund.infrastructure.persistence.models import (
     FundModel,
     FundNavRecordModel,
     FundPositionModel,
+    FundTransactionModel,
     FundWatchlistItemModel,
 )
 from app.plugins.fund.infrastructure.persistence.repositories import FundRepository
@@ -34,6 +35,9 @@ from app.plugins.fund.interfaces.schemas import (
     FundPositionCreate,
     FundPositionRead,
     FundPositionUpdate,
+    FundTransactionCreate,
+    FundTransactionRead,
+    FundTransactionSummaryRead,
     FundWatchlistCreate,
     FundWatchlistNavSyncItemRead,
     FundWatchlistNavSyncRead,
@@ -58,6 +62,13 @@ class FundService:
 
     def list_positions(self) -> list[FundPositionRead]:
         return [self._to_position_read(position) for position in self.repository.list_positions()]
+
+    def list_transactions(self, limit: int = 100) -> list[FundTransactionRead]:
+        bounded_limit = max(1, min(limit, 500))
+        return [
+            self._to_transaction_read(transaction)
+            for transaction in self.repository.list_transactions(limit=bounded_limit)
+        ]
 
     def list_watchlist_items(self) -> list[FundWatchlistRead]:
         return [self._to_watchlist_read(item) for item in self.repository.list_watchlist_items()]
@@ -392,6 +403,69 @@ class FundService:
         self.repository.delete_position(position)
         self.repository.commit()
 
+    def create_transaction(self, payload: FundTransactionCreate) -> FundTransactionRead:
+        fund = self.repository.upsert_fund(
+            code=payload.fund_code,
+            name=payload.fund_name,
+            fund_type=payload.fund_type,
+        )
+        transaction = self.repository.create_transaction(
+            fund=fund,
+            account_name=payload.account_name,
+            transaction_type=payload.transaction_type,
+            trade_date=payload.trade_date,
+            shares=payload.shares,
+            unit_price=payload.unit_price,
+            amount=payload.normalized_amount,
+            fee=payload.fee,
+            note=payload.note,
+        )
+        self.repository.commit()
+        return self._to_transaction_read(transaction)
+
+    def delete_transaction(self, transaction_id: int) -> None:
+        transaction = self.repository.get_transaction(transaction_id)
+        if transaction is None:
+            raise AppError(
+                code=ErrorCode.not_found,
+                message="Fund transaction was not found.",
+                status_code=404,
+            )
+        self.repository.delete_transaction(transaction)
+        self.repository.commit()
+
+    def get_transaction_summary(self) -> FundTransactionSummaryRead:
+        transactions = self.repository.list_transactions(limit=None)
+        total_buy = sum(
+            (item.amount for item in transactions if item.transaction_type == "buy"),
+            Decimal("0"),
+        )
+        total_sell = sum(
+            (item.amount for item in transactions if item.transaction_type == "sell"),
+            Decimal("0"),
+        )
+        total_dividend = sum(
+            (item.amount for item in transactions if item.transaction_type == "dividend"),
+            Decimal("0"),
+        )
+        explicit_fees = sum(
+            (item.amount for item in transactions if item.transaction_type == "fee"),
+            Decimal("0"),
+        )
+        attached_fees = sum((item.fee for item in transactions), Decimal("0"))
+        net_cash_flow = sum(
+            (self._transaction_cash_flow(item) for item in transactions),
+            Decimal("0"),
+        )
+        return FundTransactionSummaryRead(
+            transaction_count=len(transactions),
+            total_buy=total_buy,
+            total_sell=total_sell,
+            total_dividend=total_dividend,
+            total_fee=explicit_fees + attached_fees,
+            net_cash_flow=net_cash_flow,
+        )
+
     def get_holding_summary(self) -> FundHoldingSummaryRead:
         positions = self.repository.list_positions()
         total_cost = sum((position.total_cost for position in positions), Decimal("0"))
@@ -519,6 +593,7 @@ class FundService:
         allocation = self.get_allocation()
         watchlist_summary = self.get_watchlist_summary()
         nav_summary = self.get_nav_summary()
+        transaction_summary = self.get_transaction_summary()
         nav_age_days = (
             (now.date() - nav_summary.latest_nav_date).days
             if nav_summary.latest_nav_date is not None
@@ -599,6 +674,7 @@ class FundService:
             allocation=allocation,
             watchlist_summary=watchlist_summary,
             nav_summary=nav_summary,
+            transaction_summary=transaction_summary,
             valuation_complete=valuation_complete,
             nav_age_days=nav_age_days,
             alerts=alerts,
@@ -677,6 +753,40 @@ class FundService:
             created_at=position.created_at,
             updated_at=position.updated_at,
         )
+
+    def _to_transaction_read(
+        self,
+        transaction: FundTransactionModel,
+    ) -> FundTransactionRead:
+        fund: FundModel = transaction.fund
+        return FundTransactionRead(
+            id=transaction.id,
+            fund_id=fund.id,
+            fund_code=fund.code,
+            fund_name=fund.name,
+            fund_type=fund.fund_type,
+            account_name=transaction.account_name,
+            transaction_type=transaction.transaction_type,
+            trade_date=transaction.trade_date,
+            shares=transaction.shares,
+            unit_price=transaction.unit_price,
+            amount=transaction.amount,
+            fee=transaction.fee,
+            cash_flow=self._transaction_cash_flow(transaction),
+            note=transaction.note,
+            created_at=transaction.created_at,
+            updated_at=transaction.updated_at,
+        )
+
+    @staticmethod
+    def _transaction_cash_flow(transaction: FundTransactionModel) -> Decimal:
+        if transaction.transaction_type == "buy":
+            return -(transaction.amount + transaction.fee)
+        if transaction.transaction_type == "sell":
+            return transaction.amount - transaction.fee
+        if transaction.transaction_type == "dividend":
+            return transaction.amount
+        return -transaction.amount
 
     @staticmethod
     def _build_allocation_groups(

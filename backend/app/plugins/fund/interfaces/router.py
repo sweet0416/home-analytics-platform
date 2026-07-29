@@ -24,6 +24,9 @@ from app.plugins.fund.interfaces.schemas import (
     FundPositionRead,
     FundPositionUpdate,
     FundStatusRead,
+    FundTransactionCreate,
+    FundTransactionRead,
+    FundTransactionSummaryRead,
     FundWatchlistCreate,
     FundWatchlistNavSyncRead,
     FundWatchlistRead,
@@ -64,6 +67,44 @@ def list_fund_positions(
     service: FundService = Depends(get_fund_service),
 ) -> ApiResponse[list[FundPositionRead]]:
     return ok(service.list_positions())
+
+
+@router.get("/transactions", response_model=ApiResponse[list[FundTransactionRead]])
+def list_fund_transactions(
+    limit: int = Query(default=100, ge=1, le=500),
+    service: FundService = Depends(get_fund_service),
+) -> ApiResponse[list[FundTransactionRead]]:
+    return ok(service.list_transactions(limit=limit))
+
+
+@router.post("/transactions", response_model=ApiResponse[FundTransactionRead])
+def create_fund_transaction(
+    payload: FundTransactionCreate,
+    service: FundService = Depends(get_fund_service),
+) -> ApiResponse[FundTransactionRead]:
+    return ok(service.create_transaction(payload))
+
+
+@router.get(
+    "/transactions/summary",
+    response_model=ApiResponse[FundTransactionSummaryRead],
+)
+def get_fund_transaction_summary(
+    service: FundService = Depends(get_fund_service),
+) -> ApiResponse[FundTransactionSummaryRead]:
+    return ok(service.get_transaction_summary())
+
+
+@router.delete(
+    "/transactions/{transaction_id}",
+    response_model=ApiResponse[dict[str, object]],
+)
+def delete_fund_transaction(
+    transaction_id: int,
+    service: FundService = Depends(get_fund_service),
+) -> ApiResponse[dict[str, object]]:
+    service.delete_transaction(transaction_id)
+    return ok({"deleted": True, "id": transaction_id})
 
 
 @router.get("/watchlist", response_model=ApiResponse[list[FundWatchlistRead]])

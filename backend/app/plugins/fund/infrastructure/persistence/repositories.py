@@ -8,6 +8,7 @@ from app.plugins.fund.infrastructure.persistence.models import (
     FundModel,
     FundNavRecordModel,
     FundPositionModel,
+    FundTransactionModel,
     FundWatchlistItemModel,
 )
 
@@ -105,6 +106,58 @@ class FundRepository:
     def delete_position(self, position: FundPositionModel) -> None:
         self.db.delete(position)
         self.db.flush()
+
+    def create_transaction(
+        self,
+        *,
+        fund: FundModel,
+        account_name: str,
+        transaction_type: str,
+        trade_date: date,
+        shares: Decimal | None,
+        unit_price: Decimal | None,
+        amount: Decimal,
+        fee: Decimal,
+        note: str,
+    ) -> FundTransactionModel:
+        transaction = FundTransactionModel(
+            fund=fund,
+            account_name=account_name,
+            transaction_type=transaction_type,
+            trade_date=trade_date,
+            shares=shares,
+            unit_price=unit_price,
+            amount=amount,
+            fee=fee,
+            note=note,
+        )
+        self.db.add(transaction)
+        self.db.flush()
+        return transaction
+
+    def get_transaction(self, transaction_id: int) -> FundTransactionModel | None:
+        return self.db.scalar(
+            select(FundTransactionModel)
+            .options(selectinload(FundTransactionModel.fund))
+            .where(FundTransactionModel.id == transaction_id)
+        )
+
+    def delete_transaction(self, transaction: FundTransactionModel) -> None:
+        self.db.delete(transaction)
+        self.db.flush()
+
+    def list_transactions(self, limit: int | None = 100) -> list[FundTransactionModel]:
+        statement = (
+            select(FundTransactionModel)
+            .options(selectinload(FundTransactionModel.fund))
+            .order_by(
+                FundTransactionModel.trade_date.desc(),
+                FundTransactionModel.id.desc(),
+            )
+        )
+        if limit is not None:
+            statement = statement.limit(limit)
+        return list(self.db.scalars(statement))
 
     def create_watchlist_item(
         self,
