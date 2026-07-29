@@ -6,6 +6,7 @@ from zoneinfo import ZoneInfo
 from loguru import logger
 
 from app.core.config.settings import Settings
+from app.plugins.fund.domain.nav_risk import calculate_nav_risk
 from app.plugins.fund.infrastructure.persistence.models import (
     FundModel,
     FundNavRecordModel,
@@ -31,6 +32,7 @@ from app.plugins.fund.interfaces.schemas import (
     FundNavHistorySyncRequest,
     FundNavRecordCreate,
     FundNavRecordRead,
+    FundNavRiskRead,
     FundNavSummaryRead,
     FundNavSyncLatestRequest,
     FundPositionCreate,
@@ -90,6 +92,42 @@ class FundService:
                 limit=bounded_limit,
             )
         ]
+
+    def get_nav_risk(self, fund_code: str, limit: int = 365) -> FundNavRiskRead:
+        records = self.repository.list_nav_history(
+            fund_code=fund_code.strip(),
+            limit=max(2, min(limit, 500)),
+        )
+        metrics = calculate_nav_risk(
+            [(record.nav_date, record.unit_nav) for record in records]
+        )
+        fund_name = records[-1].fund.name if records else fund_code.strip()
+        calculation_available = metrics.sample_count >= 2
+        if metrics.sample_count >= 3:
+            warning = (
+                "波动率按日收益标准差乘以全年252个交易日年化；"
+                "最大回撤按样本内历史峰值到后续谷值计算。"
+            )
+        elif calculation_available:
+            warning = "当前只能计算区间收益和最大回撤；年化波动率至少需要三个交易日净值。"
+        else:
+            warning = "至少需要两个交易日的净值，才能计算区间收益和最大回撤。"
+        return FundNavRiskRead(
+            fund_code=fund_code.strip(),
+            fund_name=fund_name,
+            sample_count=metrics.sample_count,
+            return_observation_count=metrics.return_observation_count,
+            start_date=metrics.start_date,
+            end_date=metrics.end_date,
+            cumulative_return=metrics.cumulative_return,
+            annualized_volatility=metrics.annualized_volatility,
+            maximum_drawdown=metrics.maximum_drawdown,
+            drawdown_peak_date=metrics.drawdown_peak_date,
+            drawdown_trough_date=metrics.drawdown_trough_date,
+            positive_day_ratio=metrics.positive_day_ratio,
+            calculation_available=calculation_available,
+            warning=warning,
+        )
 
     def create_nav_record(self, payload: FundNavRecordCreate) -> FundNavRecordRead:
         fund = self.repository.upsert_fund(

@@ -138,6 +138,23 @@ class FundNavRecordRead(BaseModel):
     updated_at: datetime
 
 
+class FundNavRiskRead(BaseModel):
+    fund_code: str
+    fund_name: str
+    sample_count: int
+    return_observation_count: int
+    start_date: date | None
+    end_date: date | None
+    cumulative_return: Decimal | None
+    annualized_volatility: Decimal | None
+    maximum_drawdown: Decimal | None
+    drawdown_peak_date: date | None
+    drawdown_trough_date: date | None
+    positive_day_ratio: Decimal | None
+    calculation_available: bool
+    warning: str
+
+
 class FundPositionCreate(BaseModel):
     fund_code: str = Field(min_length=1, max_length=16)
     fund_name: str = Field(min_length=1, max_length=128)

@@ -85,6 +85,23 @@ export interface FundNavRecord {
   updated_at: string;
 }
 
+export interface FundNavRisk {
+  fund_code: string;
+  fund_name: string;
+  sample_count: number;
+  return_observation_count: number;
+  start_date: string | null;
+  end_date: string | null;
+  cumulative_return: string | null;
+  annualized_volatility: string | null;
+  maximum_drawdown: string | null;
+  drawdown_peak_date: string | null;
+  drawdown_trough_date: string | null;
+  positive_day_ratio: string | null;
+  calculation_available: boolean;
+  warning: string;
+}
+
 export interface FundNavRecordCreate {
   fund_code: string;
   fund_name: string;
@@ -373,6 +390,14 @@ export function fetchFundNavHistory(fundCode: string, limit = 365): Promise<Fund
     limit: String(limit),
   });
   return getApiData<FundNavRecord[]>(`/fund/nav-records/history?${query.toString()}`);
+}
+
+export function fetchFundNavRisk(fundCode: string, limit = 365): Promise<FundNavRisk> {
+  const query = new URLSearchParams({
+    fund_code: fundCode,
+    limit: String(limit),
+  });
+  return getApiData<FundNavRisk>(`/fund/nav-records/risk?${query.toString()}`);
 }
 
 export function syncFundNavHistory(

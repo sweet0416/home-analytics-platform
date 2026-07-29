@@ -69,10 +69,24 @@
             <span>区间收益</span>
             <strong :class="returnClass">{{ formattedReturn }}</strong>
           </div>
+          <div>
+            <span>最大回撤</span>
+            <strong class="negative">{{ formatRate(risk?.maximum_drawdown) }}</strong>
+            <small>{{ drawdownRange }}</small>
+          </div>
+          <div>
+            <span>年化波动率</span>
+            <strong>{{ formatRate(risk?.annualized_volatility) }}</strong>
+          </div>
+          <div>
+            <span>上涨日占比</span>
+            <strong>{{ formatRate(risk?.positive_day_ratio) }}</strong>
+          </div>
         </div>
         <div ref="chartRef" class="trend-chart" />
         <p class="trend-note">
-          单位净值用于展示价格变化；区间收益按样本首尾单位净值计算，未计申购赎回费、分红再投资和个人现金流。
+          {{ risk?.warning ?? '单位净值用于展示价格变化，风险指标仅反映当前样本范围。' }}
+          未计申购赎回费、分红再投资和个人现金流。
         </p>
       </div>
       <EmptyState
@@ -96,8 +110,10 @@ import EmptyState from '@/components/common/EmptyState.vue';
 import RevealContent from '@/components/common/RevealContent.vue';
 import {
   fetchFundNavHistory,
+  fetchFundNavRisk,
   syncFundNavHistory,
   type FundNavRecord,
+  type FundNavRisk,
 } from '@/plugins/fund/api';
 
 const emit = defineEmits<{
@@ -110,6 +126,7 @@ const fundCode = ref('');
 const fundType = ref('ETF');
 const limit = ref(365);
 const records = ref<FundNavRecord[]>([]);
+const risk = ref<FundNavRisk | null>(null);
 const loading = ref(false);
 const syncing = ref(false);
 const chartRef = ref<HTMLDivElement | null>(null);
@@ -121,11 +138,9 @@ const historyRange = computed(() => {
   return `${records.value[0].nav_date} 至 ${records.value.at(-1)?.nav_date ?? '--'}`;
 });
 const returnRate = computed(() => {
-  if (records.value.length < 2) return null;
-  const first = Number(records.value[0].unit_nav);
-  const last = Number(records.value.at(-1)?.unit_nav);
-  if (!Number.isFinite(first) || !Number.isFinite(last) || first <= 0) return null;
-  return (last / first - 1) * 100;
+  if (risk.value?.cumulative_return === null || !risk.value) return null;
+  const value = Number(risk.value.cumulative_return) * 100;
+  return Number.isFinite(value) ? value : null;
 });
 const formattedReturn = computed(() => {
   if (returnRate.value === null) return '--';
@@ -136,6 +151,20 @@ const returnClass = computed(() => {
   if (returnRate.value === null || returnRate.value === 0) return '';
   return returnRate.value > 0 ? 'positive' : 'negative';
 });
+const drawdownRange = computed(() => {
+  if (!risk.value?.drawdown_peak_date || !risk.value.drawdown_trough_date) {
+    return risk.value?.maximum_drawdown === '0.000000' ? '样本内无回撤' : '样本内';
+  }
+  return `${risk.value.drawdown_peak_date} 至 ${risk.value.drawdown_trough_date}`;
+});
+
+function formatRate(value: string | null | undefined): string {
+  if (value === null || value === undefined) return '--';
+  const rate = Number(value) * 100;
+  if (!Number.isFinite(rate)) return '--';
+  const prefix = rate > 0 ? '+' : '';
+  return `${prefix}${rate.toFixed(2)}%`;
+}
 
 async function loadHistory(): Promise<void> {
   const code = fundCode.value.trim();
@@ -145,7 +174,12 @@ async function loadHistory(): Promise<void> {
   }
   loading.value = true;
   try {
-    records.value = await fetchFundNavHistory(code, limit.value);
+    const [history, riskResult] = await Promise.all([
+      fetchFundNavHistory(code, limit.value),
+      fetchFundNavRisk(code, limit.value),
+    ]);
+    records.value = history;
+    risk.value = riskResult;
     if (!records.value.length) {
       ElMessage.info('数据库中还没有这只基金的历史净值');
     }
@@ -316,6 +350,11 @@ onBeforeUnmount(() => {
 .trend-summary div {
   display: grid;
   gap: 5px;
+}
+
+.trend-summary small {
+  color: var(--color-muted);
+  font-size: 11px;
 }
 
 .trend-summary strong {

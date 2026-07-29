@@ -243,6 +243,18 @@ def test_fund_nav_history_sync_persists_ordered_series(
         "2026-07-29",
     ]
 
+    risk_response = client.get(
+        "/api/v1/fund/nav-records/risk",
+        params={"fund_code": "513199", "limit": 3},
+    )
+    assert risk_response.status_code == 200
+    risk = risk_response.json()["data"]
+    assert risk["fund_name"] == "History Fund"
+    assert risk["sample_count"] == 3
+    assert risk["cumulative_return"] == "0.181818"
+    assert risk["maximum_drawdown"] == "0.000000"
+    assert risk["calculation_available"] is True
+
 
 def test_health_check_returns_standard_response(client: TestClient) -> None:
     response = client.get("/api/v1/system/health")

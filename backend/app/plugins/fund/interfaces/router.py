@@ -19,6 +19,7 @@ from app.plugins.fund.interfaces.schemas import (
     FundNavHistorySyncRequest,
     FundNavRecordCreate,
     FundNavRecordRead,
+    FundNavRiskRead,
     FundNavSummaryRead,
     FundNavSyncLatestRequest,
     FundPositionCreate,
@@ -186,6 +187,15 @@ def get_fund_nav_history(
     service: FundService = Depends(get_fund_service),
 ) -> ApiResponse[list[FundNavRecordRead]]:
     return ok(service.list_nav_history(fund_code=fund_code, limit=limit))
+
+
+@router.get("/nav-records/risk", response_model=ApiResponse[FundNavRiskRead])
+def get_fund_nav_risk(
+    fund_code: str,
+    limit: int = Query(default=365, ge=2, le=500),
+    service: FundService = Depends(get_fund_service),
+) -> ApiResponse[FundNavRiskRead]:
+    return ok(service.get_nav_risk(fund_code=fund_code, limit=limit))
 
 
 @router.post("/lookup/latest-nav", response_model=ApiResponse[FundLatestNavRead])
