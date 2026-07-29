@@ -80,6 +80,7 @@
           </label>
           <div class="form-actions wide">
             <el-button plain @click="resetWatchForm">{{ editingWatchId === null ? '清空' : '取消编辑' }}</el-button>
+            <el-button plain :loading="lookingUpWatch" @click="lookupWatchFund">查询基金信息</el-button>
             <el-button type="primary" :loading="savingWatch" @click="saveWatchItem">
               {{ editingWatchId === null ? '加入观察池' : '更新观察项' }}
             </el-button>
@@ -274,6 +275,7 @@
           </label>
           <div class="form-actions">
             <el-button plain @click="resetForm">{{ editingPositionId === null ? '清空' : '取消编辑' }}</el-button>
+            <el-button plain :loading="lookingUpPosition" @click="lookupPositionFund">查询基金信息</el-button>
             <el-button type="primary" :loading="saving" @click="savePosition">
               {{ editingPositionId === null ? '保存持仓' : '更新持仓' }}
             </el-button>
@@ -382,6 +384,7 @@ import {
   lookupLatestFundNav,
   syncLatestFundNav,
   type FundHoldingSummary,
+  type FundLatestNav,
   type FundNavRecord,
   type FundNavRecordCreate,
   type FundNavSummary,
@@ -408,7 +411,9 @@ const isLoading = ref(false);
 const saving = ref(false);
 const savingWatch = ref(false);
 const savingNav = ref(false);
+const lookingUpWatch = ref(false);
 const lookingUpNav = ref(false);
+const lookingUpPosition = ref(false);
 const syncingNav = ref(false);
 const deletingPositionId = ref<number | null>(null);
 const deletingWatchId = ref<number | null>(null);
@@ -660,13 +665,69 @@ async function lookupLatestNav(): Promise<void> {
       unit_nav: Number(latest.unit_nav),
       accumulated_nav: latest.accumulated_nav === null ? null : Number(latest.accumulated_nav),
       source: latest.source,
-      note: `source_url=${latest.source_url}`,
+      note: buildSourceNote(latest),
     };
     ElMessage.success(`已查询 ${latest.fund_name} ${latest.nav_date} 净值，尚未保存`);
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : '查询基金信息失败');
   } finally {
     lookingUpNav.value = false;
+  }
+}
+
+function buildSourceNote(latest: FundLatestNav): string {
+  return `source_url=${latest.source_url}`;
+}
+
+async function lookupWatchFund(): Promise<void> {
+  if (!watchForm.value.fund_code.trim()) {
+    ElMessage.warning('请先填写基金代码');
+    return;
+  }
+  lookingUpWatch.value = true;
+  try {
+    const latest = await lookupLatestFundNav({
+      fund_code: watchForm.value.fund_code,
+      fund_type: watchForm.value.fund_type || 'unknown',
+    });
+    watchForm.value = {
+      ...watchForm.value,
+      fund_code: latest.fund_code,
+      fund_name: latest.fund_name,
+      fund_type: latest.fund_type,
+    };
+    ElMessage.success(`已查询 ${latest.fund_name}，尚未加入观察池`);
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : '查询基金信息失败');
+  } finally {
+    lookingUpWatch.value = false;
+  }
+}
+
+async function lookupPositionFund(): Promise<void> {
+  if (!form.value.fund_code.trim()) {
+    ElMessage.warning('请先填写基金代码');
+    return;
+  }
+  lookingUpPosition.value = true;
+  try {
+    const latest = await lookupLatestFundNav({
+      fund_code: form.value.fund_code,
+      fund_type: form.value.fund_type || 'unknown',
+    });
+    form.value = {
+      ...form.value,
+      fund_code: latest.fund_code,
+      fund_name: latest.fund_name,
+      fund_type: latest.fund_type,
+      current_nav: Number(latest.unit_nav),
+      note: form.value.note || buildSourceNote(latest),
+    };
+    ElMessage.success(`已查询 ${latest.fund_name} ${latest.nav_date} 净值，尚未保存持仓`);
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : '查询基金信息失败');
+  } finally {
+    lookingUpPosition.value = false;
   }
 }
 
