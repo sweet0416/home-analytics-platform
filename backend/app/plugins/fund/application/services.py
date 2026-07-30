@@ -15,6 +15,10 @@ from app.plugins.fund.domain.portfolio_performance import (
     PortfolioFundSeries,
     calculate_static_portfolio_performance,
 )
+from app.plugins.fund.domain.risk_contribution import (
+    FundRiskContributionSeries,
+    calculate_risk_contributions,
+)
 from app.plugins.fund.infrastructure.persistence.models import (
     FundModel,
     FundNavRecordModel,
@@ -56,6 +60,8 @@ from app.plugins.fund.interfaces.schemas import (
     FundPositionCreate,
     FundPositionRead,
     FundPositionUpdate,
+    FundRiskContributionItemRead,
+    FundRiskContributionRead,
     FundTrackedNavSyncRead,
     FundTransactionCreate,
     FundTransactionRead,
@@ -1031,6 +1037,90 @@ class FundService:
             warning=(
                 "相关性基于两只基金相邻共同净值日期的收益率计算，只描述所选样本内的同步程度；"
                 "相关性会随市场阶段变化，不代表未来关系，也不能替代底层资产穿透分析。"
+            ),
+        )
+
+    def get_risk_contribution(
+        self,
+        limit: int = 365,
+    ) -> FundRiskContributionRead:
+        bounded_limit = max(3, min(limit, 500))
+        allocation = self.get_allocation()
+        grouped: dict[str, dict[str, str | Decimal]] = {}
+        for holding in allocation.holdings:
+            entry = grouped.setdefault(
+                holding.fund_code,
+                {
+                    "fund_name": holding.fund_name,
+                    "allocation_weight": Decimal("0"),
+                },
+            )
+            entry["allocation_weight"] = (
+                Decimal(entry["allocation_weight"]) + holding.weight
+            )
+
+        series: list[FundRiskContributionSeries] = []
+        included_names: dict[str, str] = {}
+        excluded_fund_codes: list[str] = []
+        for fund_code, entry in grouped.items():
+            records = self.repository.list_nav_history(
+                fund_code=fund_code,
+                limit=bounded_limit,
+            )
+            if len(records) < 3:
+                excluded_fund_codes.append(fund_code)
+                continue
+            included_names[fund_code] = str(entry["fund_name"])
+            series.append(
+                FundRiskContributionSeries(
+                    fund_code=fund_code,
+                    weight=Decimal(entry["allocation_weight"]),
+                    observations=[
+                        (record.nav_date, record.unit_nav)
+                        for record in records
+                    ],
+                )
+            )
+
+        metrics = calculate_risk_contributions(series)
+        items = [
+            FundRiskContributionItemRead(
+                fund_code=item.fund_code,
+                fund_name=included_names[item.fund_code],
+                allocation_weight=item.allocation_weight,
+                annualized_volatility=item.annualized_volatility,
+                component_volatility=item.component_volatility,
+                contribution_ratio=item.contribution_ratio,
+            )
+            for item in metrics.items
+        ]
+        items.sort(
+            key=lambda item: (-item.contribution_ratio, item.fund_code)
+        )
+        return FundRiskContributionRead(
+            fund_count=len(grouped),
+            included_fund_count=len(series),
+            sample_limit=bounded_limit,
+            sample_count=metrics.sample_count,
+            start_date=metrics.start_date,
+            end_date=metrics.end_date,
+            portfolio_annualized_volatility=(
+                metrics.portfolio_annualized_volatility
+            ),
+            weighted_standalone_volatility=(
+                metrics.weighted_standalone_volatility
+            ),
+            diversification_ratio=metrics.diversification_ratio,
+            calculation_available=(
+                metrics.portfolio_annualized_volatility is not None
+                and bool(items)
+            ),
+            items=items,
+            excluded_fund_codes=sorted(excluded_fund_codes),
+            warning=(
+                "风险贡献使用当前持仓权重与共同净值日期的历史收益协方差计算；"
+                "它说明样本内各基金对组合波动的贡献，不代表未来风险，"
+                "也不等同于基金金额占比或投资建议。"
             ),
         )
 

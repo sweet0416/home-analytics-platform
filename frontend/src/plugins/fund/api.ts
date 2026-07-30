@@ -398,6 +398,31 @@ export interface FundHoldingCorrelation {
   warning: string;
 }
 
+export interface FundRiskContributionItem {
+  fund_code: string;
+  fund_name: string;
+  allocation_weight: string;
+  annualized_volatility: string;
+  component_volatility: string;
+  contribution_ratio: string;
+}
+
+export interface FundRiskContribution {
+  fund_count: number;
+  included_fund_count: number;
+  sample_limit: number;
+  sample_count: number;
+  start_date: string | null;
+  end_date: string | null;
+  portfolio_annualized_volatility: string | null;
+  weighted_standalone_volatility: string | null;
+  diversification_ratio: string | null;
+  calculation_available: boolean;
+  items: FundRiskContributionItem[];
+  excluded_fund_codes: string[];
+  warning: string;
+}
+
 export interface FundWatchlistSummary {
   item_count: number;
   fund_count: number;
@@ -622,6 +647,14 @@ export function fetchFundHoldingCorrelation(
 ): Promise<FundHoldingCorrelation> {
   return getApiData<FundHoldingCorrelation>(
     `/fund/holdings/correlation?limit=${limit}`,
+  );
+}
+
+export function fetchFundRiskContribution(
+  limit = 365,
+): Promise<FundRiskContribution> {
+  return getApiData<FundRiskContribution>(
+    `/fund/holdings/risk-contribution?limit=${limit}`,
   );
 }
 

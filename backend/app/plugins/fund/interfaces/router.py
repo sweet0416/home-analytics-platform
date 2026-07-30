@@ -31,6 +31,7 @@ from app.plugins.fund.interfaces.schemas import (
     FundPositionCreate,
     FundPositionRead,
     FundPositionUpdate,
+    FundRiskContributionRead,
     FundStatusRead,
     FundTransactionCreate,
     FundTransactionRead,
@@ -323,6 +324,17 @@ def get_fund_holding_correlation(
     service: FundService = Depends(get_fund_service),
 ) -> ApiResponse[FundHoldingCorrelationRead]:
     return ok(service.get_holding_correlation(limit=limit))
+
+
+@router.get(
+    "/holdings/risk-contribution",
+    response_model=ApiResponse[FundRiskContributionRead],
+)
+def get_fund_risk_contribution(
+    limit: int = Query(default=365, ge=3, le=500),
+    service: FundService = Depends(get_fund_service),
+) -> ApiResponse[FundRiskContributionRead]:
+    return ok(service.get_risk_contribution(limit=limit))
 
 
 @router.post(

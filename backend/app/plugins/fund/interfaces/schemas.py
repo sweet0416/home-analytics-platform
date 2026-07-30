@@ -458,6 +458,31 @@ class FundHoldingCorrelationRead(BaseModel):
     warning: str
 
 
+class FundRiskContributionItemRead(BaseModel):
+    fund_code: str
+    fund_name: str
+    allocation_weight: Decimal
+    annualized_volatility: Decimal
+    component_volatility: Decimal
+    contribution_ratio: Decimal
+
+
+class FundRiskContributionRead(BaseModel):
+    fund_count: int
+    included_fund_count: int
+    sample_limit: int
+    sample_count: int
+    start_date: date | None
+    end_date: date | None
+    portfolio_annualized_volatility: Decimal | None
+    weighted_standalone_volatility: Decimal | None
+    diversification_ratio: Decimal | None
+    calculation_available: bool
+    items: list[FundRiskContributionItemRead]
+    excluded_fund_codes: list[str]
+    warning: str
+
+
 class FundWatchlistSummaryRead(BaseModel):
     item_count: int
     fund_count: int
