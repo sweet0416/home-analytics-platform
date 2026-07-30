@@ -30,6 +30,7 @@ class FundDailyNotificationService:
     def _build_message(cls, report: FundDailyReportRead) -> str:
         holding = report.holding_summary
         allocation = report.allocation
+        holding_risk = report.holding_risk
         nav = report.nav_summary
         lines = [
             f"报告日期：{report.report_date}",
@@ -40,6 +41,10 @@ class FundDailyNotificationService:
             f"收益率：{cls._format_percent(holding.unrealized_return_rate, signed=True)}",
             f"估值完整度：{allocation.current_nav_count}/{allocation.position_count}",
             f"最大单基金：{cls._format_percent(allocation.top_holding_weight)}",
+            (
+                "风险覆盖："
+                f"{holding_risk.analyzed_fund_count}/{holding_risk.fund_count} 只基金"
+            ),
             f"最新净值：{nav.latest_nav_date or '--'}",
             f"观察池：{report.watchlist_summary.item_count} 只",
             f"交易流水：{report.transaction_summary.transaction_count} 条",
@@ -48,6 +53,34 @@ class FundDailyNotificationService:
                 f"{cls._format_money(report.transaction_summary.net_cash_flow, signed=True)}"
             ),
         ]
+        risk_items = [
+            item
+            for item in holding_risk.items
+            if item.calculation_available
+        ]
+        if risk_items:
+            highest_volatility = max(
+                risk_items,
+                key=lambda item: item.annualized_volatility or Decimal("-1"),
+            )
+            deepest_drawdown = min(
+                risk_items,
+                key=lambda item: item.maximum_drawdown or Decimal("0"),
+            )
+            lines.extend(
+                [
+                    (
+                        "最高年化波动："
+                        f"{highest_volatility.fund_name} "
+                        f"{cls._format_percent(highest_volatility.annualized_volatility)}"
+                    ),
+                    (
+                        "样本内最大回撤："
+                        f"{deepest_drawdown.fund_name} "
+                        f"{cls._format_percent(deepest_drawdown.maximum_drawdown)}"
+                    ),
+                ]
+            )
         if report.alerts:
             lines.extend(["", "数据提醒："])
             lines.extend(f"• {alert.message}" for alert in report.alerts)

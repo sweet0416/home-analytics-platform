@@ -85,6 +85,33 @@
           </div>
         </div>
 
+        <div v-if="report.holding_risk.fund_count" class="risk-digest">
+          <div class="risk-digest-title">
+            <strong>风险摘要</strong>
+            <span>
+              {{ report.holding_risk.analyzed_fund_count }}/{{ report.holding_risk.fund_count }}
+              只基金可计算 · 每只最多 {{ report.holding_risk.sample_limit }} 个交易日
+            </span>
+          </div>
+          <div class="risk-digest-metrics">
+            <div>
+              <span>最高年化波动</span>
+              <strong>{{ highestVolatilityItem?.fund_name ?? '--' }}</strong>
+              <small>{{ formatPercent(highestVolatilityItem?.annualized_volatility ?? null) }}</small>
+            </div>
+            <div>
+              <span>样本内最大回撤</span>
+              <strong>{{ deepestDrawdownItem?.fund_name ?? '--' }}</strong>
+              <small class="is-loss">
+                {{ formatPercent(deepestDrawdownItem?.maximum_drawdown ?? null) }}
+              </small>
+            </div>
+          </div>
+          <p>
+            按各基金自身历史净值分别计算，不代表整个持仓组合的波动率，也不构成投资建议。
+          </p>
+        </div>
+
         <div v-if="report.alerts.length" class="report-alerts">
           <div
             v-for="alert in report.alerts"
@@ -141,6 +168,36 @@ const profitClass = computed(() => {
   if (value > 0) return 'is-profit';
   if (value < 0) return 'is-loss';
   return '';
+});
+
+const analyzedRiskItems = computed(() =>
+  report.value?.holding_risk.items.filter((item) => item.calculation_available) ?? [],
+);
+
+const highestVolatilityItem = computed(() => {
+  return analyzedRiskItems.value.reduce<(typeof analyzedRiskItems.value)[number] | null>(
+    (highest, item) => {
+      if (!highest) return item;
+      return Number(item.annualized_volatility ?? -1)
+        > Number(highest.annualized_volatility ?? -1)
+        ? item
+        : highest;
+    },
+    null,
+  );
+});
+
+const deepestDrawdownItem = computed(() => {
+  return analyzedRiskItems.value.reduce<(typeof analyzedRiskItems.value)[number] | null>(
+    (deepest, item) => {
+      if (!deepest) return item;
+      return Number(item.maximum_drawdown ?? 0)
+        < Number(deepest.maximum_drawdown ?? 0)
+        ? item
+        : deepest;
+    },
+    null,
+  );
 });
 
 async function loadReport(): Promise<void> {
@@ -295,6 +352,53 @@ watch(
   gap: 8px;
 }
 
+.risk-digest {
+  border-block: 1px solid rgba(148, 163, 184, 0.14);
+  display: grid;
+  gap: 10px;
+  padding-block: 14px;
+}
+
+.risk-digest-title {
+  align-items: baseline;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.risk-digest-title span,
+.risk-digest p {
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
+.risk-digest-metrics {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.risk-digest-metrics div {
+  display: grid;
+  gap: 4px;
+}
+
+.risk-digest-metrics span,
+.risk-digest-metrics small {
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
+.risk-digest-metrics strong {
+  color: var(--color-text);
+  font-size: 14px;
+}
+
+.risk-digest p {
+  line-height: 1.6;
+  margin: 0;
+}
+
 .report-alert {
   align-items: center;
   border: 1px solid rgba(56, 189, 248, 0.22);
@@ -345,13 +449,15 @@ watch(
 @media (max-width: 640px) {
   .panel-header,
   .report-actions,
-  .report-time {
+  .report-time,
+  .risk-digest-title {
     align-items: stretch;
     flex-direction: column;
   }
 
   .report-metrics,
-  .report-status {
+  .report-status,
+  .risk-digest-metrics {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }

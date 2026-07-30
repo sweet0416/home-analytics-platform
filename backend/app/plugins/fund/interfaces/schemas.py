@@ -396,6 +396,7 @@ class FundDailyReportRead(BaseModel):
     generated_at: datetime
     holding_summary: FundHoldingSummaryRead
     allocation: FundAllocationRead
+    holding_risk: FundHoldingRiskRead
     watchlist_summary: FundWatchlistSummaryRead
     nav_summary: FundNavSummaryRead
     transaction_summary: FundTransactionSummaryRead

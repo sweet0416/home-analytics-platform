@@ -479,6 +479,13 @@ def test_fund_holding_risk_compares_unique_funds(client: TestClient) -> None:
     assert items_by_code["510300"]["calculation_available"] is True
     assert items_by_code["513100"]["calculation_available"] is False
 
+    daily_report = client.get("/api/v1/fund/reports/daily").json()["data"]
+    assert daily_report["holding_risk"]["fund_count"] == 2
+    assert daily_report["holding_risk"]["analyzed_fund_count"] == 1
+    assert "risk_history_incomplete" in {
+        alert["code"] for alert in daily_report["alerts"]
+    }
+
 
 def test_fund_holding_history_sync_deduplicates_and_isolates_failures(
     client: TestClient,
@@ -569,6 +576,7 @@ def test_fund_daily_report_summarizes_data_quality(client: TestClient) -> None:
     assert empty_response.status_code == 200
     empty = empty_response.json()["data"]
     assert empty["holding_summary"]["position_count"] == 0
+    assert empty["holding_risk"]["fund_count"] == 0
     assert empty["valuation_complete"] is False
     assert {alert["code"] for alert in empty["alerts"]} == {
         "no_positions",
@@ -615,6 +623,7 @@ def test_fund_daily_report_summarizes_data_quality(client: TestClient) -> None:
         "valuation_incomplete",
         "nav_missing",
         "holding_concentration",
+        "risk_history_incomplete",
         "watchlist_empty",
     }
 

@@ -843,6 +843,7 @@ class FundService:
         now = datetime.now(ZoneInfo("Asia/Shanghai"))
         holding_summary = self.get_holding_summary()
         allocation = self.get_allocation()
+        holding_risk = self.get_holding_risk(limit=365)
         watchlist_summary = self.get_watchlist_summary()
         nav_summary = self.get_nav_summary()
         transaction_summary = self.get_transaction_summary()
@@ -910,6 +911,24 @@ class FundService:
                 )
             )
 
+        if (
+            holding_risk.fund_count > 0
+            and holding_risk.analyzed_fund_count < holding_risk.fund_count
+        ):
+            missing_count = (
+                holding_risk.fund_count - holding_risk.analyzed_fund_count
+            )
+            alerts.append(
+                FundDailyAlertRead(
+                    code="risk_history_incomplete",
+                    level="info",
+                    message=(
+                        f"{missing_count} 只持仓基金的历史净值样本不足，"
+                        "风险摘要暂时不能完整比较。"
+                    ),
+                )
+            )
+
         if watchlist_summary.item_count == 0:
             alerts.append(
                 FundDailyAlertRead(
@@ -924,6 +943,7 @@ class FundService:
             generated_at=now,
             holding_summary=holding_summary,
             allocation=allocation,
+            holding_risk=holding_risk,
             watchlist_summary=watchlist_summary,
             nav_summary=nav_summary,
             transaction_summary=transaction_summary,

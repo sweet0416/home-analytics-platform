@@ -344,6 +344,7 @@ export interface FundDailyReport {
   generated_at: string;
   holding_summary: FundHoldingSummary;
   allocation: FundAllocation;
+  holding_risk: FundHoldingRisk;
   watchlist_summary: FundWatchlistSummary;
   nav_summary: FundNavSummary;
   transaction_summary: FundTransactionSummary;
