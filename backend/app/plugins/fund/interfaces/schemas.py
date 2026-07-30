@@ -153,6 +153,8 @@ class FundTrackedNavSyncRead(FundWatchlistNavSyncRead):
 
 
 class FundScheduledNavSyncRunRead(BaseModel):
+    id: int | None = None
+    trigger_type: str = "scheduled"
     status: Literal["succeeded", "partial", "failed"]
     started_at: datetime
     finished_at: datetime

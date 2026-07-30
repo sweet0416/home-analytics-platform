@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import Date, DateTime, ForeignKey, Index, Integer, Numeric, String, Text
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Index, Integer, Numeric, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database.base import Base
@@ -111,3 +111,24 @@ class FundTransactionModel(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     fund: Mapped[FundModel] = relationship(back_populates="transactions")
+
+
+class FundNavSyncRunModel(Base):
+    __tablename__ = "fund_nav_sync_runs"
+    __table_args__ = (
+        Index("ix_fund_nav_sync_runs_finished", "finished_at"),
+        Index("ix_fund_nav_sync_runs_status_finished", "status", "finished_at"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    trigger_type: Mapped[str] = mapped_column(String(32), default="scheduled")
+    status: Mapped[str] = mapped_column(String(32))
+    started_at: Mapped[datetime] = mapped_column(DateTime)
+    finished_at: Mapped[datetime] = mapped_column(DateTime)
+    total: Mapped[int] = mapped_column(Integer, default=0)
+    succeeded: Mapped[int] = mapped_column(Integer, default=0)
+    failed: Mapped[int] = mapped_column(Integer, default=0)
+    updated: Mapped[int] = mapped_column(Integer, default=0)
+    skipped: Mapped[bool] = mapped_column(Boolean, default=False)
+    message: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

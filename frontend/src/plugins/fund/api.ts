@@ -26,6 +26,8 @@ export interface FundNavSchedulerStatus {
   timezone: string;
   next_run_at: string | null;
   last_run: {
+    id: number | null;
+    trigger_type: string;
     status: 'succeeded' | 'partial' | 'failed';
     started_at: string;
     finished_at: string;

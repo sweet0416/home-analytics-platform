@@ -16,6 +16,16 @@
       <MetricCard label="自动净值" :value="schedulerStatusText" :meta="schedulerNextRunMeta" :delay="250" />
     </div>
 
+    <RevealContent
+      v-if="navSchedulerStatus?.last_run"
+      as="section"
+      class="auto-sync-status"
+      :delay="255"
+    >
+      <strong>{{ lastSyncStatusText }}</strong>
+      <span>{{ lastSyncDetail }}</span>
+    </RevealContent>
+
     <RevealContent as="section" class="panel fund-panel" :delay="260">
       <div class="panel-header">
         <div>
@@ -579,6 +589,24 @@ const schedulerNextRunMeta = computed(() => {
     hour12: false,
   })}`;
 });
+const lastSyncStatusText = computed(() => {
+  const run = navSchedulerStatus.value?.last_run;
+  if (!run) return '尚无自动检查记录';
+  if (run.skipped) return '最近检查：已跳过';
+  if (run.status === 'failed') return '最近检查：失败';
+  if (run.status === 'partial') return '最近检查：部分成功';
+  return '最近检查：成功';
+});
+const lastSyncDetail = computed(() => {
+  const run = navSchedulerStatus.value?.last_run;
+  if (!run) return '';
+  const finishedAt = new Date(run.finished_at);
+  const time = Number.isNaN(finishedAt.getTime())
+    ? run.finished_at
+    : finishedAt.toLocaleString('zh-CN', { hour12: false });
+  if (run.skipped) return `${time} · 当天已有新净值，不再重复请求`;
+  return `${time} · 成功 ${run.succeeded}/${run.total} · 新增日期 ${run.updated} · 失败 ${run.failed}`;
+});
 const sortedPositions = computed(() => {
   const direction = positionSortDirection.value === 'asc' ? 1 : -1;
   return [...positions.value].sort((left, right) => {
@@ -1098,6 +1126,25 @@ onMounted(async () => {
   margin-top: 16px;
 }
 
+.auto-sync-status {
+  align-items: center;
+  border-block: 1px solid rgba(148, 163, 184, 0.14);
+  display: flex;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 10px 2px;
+}
+
+.auto-sync-status strong {
+  color: #34d399;
+  font-size: 13px;
+}
+
+.auto-sync-status span {
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
 .panel-meta {
   color: var(--color-muted);
   font-size: 13px;
@@ -1353,6 +1400,12 @@ onMounted(async () => {
 }
 
 @media (max-width: 720px) {
+  .auto-sync-status {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
+  }
+
   .position-sort {
     align-items: stretch;
     width: 100%;

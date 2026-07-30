@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.plugins.fund.infrastructure.persistence.models import (
     FundModel,
     FundNavRecordModel,
+    FundNavSyncRunModel,
     FundPositionModel,
     FundTransactionModel,
     FundWatchlistItemModel,
@@ -22,6 +23,54 @@ class FundRepository:
 
     def rollback(self) -> None:
         self.db.rollback()
+
+    def create_nav_sync_run(
+        self,
+        *,
+        trigger_type: str,
+        status: str,
+        started_at: datetime,
+        finished_at: datetime,
+        total: int,
+        succeeded: int,
+        failed: int,
+        updated: int,
+        skipped: bool,
+        message: str,
+    ) -> FundNavSyncRunModel:
+        run = FundNavSyncRunModel(
+            trigger_type=trigger_type,
+            status=status,
+            started_at=started_at,
+            finished_at=finished_at,
+            total=total,
+            succeeded=succeeded,
+            failed=failed,
+            updated=updated,
+            skipped=skipped,
+            message=message,
+        )
+        self.db.add(run)
+        self.db.flush()
+        return run
+
+    def get_latest_nav_sync_run(self) -> FundNavSyncRunModel | None:
+        return self.db.scalar(
+            select(FundNavSyncRunModel).order_by(
+                FundNavSyncRunModel.finished_at.desc(),
+                FundNavSyncRunModel.id.desc(),
+            )
+        )
+
+    def get_latest_updated_nav_sync_run(self) -> FundNavSyncRunModel | None:
+        return self.db.scalar(
+            select(FundNavSyncRunModel)
+            .where(FundNavSyncRunModel.updated > 0)
+            .order_by(
+                FundNavSyncRunModel.finished_at.desc(),
+                FundNavSyncRunModel.id.desc(),
+            )
+        )
 
     def get_fund_by_code(self, code: str) -> FundModel | None:
         return self.db.scalar(select(FundModel).where(FundModel.code == code))
