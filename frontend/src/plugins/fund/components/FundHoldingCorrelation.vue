@@ -253,6 +253,7 @@ function renderChart(): void {
     visualMap: {
       min: -1,
       max: 1,
+      dimension: 2,
       calculable: false,
       orient: 'horizontal',
       left: 'center',
