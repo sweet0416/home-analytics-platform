@@ -17,6 +17,10 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
+    connection = op.get_bind()
+    if sa.inspect(connection).has_table("fund_nav_sync_runs"):
+        return
+
     op.create_table(
         "fund_nav_sync_runs",
         sa.Column("id", sa.Integer(), nullable=False),
@@ -48,6 +52,10 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    connection = op.get_bind()
+    if not sa.inspect(connection).has_table("fund_nav_sync_runs"):
+        return
+
     op.drop_index(
         "ix_fund_nav_sync_runs_status_finished",
         table_name="fund_nav_sync_runs",

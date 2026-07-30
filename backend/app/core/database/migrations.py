@@ -11,15 +11,16 @@ LEGACY_SCHEMA_REVISION = "20260729_2130"
 
 def run_database_migrations() -> None:
     """Bring legacy create_all databases under Alembic, then upgrade them."""
-    create_database_schema()
-
     project_root = Path(__file__).resolve().parents[3]
     config = Config(project_root / "alembic.ini")
 
-    if not inspect(engine).has_table("alembic_version"):
+    if inspect(engine).has_table("alembic_version"):
+        command.upgrade(config, "head")
+        create_database_schema()
+    else:
+        create_database_schema()
         command.stamp(config, LEGACY_SCHEMA_REVISION)
-
-    command.upgrade(config, "head")
+        command.upgrade(config, "head")
 
 
 if __name__ == "__main__":
