@@ -22,6 +22,10 @@ class FundModel(Base):
     transactions: Mapped[list["FundTransactionModel"]] = relationship(back_populates="fund")
     watchlist_items: Mapped[list["FundWatchlistItemModel"]] = relationship(back_populates="fund")
     nav_records: Mapped[list["FundNavRecordModel"]] = relationship(back_populates="fund")
+    disclosures: Mapped[list["FundDisclosureModel"]] = relationship(
+        back_populates="fund",
+        cascade="all, delete-orphan",
+    )
 
 
 class FundWatchlistItemModel(Base):
@@ -132,3 +136,75 @@ class FundNavSyncRunModel(Base):
     skipped: Mapped[bool] = mapped_column(Boolean, default=False)
     message: Mapped[str] = mapped_column(Text, default="")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class FundDisclosureModel(Base):
+    __tablename__ = "fund_disclosures"
+    __table_args__ = (
+        Index(
+            "ix_fund_disclosures_fund_report_type",
+            "fund_id",
+            "report_date",
+            "asset_type",
+            unique=True,
+        ),
+        Index("ix_fund_disclosures_report_date", "report_date"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    fund_id: Mapped[int] = mapped_column(ForeignKey("funds.id"), index=True)
+    report_date: Mapped[date] = mapped_column(Date)
+    report_period: Mapped[str] = mapped_column(String(16))
+    asset_type: Mapped[str] = mapped_column(String(32), default="stock")
+    source: Mapped[str] = mapped_column(String(64))
+    source_url: Mapped[str] = mapped_column(String(512))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    fund: Mapped[FundModel] = relationship(back_populates="disclosures")
+    holdings: Mapped[list["FundDisclosureHoldingModel"]] = relationship(
+        back_populates="disclosure",
+        cascade="all, delete-orphan",
+        order_by="FundDisclosureHoldingModel.rank",
+    )
+
+
+class FundDisclosureHoldingModel(Base):
+    __tablename__ = "fund_disclosure_holdings"
+    __table_args__ = (
+        Index(
+            "ix_fund_disclosure_holdings_disclosure_rank",
+            "disclosure_id",
+            "rank",
+            unique=True,
+        ),
+        Index(
+            "ix_fund_disclosure_holdings_asset",
+            "asset_type",
+            "asset_code",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    disclosure_id: Mapped[int] = mapped_column(
+        ForeignKey("fund_disclosures.id"),
+        index=True,
+    )
+    rank: Mapped[int] = mapped_column(Integer)
+    asset_type: Mapped[str] = mapped_column(String(32), default="stock")
+    asset_code: Mapped[str] = mapped_column(String(32))
+    asset_name: Mapped[str] = mapped_column(String(128))
+    nav_ratio: Mapped[Decimal] = mapped_column(Numeric(12, 8))
+    reported_quantity: Mapped[Decimal | None] = mapped_column(
+        Numeric(24, 4),
+        nullable=True,
+    )
+    reported_market_value: Mapped[Decimal | None] = mapped_column(
+        Numeric(24, 4),
+        nullable=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    disclosure: Mapped[FundDisclosureModel] = relationship(
+        back_populates="holdings"
+    )

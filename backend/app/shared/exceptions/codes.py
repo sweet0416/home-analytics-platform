@@ -18,3 +18,5 @@ class ErrorCode(StrEnum):
     lottery_sync_already_running = "LOTTERY_SYNC_ALREADY_RUNNING"
     fund_nav_source_unavailable = "FUND_NAV_SOURCE_UNAVAILABLE"
     fund_nav_parse_failed = "FUND_NAV_PARSE_FAILED"
+    fund_holdings_source_unavailable = "FUND_HOLDINGS_SOURCE_UNAVAILABLE"
+    fund_holdings_parse_failed = "FUND_HOLDINGS_PARSE_FAILED"

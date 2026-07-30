@@ -5,6 +5,8 @@ from sqlalchemy import distinct, func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.plugins.fund.infrastructure.persistence.models import (
+    FundDisclosureHoldingModel,
+    FundDisclosureModel,
     FundModel,
     FundNavRecordModel,
     FundNavSyncRunModel,
@@ -403,6 +405,109 @@ class FundRepository:
             )
         )
         return list(reversed(records))
+
+    def upsert_disclosure(
+        self,
+        *,
+        fund: FundModel,
+        report_date: date,
+        report_period: str,
+        asset_type: str,
+        source: str,
+        source_url: str,
+        holdings: list[
+            tuple[
+                int,
+                str,
+                str,
+                str,
+                Decimal,
+                Decimal | None,
+                Decimal | None,
+            ]
+        ],
+    ) -> FundDisclosureModel:
+        disclosure = self.db.scalar(
+            select(FundDisclosureModel)
+            .options(selectinload(FundDisclosureModel.holdings))
+            .where(
+                FundDisclosureModel.fund_id == fund.id,
+                FundDisclosureModel.report_date == report_date,
+                FundDisclosureModel.asset_type == asset_type,
+            )
+        )
+        now = datetime.utcnow()
+        if disclosure is None:
+            disclosure = FundDisclosureModel(
+                fund=fund,
+                report_date=report_date,
+                report_period=report_period,
+                asset_type=asset_type,
+                source=source,
+                source_url=source_url,
+            )
+            self.db.add(disclosure)
+            self.db.flush()
+        else:
+            disclosure.report_period = report_period
+            disclosure.source = source
+            disclosure.source_url = source_url
+            disclosure.updated_at = now
+            disclosure.holdings.clear()
+            self.db.flush()
+
+        disclosure.holdings.extend(
+            FundDisclosureHoldingModel(
+                rank=rank,
+                asset_type=holding_asset_type,
+                asset_code=asset_code,
+                asset_name=asset_name,
+                nav_ratio=nav_ratio,
+                reported_quantity=reported_quantity,
+                reported_market_value=reported_market_value,
+            )
+            for (
+                rank,
+                holding_asset_type,
+                asset_code,
+                asset_name,
+                nav_ratio,
+                reported_quantity,
+                reported_market_value,
+            ) in holdings
+        )
+        self.db.flush()
+        return disclosure
+
+    def list_latest_disclosures(
+        self,
+        *,
+        fund_ids: list[int],
+        asset_type: str = "stock",
+    ) -> list[FundDisclosureModel]:
+        if not fund_ids:
+            return []
+        records = list(
+            self.db.scalars(
+                select(FundDisclosureModel)
+                .options(
+                    selectinload(FundDisclosureModel.fund),
+                    selectinload(FundDisclosureModel.holdings),
+                )
+                .where(
+                    FundDisclosureModel.fund_id.in_(fund_ids),
+                    FundDisclosureModel.asset_type == asset_type,
+                )
+                .order_by(
+                    FundDisclosureModel.report_date.desc(),
+                    FundDisclosureModel.id.desc(),
+                )
+            )
+        )
+        latest_by_fund: dict[int, FundDisclosureModel] = {}
+        for record in records:
+            latest_by_fund.setdefault(record.fund_id, record)
+        return list(latest_by_fund.values())
 
     def get_nav_summary_data(
         self,

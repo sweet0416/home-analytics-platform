@@ -508,6 +508,52 @@ class FundRiskContributionRead(BaseModel):
     warning: str
 
 
+class FundDisclosureSyncItemRead(BaseModel):
+    fund_code: str
+    fund_name: str
+    status: Literal["synced", "failed"]
+    report_date: date | None
+    holding_count: int
+    message: str
+
+
+class FundDisclosureSyncRead(BaseModel):
+    total: int
+    succeeded: int
+    failed: int
+    items: list[FundDisclosureSyncItemRead]
+
+
+class FundLookthroughAssetRead(BaseModel):
+    asset_code: str
+    asset_name: str
+    portfolio_weight: Decimal
+    fund_count: int
+
+
+class FundLookthroughSnapshotRead(BaseModel):
+    fund_code: str
+    fund_name: str
+    allocation_weight: Decimal
+    report_date: date | None
+    report_period: str | None
+    age_days: int | None
+    holding_count: int
+    status: Literal["current", "stale", "missing"]
+
+
+class FundLookthroughRead(BaseModel):
+    as_of_date: date
+    stale_after_days: int
+    fund_count: int
+    current_disclosure_count: int
+    coverage_weight: Decimal
+    disclosed_weight: Decimal
+    assets: list[FundLookthroughAssetRead]
+    snapshots: list[FundLookthroughSnapshotRead]
+    warning: str
+
+
 class FundWatchlistSummaryRead(BaseModel):
     item_count: int
     fund_count: int

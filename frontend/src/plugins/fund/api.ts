@@ -448,6 +448,50 @@ export interface FundRiskContribution {
   warning: string;
 }
 
+export interface FundDisclosureSyncResult {
+  total: number;
+  succeeded: number;
+  failed: number;
+  items: Array<{
+    fund_code: string;
+    fund_name: string;
+    status: 'synced' | 'failed';
+    report_date: string | null;
+    holding_count: number;
+    message: string;
+  }>;
+}
+
+export interface FundLookthroughAsset {
+  asset_code: string;
+  asset_name: string;
+  portfolio_weight: string;
+  fund_count: number;
+}
+
+export interface FundLookthroughSnapshot {
+  fund_code: string;
+  fund_name: string;
+  allocation_weight: string;
+  report_date: string | null;
+  report_period: string | null;
+  age_days: number | null;
+  holding_count: number;
+  status: 'current' | 'stale' | 'missing';
+}
+
+export interface FundLookthrough {
+  as_of_date: string;
+  stale_after_days: number;
+  fund_count: number;
+  current_disclosure_count: number;
+  coverage_weight: string;
+  disclosed_weight: string;
+  assets: FundLookthroughAsset[];
+  snapshots: FundLookthroughSnapshot[];
+  warning: string;
+}
+
 export interface FundWatchlistSummary {
   item_count: number;
   fund_count: number;
@@ -693,6 +737,22 @@ export function fetchFundRiskContribution(
 ): Promise<FundRiskContribution> {
   return getApiData<FundRiskContribution>(
     `/fund/holdings/risk-contribution?limit=${limit}`,
+  );
+}
+
+export function fetchFundLookthrough(
+  staleAfterDays = 180,
+): Promise<FundLookthrough> {
+  return getApiData<FundLookthrough>(
+    `/fund/holdings/lookthrough?stale_after_days=${staleAfterDays}`,
+  );
+}
+
+export function syncFundLookthrough(): Promise<FundDisclosureSyncResult> {
+  return postApiData<FundDisclosureSyncResult, Record<string, never>>(
+    '/fund/holdings/lookthrough/sync',
+    {},
+    { timeout: 120000 },
   );
 }
 

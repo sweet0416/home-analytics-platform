@@ -10,6 +10,11 @@ from app.plugins.fund.domain.holding_correlation import (
     FundCorrelationSeries,
     calculate_holding_correlations,
 )
+from app.plugins.fund.domain.lookthrough import (
+    LookthroughFundDisclosure,
+    LookthroughHolding,
+    calculate_lookthrough,
+)
 from app.plugins.fund.domain.nav_risk import calculate_nav_risk
 from app.plugins.fund.domain.portfolio_benchmark import (
     calculate_portfolio_benchmark,
@@ -34,6 +39,10 @@ from app.plugins.fund.infrastructure.sources.eastmoney import (
     EastmoneyFundNavSource,
     FundLatestNav,
 )
+from app.plugins.fund.infrastructure.sources.eastmoney_holdings import (
+    EastmoneyFundHoldingsSource,
+    FundHoldingsDisclosure,
+)
 from app.plugins.fund.interfaces.schemas import (
     FundAllocationGroupRead,
     FundAllocationHoldingRead,
@@ -43,6 +52,8 @@ from app.plugins.fund.interfaces.schemas import (
     FundCorrelationPairRead,
     FundDailyAlertRead,
     FundDailyReportRead,
+    FundDisclosureSyncItemRead,
+    FundDisclosureSyncRead,
     FundHoldingCorrelationRead,
     FundHoldingHistorySyncItemRead,
     FundHoldingHistorySyncRead,
@@ -50,6 +61,9 @@ from app.plugins.fund.interfaces.schemas import (
     FundHoldingRiskRead,
     FundHoldingSummaryRead,
     FundLatestNavRead,
+    FundLookthroughAssetRead,
+    FundLookthroughRead,
+    FundLookthroughSnapshotRead,
     FundNavHistorySyncRead,
     FundNavHistorySyncRequest,
     FundNavRecordCreate,
@@ -88,10 +102,12 @@ class FundService:
         repository: FundRepository,
         settings: Settings | None = None,
         nav_source: EastmoneyFundNavSource | None = None,
+        holdings_source: EastmoneyFundHoldingsSource | None = None,
     ) -> None:
         self.repository = repository
         self.settings = settings
         self.nav_source = nav_source
+        self.holdings_source = holdings_source
 
     def list_positions(self) -> list[FundPositionRead]:
         return [self._to_position_read(position) for position in self.repository.list_positions()]
@@ -1186,6 +1202,240 @@ class FundService:
             ),
         )
 
+    def sync_holding_disclosures(self) -> FundDisclosureSyncRead:
+        targets_by_code: dict[str, tuple[str, str]] = {}
+        for position in self.repository.list_positions():
+            targets_by_code[position.fund.code] = (
+                position.fund.name,
+                position.fund.fund_type,
+            )
+        targets = [
+            (fund_code, fund_name, fund_type)
+            for fund_code, (fund_name, fund_type) in sorted(
+                targets_by_code.items()
+            )
+        ]
+        if not targets:
+            return FundDisclosureSyncRead(
+                total=0,
+                succeeded=0,
+                failed=0,
+                items=[],
+            )
+
+        configured_workers = (
+            self.settings.fund_nav_sync_max_workers if self.settings else 4
+        )
+        with ThreadPoolExecutor(
+            max_workers=min(configured_workers, len(targets))
+        ) as executor:
+            futures = [
+                executor.submit(
+                    self._fetch_holding_disclosure,
+                    fund_code,
+                )
+                for fund_code, _, _ in targets
+            ]
+
+        items: list[FundDisclosureSyncItemRead] = []
+        for (fund_code, fund_name, fund_type), future in zip(
+            targets,
+            futures,
+            strict=True,
+        ):
+            try:
+                disclosure = future.result()
+                fund = self.repository.upsert_fund(
+                    code=fund_code,
+                    name=disclosure.fund_name or fund_name,
+                    fund_type=fund_type,
+                )
+                self.repository.upsert_disclosure(
+                    fund=fund,
+                    report_date=disclosure.report_date,
+                    report_period=disclosure.report_period,
+                    asset_type=disclosure.asset_type,
+                    source=disclosure.source,
+                    source_url=disclosure.source_url,
+                    holdings=[
+                        (
+                            holding.rank,
+                            holding.asset_type,
+                            holding.asset_code,
+                            holding.asset_name,
+                            holding.nav_ratio,
+                            holding.reported_quantity,
+                            holding.reported_market_value,
+                        )
+                        for holding in disclosure.holdings
+                    ],
+                )
+                self.repository.commit()
+                items.append(
+                    FundDisclosureSyncItemRead(
+                        fund_code=fund_code,
+                        fund_name=disclosure.fund_name,
+                        status="synced",
+                        report_date=disclosure.report_date,
+                        holding_count=len(disclosure.holdings),
+                        message="",
+                    )
+                )
+            except Exception as exc:
+                self.repository.rollback()
+                message = (
+                    exc.message
+                    if isinstance(exc, AppError)
+                    else "Fund disclosure sync failed."
+                )
+                logger.warning(
+                    "Fund disclosure sync failed for {}: {}",
+                    fund_code,
+                    exc,
+                )
+                items.append(
+                    FundDisclosureSyncItemRead(
+                        fund_code=fund_code,
+                        fund_name=fund_name,
+                        status="failed",
+                        report_date=None,
+                        holding_count=0,
+                        message=message,
+                    )
+                )
+
+        succeeded = sum(item.status == "synced" for item in items)
+        return FundDisclosureSyncRead(
+            total=len(items),
+            succeeded=succeeded,
+            failed=len(items) - succeeded,
+            items=items,
+        )
+
+    def get_lookthrough(
+        self,
+        *,
+        stale_after_days: int = 180,
+    ) -> FundLookthroughRead:
+        bounded_stale_days = max(30, min(stale_after_days, 730))
+        as_of_date = datetime.now(ZoneInfo("Asia/Shanghai")).date()
+        allocation = self.get_allocation()
+        grouped: dict[str, dict[str, str | int | Decimal]] = {}
+        for holding in allocation.holdings:
+            fund = self.repository.get_fund_by_code(holding.fund_code)
+            if fund is None:
+                continue
+            entry = grouped.setdefault(
+                holding.fund_code,
+                {
+                    "fund_id": fund.id,
+                    "fund_name": holding.fund_name,
+                    "allocation_weight": Decimal("0"),
+                },
+            )
+            entry["allocation_weight"] = (
+                Decimal(entry["allocation_weight"]) + holding.weight
+            )
+
+        records = self.repository.list_latest_disclosures(
+            fund_ids=[int(entry["fund_id"]) for entry in grouped.values()],
+        )
+        records_by_fund_id = {record.fund_id: record for record in records}
+        domain_disclosures: list[LookthroughFundDisclosure] = []
+        snapshots: list[FundLookthroughSnapshotRead] = []
+        for fund_code, entry in grouped.items():
+            record = records_by_fund_id.get(int(entry["fund_id"]))
+            allocation_weight = Decimal(entry["allocation_weight"])
+            if record is None:
+                snapshots.append(
+                    FundLookthroughSnapshotRead(
+                        fund_code=fund_code,
+                        fund_name=str(entry["fund_name"]),
+                        allocation_weight=allocation_weight,
+                        report_date=None,
+                        report_period=None,
+                        age_days=None,
+                        holding_count=0,
+                        status="missing",
+                    )
+                )
+                continue
+            age_days = (as_of_date - record.report_date).days
+            status = (
+                "current"
+                if 0 <= age_days <= bounded_stale_days
+                else "stale"
+            )
+            snapshots.append(
+                FundLookthroughSnapshotRead(
+                    fund_code=fund_code,
+                    fund_name=str(entry["fund_name"]),
+                    allocation_weight=allocation_weight,
+                    report_date=record.report_date,
+                    report_period=record.report_period,
+                    age_days=age_days,
+                    holding_count=len(record.holdings),
+                    status=status,
+                )
+            )
+            domain_disclosures.append(
+                LookthroughFundDisclosure(
+                    fund_code=fund_code,
+                    allocation_weight=allocation_weight,
+                    report_date=record.report_date,
+                    holdings=[
+                        LookthroughHolding(
+                            asset_code=holding.asset_code,
+                            asset_name=holding.asset_name,
+                            nav_ratio=holding.nav_ratio,
+                        )
+                        for holding in record.holdings
+                    ],
+                )
+            )
+
+        metrics = calculate_lookthrough(
+            domain_disclosures,
+            as_of_date=as_of_date,
+            stale_after_days=bounded_stale_days,
+        )
+        snapshots.sort(
+            key=lambda item: (-item.allocation_weight, item.fund_code)
+        )
+        return FundLookthroughRead(
+            as_of_date=as_of_date,
+            stale_after_days=bounded_stale_days,
+            fund_count=len(grouped),
+            current_disclosure_count=len(metrics.included_fund_codes),
+            coverage_weight=metrics.coverage_weight,
+            disclosed_weight=metrics.disclosed_weight,
+            assets=[
+                FundLookthroughAssetRead(
+                    asset_code=item.asset_code,
+                    asset_name=item.asset_name,
+                    portfolio_weight=item.portfolio_weight,
+                    fund_count=item.fund_count,
+                )
+                for item in metrics.assets[:30]
+            ],
+            snapshots=snapshots,
+            warning=(
+                "穿透结果使用基金最近一次公开披露的前十大股票，并按当前基金仓位加权。"
+                "它不是实时持仓，也不包含未披露资产；超过设定天数的旧快照不会纳入聚合。"
+                "ETF 联接和 QDII 的目标基金二级穿透将在后续版本补充。"
+            ),
+        )
+
+    def _fetch_holding_disclosure(
+        self,
+        fund_code: str,
+    ) -> FundHoldingsDisclosure:
+        source = (
+            self.holdings_source
+            or self._build_default_holdings_source()
+        )
+        return source.fetch_latest(fund_code)
+
     def get_watchlist_summary(self) -> FundWatchlistSummaryRead:
         items = self.repository.list_watchlist_items()
         return FundWatchlistSummaryRead(
@@ -1476,4 +1726,14 @@ class FundService:
         return EastmoneyFundNavSource(
             timeout_seconds=self.settings.fund_nav_sync_timeout_seconds,
             url_template=self.settings.fund_eastmoney_pingzhongdata_url,
+        )
+
+    def _build_default_holdings_source(
+        self,
+    ) -> EastmoneyFundHoldingsSource:
+        if self.settings is None:
+            return EastmoneyFundHoldingsSource()
+        return EastmoneyFundHoldingsSource(
+            timeout_seconds=self.settings.fund_nav_sync_timeout_seconds,
+            url_template=self.settings.fund_eastmoney_holdings_url,
         )

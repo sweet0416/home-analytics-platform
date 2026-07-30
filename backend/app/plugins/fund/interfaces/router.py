@@ -13,12 +13,14 @@ from app.plugins.fund.interfaces.schemas import (
     FundCashFlowPerformanceRead,
     FundDailyPushRequest,
     FundDailyReportRead,
+    FundDisclosureSyncRead,
     FundHoldingCorrelationRead,
     FundHoldingHistorySyncRead,
     FundHoldingHistorySyncRequest,
     FundHoldingRiskRead,
     FundHoldingSummaryRead,
     FundLatestNavRead,
+    FundLookthroughRead,
     FundNavHistorySyncRead,
     FundNavHistorySyncRequest,
     FundNavRecordCreate,
@@ -62,7 +64,7 @@ def get_fund_status() -> ApiResponse[FundStatusRead]:
         FundStatusRead(
             plugin=FUND_PLUGIN_CODE,
             display_name="Fund",
-            version="0.2.0",
+            version="0.3.0",
             status="operational",
             description="基金插件已支持持仓、净值、组合风险、自动更新和日报推送。",
             modules=FUND_MODULES,
@@ -353,6 +355,27 @@ def get_fund_risk_contribution(
     service: FundService = Depends(get_fund_service),
 ) -> ApiResponse[FundRiskContributionRead]:
     return ok(service.get_risk_contribution(limit=limit))
+
+
+@router.get(
+    "/holdings/lookthrough",
+    response_model=ApiResponse[FundLookthroughRead],
+)
+def get_fund_lookthrough(
+    stale_after_days: int = Query(default=180, ge=30, le=730),
+    service: FundService = Depends(get_fund_service),
+) -> ApiResponse[FundLookthroughRead]:
+    return ok(service.get_lookthrough(stale_after_days=stale_after_days))
+
+
+@router.post(
+    "/holdings/lookthrough/sync",
+    response_model=ApiResponse[FundDisclosureSyncRead],
+)
+def sync_fund_lookthrough(
+    service: FundService = Depends(get_fund_service),
+) -> ApiResponse[FundDisclosureSyncRead]:
+    return ok(service.sync_holding_disclosures())
 
 
 @router.post(

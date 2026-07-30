@@ -62,6 +62,10 @@ class Settings(BaseSettings):
     fund_eastmoney_pingzhongdata_url: str = (
         "https://fund.eastmoney.com/pingzhongdata/{fund_code}.js"
     )
+    fund_eastmoney_holdings_url: str = (
+        "http://fundf10.eastmoney.com/FundArchivesDatas.aspx"
+        "?type=jjcc&code={fund_code}&topline=10&year=&month="
+    )
     cors_origins: list[str] = Field(
         default_factory=lambda: [
             "http://localhost:5173",
