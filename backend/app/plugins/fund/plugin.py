@@ -5,8 +5,8 @@ from app.plugins.fund.jobs.scheduler import start_fund_scheduler, stop_fund_sche
 fund_plugin = PluginManifest(
     name="fund",
     display_name="Fund",
-    version="0.1.0",
-    description="Fund analytics plugin scaffold for ETF, QDII, allocation, NAV, and reports.",
+    version="0.2.0",
+    description="Fund portfolio, NAV, allocation, risk, automation, and report analytics.",
     routes=[router],
     menu_items=[
         {"name": "fund-overview", "label": "基金分析", "path": "/fund"},

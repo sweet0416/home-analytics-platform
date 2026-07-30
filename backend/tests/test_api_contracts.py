@@ -276,16 +276,23 @@ def test_plugins_endpoint_returns_registered_plugins(client: TestClient) -> None
     assert any(plugin["name"] == "fund" for plugin in plugins)
 
 
-def test_fund_status_endpoint_returns_scaffold_contract(client: TestClient) -> None:
+def test_fund_status_endpoint_returns_operational_contract(client: TestClient) -> None:
     response = client.get("/api/v1/fund/status")
 
     assert response.status_code == 200
     body = response.json()["data"]
     assert body["plugin"] == "fund"
-    assert body["status"] == "scaffolded"
-    assert body["data_source_status"] == "not_configured"
-    assert body["storage_status"] == "created"
-    assert len(body["modules"]) >= 4
+    assert body["version"] == "0.2.0"
+    assert body["status"] == "operational"
+    assert body["data_source_status"] == "configured"
+    assert body["storage_status"] == "storage_ready"
+    assert len(body["modules"]) >= 5
+    module_statuses = {
+        module["code"]: module["status"] for module in body["modules"]
+    }
+    assert module_statuses["watchlist"] == "completed"
+    assert module_statuses["nav"] == "completed"
+    assert module_statuses["risk"] == "completed"
 
 
 def test_fund_nav_scheduler_status_is_available(client: TestClient) -> None:

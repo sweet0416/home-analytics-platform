@@ -555,6 +555,10 @@ const navForm = ref<FundNavRecordCreate>({
 
 const labelMap: Record<string, string> = {
   scaffolded: '已接入',
+  operational: '运行中',
+  completed: '已完成',
+  configured: '已配置',
+  storage_ready: '就绪',
   planned: '规划中',
   in_progress: '进行中',
   not_configured: '未配置',

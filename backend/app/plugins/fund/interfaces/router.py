@@ -61,13 +61,13 @@ def get_fund_status() -> ApiResponse[FundStatusRead]:
         FundStatusRead(
             plugin=FUND_PLUGIN_CODE,
             display_name="Fund",
-            version="0.1.0",
-            status="scaffolded",
-            description="基金分析插件已接入 HAP 插件体系，已支持手动录入基金持仓。",
+            version="0.2.0",
+            status="operational",
+            description="基金插件已支持持仓、净值、组合风险、自动更新和日报推送。",
             modules=FUND_MODULES,
-            data_source_status="not_configured",
-            storage_status="created",
-            next_step="下一步接入基金净值数据源，并基于持仓计算收益曲线、回撤和日报。",
+            data_source_status="configured",
+            storage_status="storage_ready",
+            next_step="下一步补充基准对比、底层资产穿透和 AI 日报总结。",
         )
     )
 
