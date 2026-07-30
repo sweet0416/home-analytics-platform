@@ -11,6 +11,9 @@ from app.plugins.fund.domain.holding_correlation import (
     calculate_holding_correlations,
 )
 from app.plugins.fund.domain.nav_risk import calculate_nav_risk
+from app.plugins.fund.domain.portfolio_benchmark import (
+    calculate_portfolio_benchmark,
+)
 from app.plugins.fund.domain.portfolio_performance import (
     PortfolioFundSeries,
     calculate_static_portfolio_performance,
@@ -54,6 +57,8 @@ from app.plugins.fund.interfaces.schemas import (
     FundNavRiskRead,
     FundNavSummaryRead,
     FundNavSyncLatestRequest,
+    FundPortfolioBenchmarkPointRead,
+    FundPortfolioBenchmarkRead,
     FundPortfolioMemberRead,
     FundPortfolioPerformancePointRead,
     FundPortfolioPerformanceRead,
@@ -954,6 +959,63 @@ class FundService:
             warning=(
                 "这是用当前持仓权重对共同净值日期进行的静态回放，不代表账户真实历史收益；"
                 "未计入历史调仓、申购赎回、费用和分红。等权线只用于观察当前仓位权重的影响。"
+            ),
+        )
+
+    def get_portfolio_benchmark(
+        self,
+        benchmark_code: str,
+        limit: int = 365,
+    ) -> FundPortfolioBenchmarkRead:
+        bounded_limit = max(3, min(limit, 500))
+        code = benchmark_code.strip()
+        portfolio = self.get_portfolio_performance(limit=bounded_limit)
+        benchmark_records = self.repository.list_nav_history(
+            fund_code=code,
+            limit=bounded_limit,
+        )
+        metrics = calculate_portfolio_benchmark(
+            [
+                (point.nav_date, point.portfolio_index)
+                for point in portfolio.points
+            ],
+            [
+                (record.nav_date, record.unit_nav)
+                for record in benchmark_records
+            ],
+        )
+        benchmark_name = (
+            benchmark_records[-1].fund.name
+            if benchmark_records
+            else code
+        )
+        return FundPortfolioBenchmarkRead(
+            benchmark_code=code,
+            benchmark_name=benchmark_name,
+            sample_limit=bounded_limit,
+            sample_count=len(metrics.points),
+            start_date=metrics.points[0].nav_date if metrics.points else None,
+            end_date=metrics.points[-1].nav_date if metrics.points else None,
+            portfolio_return=metrics.portfolio_return,
+            benchmark_return=metrics.benchmark_return,
+            relative_return=metrics.relative_return,
+            tracking_error=metrics.tracking_error,
+            information_ratio=metrics.information_ratio,
+            return_correlation=metrics.return_correlation,
+            calculation_available=len(metrics.points) >= 2,
+            points=[
+                FundPortfolioBenchmarkPointRead(
+                    nav_date=point.nav_date,
+                    portfolio_index=point.portfolio_index,
+                    benchmark_index=point.benchmark_index,
+                    relative_return=point.relative_return,
+                )
+                for point in metrics.points
+            ],
+            warning=(
+                "基准使用基金净值作为指数代理，只在组合与基准都有净值的共同日期进行比较。"
+                "结果受代理基金费用、跟踪误差、QDII 时区和净值发布日期影响，"
+                "不等同于指数本身，也不构成投资建议。"
             ),
         )
 

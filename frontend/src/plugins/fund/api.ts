@@ -372,6 +372,31 @@ export interface FundPortfolioPerformance {
   warning: string;
 }
 
+export interface FundPortfolioBenchmarkPoint {
+  nav_date: string;
+  portfolio_index: string;
+  benchmark_index: string;
+  relative_return: string;
+}
+
+export interface FundPortfolioBenchmark {
+  benchmark_code: string;
+  benchmark_name: string;
+  sample_limit: number;
+  sample_count: number;
+  start_date: string | null;
+  end_date: string | null;
+  portfolio_return: string | null;
+  benchmark_return: string | null;
+  relative_return: string | null;
+  tracking_error: string | null;
+  information_ratio: string | null;
+  return_correlation: string | null;
+  calculation_available: boolean;
+  points: FundPortfolioBenchmarkPoint[];
+  warning: string;
+}
+
 export interface FundCorrelationMember {
   fund_code: string;
   fund_name: string;
@@ -639,6 +664,19 @@ export function fetchFundPortfolioPerformance(
 ): Promise<FundPortfolioPerformance> {
   return getApiData<FundPortfolioPerformance>(
     `/fund/holdings/performance?limit=${limit}`,
+  );
+}
+
+export function fetchFundPortfolioBenchmark(
+  benchmarkCode: string,
+  limit = 365,
+): Promise<FundPortfolioBenchmark> {
+  const query = new URLSearchParams({
+    benchmark_code: benchmarkCode,
+    limit: String(limit),
+  });
+  return getApiData<FundPortfolioBenchmark>(
+    `/fund/holdings/benchmark?${query.toString()}`,
   );
 }
 

@@ -27,6 +27,7 @@ from app.plugins.fund.interfaces.schemas import (
     FundNavSchedulerStatusRead,
     FundNavSummaryRead,
     FundNavSyncLatestRequest,
+    FundPortfolioBenchmarkRead,
     FundPortfolioPerformanceRead,
     FundPositionCreate,
     FundPositionRead,
@@ -313,6 +314,23 @@ def get_fund_portfolio_performance(
     service: FundService = Depends(get_fund_service),
 ) -> ApiResponse[FundPortfolioPerformanceRead]:
     return ok(service.get_portfolio_performance(limit=limit))
+
+
+@router.get(
+    "/holdings/benchmark",
+    response_model=ApiResponse[FundPortfolioBenchmarkRead],
+)
+def get_fund_portfolio_benchmark(
+    benchmark_code: str = Query(min_length=1, max_length=16),
+    limit: int = Query(default=365, ge=3, le=500),
+    service: FundService = Depends(get_fund_service),
+) -> ApiResponse[FundPortfolioBenchmarkRead]:
+    return ok(
+        service.get_portfolio_benchmark(
+            benchmark_code=benchmark_code,
+            limit=limit,
+        )
+    )
 
 
 @router.get(

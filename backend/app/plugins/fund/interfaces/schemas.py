@@ -432,6 +432,31 @@ class FundPortfolioPerformanceRead(BaseModel):
     warning: str
 
 
+class FundPortfolioBenchmarkPointRead(BaseModel):
+    nav_date: date
+    portfolio_index: Decimal
+    benchmark_index: Decimal
+    relative_return: Decimal
+
+
+class FundPortfolioBenchmarkRead(BaseModel):
+    benchmark_code: str
+    benchmark_name: str
+    sample_limit: int
+    sample_count: int
+    start_date: date | None
+    end_date: date | None
+    portfolio_return: Decimal | None
+    benchmark_return: Decimal | None
+    relative_return: Decimal | None
+    tracking_error: Decimal | None
+    information_ratio: Decimal | None
+    return_correlation: Decimal | None
+    calculation_available: bool
+    points: list[FundPortfolioBenchmarkPointRead]
+    warning: str
+
+
 class FundCorrelationMemberRead(BaseModel):
     fund_code: str
     fund_name: str

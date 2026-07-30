@@ -381,6 +381,8 @@
 
     <FundPortfolioPerformance :refresh-key="holdingRiskRefreshKey" />
 
+    <FundPortfolioBenchmark :refresh-key="holdingRiskRefreshKey" />
+
     <FundHoldingCorrelation :refresh-key="holdingRiskRefreshKey" />
 
     <FundRiskContribution :refresh-key="holdingRiskRefreshKey" />
@@ -430,6 +432,7 @@ import FundDailyReport from '@/plugins/fund/components/FundDailyReport.vue';
 import FundHoldingRisk from '@/plugins/fund/components/FundHoldingRisk.vue';
 import FundHoldingCorrelation from '@/plugins/fund/components/FundHoldingCorrelation.vue';
 import FundNavTrend from '@/plugins/fund/components/FundNavTrend.vue';
+import FundPortfolioBenchmark from '@/plugins/fund/components/FundPortfolioBenchmark.vue';
 import FundPortfolioPerformance from '@/plugins/fund/components/FundPortfolioPerformance.vue';
 import FundRiskContribution from '@/plugins/fund/components/FundRiskContribution.vue';
 import FundTransactions from '@/plugins/fund/components/FundTransactions.vue';
