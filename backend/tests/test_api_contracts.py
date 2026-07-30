@@ -480,6 +480,90 @@ def test_fund_holding_risk_compares_unique_funds(client: TestClient) -> None:
     assert items_by_code["513100"]["calculation_available"] is False
 
 
+def test_fund_holding_history_sync_deduplicates_and_isolates_failures(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from datetime import date
+
+    positions = [
+        {
+            "fund_code": fund_code,
+            "fund_name": fund_name,
+            "fund_type": fund_type,
+            "account_name": account,
+            "shares": "100",
+            "cost_price": "1.0000",
+            "current_nav": "2.0000",
+            "tags": "",
+            "note": "",
+        }
+        for fund_code, fund_name, fund_type, account in (
+            ("510300", "Core ETF", "ETF", "Account A"),
+            ("510300", "Core ETF", "ETF", "Account B"),
+            ("513100", "Overseas Fund", "QDII", "Account B"),
+        )
+    ]
+    for payload in positions:
+        assert client.post("/api/v1/fund/positions", json=payload).status_code == 200
+
+    class FakeHoldingHistorySource:
+        def fetch_history(
+            self,
+            fund_code: str,
+            fund_type: str = "unknown",
+            limit: int = 365,
+        ) -> list[FundLatestNav]:
+            if fund_code == "513100":
+                raise RuntimeError("source unavailable")
+            return [
+                FundLatestNav(
+                    fund_code=fund_code,
+                    fund_name="Core ETF",
+                    fund_type=fund_type,
+                    nav_date=date(2026, 7, day),
+                    unit_nav=Decimal(nav),
+                    accumulated_nav=Decimal(nav),
+                    source="fake",
+                    source_url="https://example.test/history.js",
+                )
+                for day, nav in ((27, "1.0000"), (28, "1.1000"), (29, "1.2000"))
+            ][-limit:]
+
+    monkeypatch.setattr(
+        "app.plugins.fund.application.services.FundService._build_default_nav_source",
+        lambda self: FakeHoldingHistorySource(),
+    )
+
+    response = client.post(
+        "/api/v1/fund/holdings/sync-history",
+        json={"limit": 3},
+    )
+
+    assert response.status_code == 200
+    body = response.json()["data"]
+    assert body["total"] == 2
+    assert body["succeeded"] == 1
+    assert body["failed"] == 1
+    assert body["synced_count"] == 3
+    items_by_code = {item["fund_code"]: item for item in body["items"]}
+    assert items_by_code["510300"]["status"] == "succeeded"
+    assert items_by_code["510300"]["synced_count"] == 3
+    assert items_by_code["513100"]["status"] == "failed"
+
+    history = client.get(
+        "/api/v1/fund/nav-records/history",
+        params={"fund_code": "510300", "limit": 3},
+    ).json()["data"]
+    assert len(history) == 3
+    updated_positions = client.get("/api/v1/fund/positions").json()["data"]
+    core_positions = [
+        item for item in updated_positions if item["fund_code"] == "510300"
+    ]
+    assert len(core_positions) == 2
+    assert all(item["current_nav"] == "1.2000" for item in core_positions)
+
+
 def test_fund_daily_report_summarizes_data_quality(client: TestClient) -> None:
     empty_response = client.get("/api/v1/fund/reports/daily")
     assert empty_response.status_code == 200

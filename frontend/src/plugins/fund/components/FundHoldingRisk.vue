@@ -14,6 +14,15 @@
             :value="option.value"
           />
         </el-select>
+        <el-button
+          type="primary"
+          :icon="Refresh"
+          :loading="syncing"
+          :disabled="!risk?.fund_count"
+          @click="syncHistory"
+        >
+          同步全部历史
+        </el-button>
         <el-button :icon="Refresh" :loading="loading" @click="loadRisk">刷新</el-button>
       </div>
     </div>
@@ -32,6 +41,22 @@
             <span>样本上限</span>
             <strong>{{ risk.sample_limit }} 个交易日</strong>
           </div>
+        </div>
+
+        <div v-if="lastSync" class="sync-result">
+          <strong>
+            本次同步：成功 {{ lastSync.succeeded }}/{{ lastSync.total }}，
+            获取 {{ lastSync.synced_count }} 条净值
+          </strong>
+          <span v-if="lastSync.failed" class="sync-failed">
+            失败：
+            {{
+              lastSync.items
+                .filter((item) => item.status === 'failed')
+                .map((item) => `${item.fund_code} ${item.fund_name}`)
+                .join('、')
+            }}
+          </span>
         </div>
 
         <div class="risk-table">
@@ -83,11 +108,16 @@ import EmptyState from '@/components/common/EmptyState.vue';
 import RevealContent from '@/components/common/RevealContent.vue';
 import {
   fetchFundHoldingRisk,
+  syncFundHoldingHistory,
+  type FundHoldingHistorySyncResult,
   type FundHoldingRisk,
 } from '@/plugins/fund/api';
 
 const props = defineProps<{
   refreshKey: number;
+}>();
+const emit = defineEmits<{
+  synced: [];
 }>();
 
 const sampleOptions = [
@@ -100,6 +130,8 @@ const sampleOptions = [
 const sampleLimit = ref(365);
 const risk = ref<FundHoldingRisk | null>(null);
 const loading = ref(false);
+const syncing = ref(false);
+const lastSync = ref<FundHoldingHistorySyncResult | null>(null);
 
 async function loadRisk(): Promise<void> {
   loading.value = true;
@@ -109,6 +141,25 @@ async function loadRisk(): Promise<void> {
     ElMessage.error(error instanceof Error ? error.message : '持仓风险比较加载失败');
   } finally {
     loading.value = false;
+  }
+}
+
+async function syncHistory(): Promise<void> {
+  syncing.value = true;
+  try {
+    const result = await syncFundHoldingHistory(sampleLimit.value);
+    lastSync.value = result;
+    await loadRisk();
+    emit('synced');
+    if (result.failed === 0) {
+      ElMessage.success(`已同步 ${result.succeeded} 只基金，共 ${result.synced_count} 条净值`);
+      return;
+    }
+    ElMessage.warning(`同步完成：成功 ${result.succeeded} 只，失败 ${result.failed} 只`);
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : '持仓历史净值同步失败');
+  } finally {
+    syncing.value = false;
   }
 }
 
@@ -174,6 +225,26 @@ watch(
   display: grid;
   gap: 10px;
   grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.sync-result {
+  align-items: center;
+  background: rgba(14, 165, 233, 0.08);
+  border-left: 3px solid #38bdf8;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  padding: 10px 12px;
+}
+
+.sync-result strong {
+  color: #7dd3fc;
+  font-size: 13px;
+}
+
+.sync-failed {
+  color: #fbbf24;
+  font-size: 12px;
 }
 
 .risk-summary div {
@@ -249,6 +320,11 @@ watch(
 
   .risk-summary {
     grid-template-columns: 1fr;
+  }
+
+  .sync-result {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }
 </style>

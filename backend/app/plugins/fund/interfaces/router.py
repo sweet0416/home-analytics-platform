@@ -13,6 +13,8 @@ from app.plugins.fund.interfaces.schemas import (
     FundCashFlowPerformanceRead,
     FundDailyPushRequest,
     FundDailyReportRead,
+    FundHoldingHistorySyncRead,
+    FundHoldingHistorySyncRequest,
     FundHoldingRiskRead,
     FundHoldingSummaryRead,
     FundLatestNavRead,
@@ -287,6 +289,17 @@ def get_fund_holding_risk(
     service: FundService = Depends(get_fund_service),
 ) -> ApiResponse[FundHoldingRiskRead]:
     return ok(service.get_holding_risk(limit=limit))
+
+
+@router.post(
+    "/holdings/sync-history",
+    response_model=ApiResponse[FundHoldingHistorySyncRead],
+)
+def sync_fund_holding_history(
+    payload: FundHoldingHistorySyncRequest,
+    service: FundService = Depends(get_fund_service),
+) -> ApiResponse[FundHoldingHistorySyncRead]:
+    return ok(service.sync_holding_history(limit=payload.limit))
 
 
 @router.get("/reports/daily", response_model=ApiResponse[FundDailyReportRead])

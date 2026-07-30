@@ -132,6 +132,25 @@ export interface FundNavHistorySyncResult {
   source: string;
 }
 
+export interface FundHoldingHistorySyncItem {
+  fund_code: string;
+  fund_name: string;
+  status: 'succeeded' | 'failed';
+  synced_count: number;
+  earliest_date: string | null;
+  latest_date: string | null;
+  source: string;
+  message: string;
+}
+
+export interface FundHoldingHistorySyncResult {
+  total: number;
+  succeeded: number;
+  failed: number;
+  synced_count: number;
+  items: FundHoldingHistorySyncItem[];
+}
+
 export interface FundLatestNav {
   fund_code: string;
   fund_name: string;
@@ -503,6 +522,14 @@ export function fetchFundAllocation(): Promise<FundAllocation> {
 
 export function fetchFundHoldingRisk(limit = 365): Promise<FundHoldingRisk> {
   return getApiData<FundHoldingRisk>(`/fund/holdings/risk?limit=${limit}`);
+}
+
+export function syncFundHoldingHistory(limit = 365): Promise<FundHoldingHistorySyncResult> {
+  return postApiData<FundHoldingHistorySyncResult, { limit: number }>(
+    '/fund/holdings/sync-history',
+    { limit },
+    { timeout: 120000 },
+  );
 }
 
 export function fetchFundWatchlistSummary(): Promise<FundWatchlistSummary> {

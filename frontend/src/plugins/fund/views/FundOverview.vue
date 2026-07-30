@@ -368,7 +368,10 @@
 
     <FundAllocation :refresh-key="allocationRefreshKey" />
 
-    <FundHoldingRisk :refresh-key="holdingRiskRefreshKey" />
+    <FundHoldingRisk
+      :refresh-key="holdingRiskRefreshKey"
+      @synced="handleHistorySynced"
+    />
 
     <FundDailyReport :refresh-key="dailyReportRefreshKey" />
 

@@ -26,6 +26,8 @@ from app.plugins.fund.interfaces.schemas import (
     FundCashFlowPerformanceRead,
     FundDailyAlertRead,
     FundDailyReportRead,
+    FundHoldingHistorySyncItemRead,
+    FundHoldingHistorySyncRead,
     FundHoldingRiskItemRead,
     FundHoldingRiskRead,
     FundHoldingSummaryRead,
@@ -155,12 +157,105 @@ class FundService:
         return self._persist_latest_nav(latest)
 
     def sync_nav_history(self, payload: FundNavHistorySyncRequest) -> FundNavHistorySyncRead:
-        source = self.nav_source or self._build_default_nav_source()
-        history = source.fetch_history(
+        history = self._fetch_nav_history(
             fund_code=payload.fund_code,
             fund_type=payload.fund_type,
             limit=payload.limit,
         )
+        return self._persist_nav_history(history)
+
+    def sync_holding_history(self, limit: int = 365) -> FundHoldingHistorySyncRead:
+        bounded_limit = max(2, min(limit, 500))
+        targets_by_code: dict[str, tuple[str, str]] = {}
+        for position in self.repository.list_positions():
+            targets_by_code[position.fund.code] = (
+                position.fund.name,
+                position.fund.fund_type,
+            )
+        targets = [
+            (fund_code, fund_name, fund_type)
+            for fund_code, (fund_name, fund_type) in sorted(targets_by_code.items())
+        ]
+        if not targets:
+            return FundHoldingHistorySyncRead(
+                total=0,
+                succeeded=0,
+                failed=0,
+                synced_count=0,
+                items=[],
+            )
+
+        configured_workers = self.settings.fund_nav_sync_max_workers if self.settings else 4
+        with ThreadPoolExecutor(max_workers=min(configured_workers, len(targets))) as executor:
+            futures = [
+                executor.submit(
+                    self._fetch_nav_history,
+                    fund_code,
+                    fund_type,
+                    bounded_limit,
+                )
+                for fund_code, _, fund_type in targets
+            ]
+
+        results: list[FundHoldingHistorySyncItemRead] = []
+        for (fund_code, fund_name, _), future in zip(targets, futures, strict=True):
+            try:
+                history = future.result()
+                synced = self._persist_nav_history(history)
+                results.append(
+                    FundHoldingHistorySyncItemRead(
+                        fund_code=synced.fund_code,
+                        fund_name=synced.fund_name,
+                        status="succeeded",
+                        synced_count=synced.synced_count,
+                        earliest_date=synced.earliest_date,
+                        latest_date=synced.latest_date,
+                        source=synced.source,
+                    )
+                )
+            except Exception as exc:
+                self.repository.rollback()
+                message = exc.message if isinstance(exc, AppError) else "History NAV sync failed."
+                logger.warning(
+                    "Fund holding history sync failed for {}: {}",
+                    fund_code,
+                    exc,
+                )
+                results.append(
+                    FundHoldingHistorySyncItemRead(
+                        fund_code=fund_code,
+                        fund_name=fund_name,
+                        status="failed",
+                        message=message,
+                    )
+                )
+
+        succeeded = sum(item.status == "succeeded" for item in results)
+        return FundHoldingHistorySyncRead(
+            total=len(results),
+            succeeded=succeeded,
+            failed=len(results) - succeeded,
+            synced_count=sum(item.synced_count for item in results),
+            items=results,
+        )
+
+    def _fetch_nav_history(
+        self,
+        fund_code: str,
+        fund_type: str,
+        limit: int,
+    ) -> list[FundLatestNav]:
+        source = self.nav_source or self._build_default_nav_source()
+        return source.fetch_history(
+            fund_code=fund_code,
+            fund_type=fund_type,
+            limit=limit,
+        )
+
+    def _persist_nav_history(
+        self,
+        history: list[FundLatestNav],
+    ) -> FundNavHistorySyncRead:
         latest = history[-1]
         fund = self.repository.upsert_fund(
             code=latest.fund_code,

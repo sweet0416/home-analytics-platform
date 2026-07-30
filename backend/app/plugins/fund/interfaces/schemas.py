@@ -96,6 +96,29 @@ class FundNavHistorySyncRead(BaseModel):
     source: str
 
 
+class FundHoldingHistorySyncRequest(BaseModel):
+    limit: int = Field(default=365, ge=2, le=500)
+
+
+class FundHoldingHistorySyncItemRead(BaseModel):
+    fund_code: str
+    fund_name: str
+    status: Literal["succeeded", "failed"]
+    synced_count: int = 0
+    earliest_date: date | None = None
+    latest_date: date | None = None
+    source: str = ""
+    message: str = ""
+
+
+class FundHoldingHistorySyncRead(BaseModel):
+    total: int
+    succeeded: int
+    failed: int
+    synced_count: int
+    items: list[FundHoldingHistorySyncItemRead]
+
+
 class FundLatestNavRead(BaseModel):
     fund_code: str
     fund_name: str
