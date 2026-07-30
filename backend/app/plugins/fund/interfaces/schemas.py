@@ -399,6 +399,39 @@ class FundHoldingRiskRead(BaseModel):
     warning: str
 
 
+class FundPortfolioMemberRead(BaseModel):
+    fund_code: str
+    fund_name: str
+    allocation_weight: Decimal
+    sample_count: int
+
+
+class FundPortfolioPerformancePointRead(BaseModel):
+    nav_date: date
+    portfolio_index: Decimal
+    equal_weight_index: Decimal
+    drawdown: Decimal
+
+
+class FundPortfolioPerformanceRead(BaseModel):
+    fund_count: int
+    included_fund_count: int
+    sample_limit: int
+    sample_count: int
+    start_date: date | None
+    end_date: date | None
+    valuation_complete: bool
+    cumulative_return: Decimal | None
+    equal_weight_return: Decimal | None
+    annualized_volatility: Decimal | None
+    maximum_drawdown: Decimal | None
+    calculation_available: bool
+    members: list[FundPortfolioMemberRead]
+    excluded_fund_codes: list[str]
+    points: list[FundPortfolioPerformancePointRead]
+    warning: str
+
+
 class FundWatchlistSummaryRead(BaseModel):
     item_count: int
     fund_count: int

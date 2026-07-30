@@ -26,6 +26,7 @@ from app.plugins.fund.interfaces.schemas import (
     FundNavSchedulerStatusRead,
     FundNavSummaryRead,
     FundNavSyncLatestRequest,
+    FundPortfolioPerformanceRead,
     FundPositionCreate,
     FundPositionRead,
     FundPositionUpdate,
@@ -299,6 +300,17 @@ def get_fund_holding_risk(
     service: FundService = Depends(get_fund_service),
 ) -> ApiResponse[FundHoldingRiskRead]:
     return ok(service.get_holding_risk(limit=limit))
+
+
+@router.get(
+    "/holdings/performance",
+    response_model=ApiResponse[FundPortfolioPerformanceRead],
+)
+def get_fund_portfolio_performance(
+    limit: int = Query(default=365, ge=2, le=500),
+    service: FundService = Depends(get_fund_service),
+) -> ApiResponse[FundPortfolioPerformanceRead]:
+    return ok(service.get_portfolio_performance(limit=limit))
 
 
 @router.post(

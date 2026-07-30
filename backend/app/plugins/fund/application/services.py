@@ -7,6 +7,10 @@ from loguru import logger
 
 from app.core.config.settings import Settings
 from app.plugins.fund.domain.nav_risk import calculate_nav_risk
+from app.plugins.fund.domain.portfolio_performance import (
+    PortfolioFundSeries,
+    calculate_static_portfolio_performance,
+)
 from app.plugins.fund.infrastructure.persistence.models import (
     FundModel,
     FundNavRecordModel,
@@ -39,6 +43,9 @@ from app.plugins.fund.interfaces.schemas import (
     FundNavRiskRead,
     FundNavSummaryRead,
     FundNavSyncLatestRequest,
+    FundPortfolioMemberRead,
+    FundPortfolioPerformancePointRead,
+    FundPortfolioPerformanceRead,
     FundPositionCreate,
     FundPositionRead,
     FundPositionUpdate,
@@ -851,6 +858,89 @@ class FundService:
             warning=(
                 "每只基金按自身最近净值样本独立计算，仓位占比仅用于排序和识别风险暴露；"
                 "本表不是组合波动率，也未计算基金之间的相关性。"
+            ),
+        )
+
+    def get_portfolio_performance(
+        self,
+        limit: int = 365,
+    ) -> FundPortfolioPerformanceRead:
+        bounded_limit = max(2, min(limit, 500))
+        allocation = self.get_allocation()
+        grouped: dict[str, dict[str, str | Decimal]] = {}
+        for holding in allocation.holdings:
+            entry = grouped.setdefault(
+                holding.fund_code,
+                {
+                    "fund_name": holding.fund_name,
+                    "allocation_weight": Decimal("0"),
+                },
+            )
+            entry["allocation_weight"] = (
+                Decimal(entry["allocation_weight"]) + holding.weight
+            )
+
+        members: list[FundPortfolioMemberRead] = []
+        portfolio_series: list[PortfolioFundSeries] = []
+        excluded_fund_codes: list[str] = []
+        for fund_code, entry in grouped.items():
+            records = self.repository.list_nav_history(
+                fund_code=fund_code,
+                limit=bounded_limit,
+            )
+            if len(records) < 2:
+                excluded_fund_codes.append(fund_code)
+                continue
+            weight = Decimal(entry["allocation_weight"])
+            members.append(
+                FundPortfolioMemberRead(
+                    fund_code=fund_code,
+                    fund_name=str(entry["fund_name"]),
+                    allocation_weight=weight,
+                    sample_count=len(records),
+                )
+            )
+            portfolio_series.append(
+                PortfolioFundSeries(
+                    fund_code=fund_code,
+                    weight=weight,
+                    observations=[
+                        (record.nav_date, record.unit_nav)
+                        for record in records
+                    ],
+                )
+            )
+
+        metrics = calculate_static_portfolio_performance(portfolio_series)
+        calculation_available = len(metrics.points) >= 2
+        members.sort(key=lambda item: (-item.allocation_weight, item.fund_code))
+        return FundPortfolioPerformanceRead(
+            fund_count=len(grouped),
+            included_fund_count=len(members),
+            sample_limit=bounded_limit,
+            sample_count=len(metrics.points),
+            start_date=metrics.risk.start_date,
+            end_date=metrics.risk.end_date,
+            valuation_complete=allocation.cost_fallback_count == 0,
+            cumulative_return=metrics.risk.cumulative_return,
+            equal_weight_return=metrics.equal_weight_return,
+            annualized_volatility=metrics.risk.annualized_volatility,
+            maximum_drawdown=metrics.risk.maximum_drawdown,
+            calculation_available=calculation_available,
+            members=members,
+            excluded_fund_codes=sorted(excluded_fund_codes),
+            points=[
+                FundPortfolioPerformancePointRead(
+                    nav_date=point.nav_date,
+                    portfolio_index=point.portfolio_index,
+                    equal_weight_index=point.equal_weight_index,
+                    drawdown=point.drawdown,
+                )
+                for point in metrics.points
+            ],
+            warning=(
+                "这是用当前持仓权重对共同净值日期进行的静态回放，不代表账户真实历史收益；"
+                "未计入历史调仓、申购赎回、费用和分红。等权线只用于观察当前仓位权重的影响。"
             ),
         )
 

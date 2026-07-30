@@ -499,6 +499,64 @@ def test_fund_holding_risk_compares_unique_funds(client: TestClient) -> None:
     }
 
 
+def test_fund_portfolio_performance_uses_current_weights(
+    client: TestClient,
+) -> None:
+    for fund_code, fund_name, shares, current_nav in (
+        ("510300", "Core ETF", "300", "1.0000"),
+        ("513100", "Overseas Fund", "100", "1.0000"),
+    ):
+        assert client.post(
+            "/api/v1/fund/positions",
+            json={
+                "fund_code": fund_code,
+                "fund_name": fund_name,
+                "fund_type": "ETF",
+                "account_name": "Default",
+                "shares": shares,
+                "cost_price": "1.0000",
+                "current_nav": current_nav,
+                "tags": "",
+                "note": "",
+            },
+        ).status_code == 200
+
+    observations = {
+        "510300": [("2026-07-01", "1.0000"), ("2026-07-02", "1.1000")],
+        "513100": [("2026-07-01", "1.0000"), ("2026-07-02", "0.9000")],
+    }
+    for fund_code, records in observations.items():
+        for nav_date, unit_nav in records:
+            assert client.post(
+                "/api/v1/fund/nav-records",
+                json={
+                    "fund_code": fund_code,
+                    "fund_name": fund_code,
+                    "fund_type": "ETF",
+                    "nav_date": nav_date,
+                    "unit_nav": unit_nav,
+                    "source": "test",
+                    "note": "",
+                },
+            ).status_code == 200
+
+    response = client.get(
+        "/api/v1/fund/holdings/performance",
+        params={"limit": 60},
+    )
+
+    assert response.status_code == 200
+    body = response.json()["data"]
+    assert body["fund_count"] == 2
+    assert body["included_fund_count"] == 2
+    assert body["sample_count"] == 2
+    assert body["valuation_complete"] is True
+    assert body["cumulative_return"] == "0.057143"
+    assert body["equal_weight_return"] == "0.000000"
+    assert body["points"][-1]["portfolio_index"] == "105.714286"
+    assert "静态回放" in body["warning"]
+
+
 def test_fund_holding_history_sync_deduplicates_and_isolates_failures(
     client: TestClient,
     monkeypatch: pytest.MonkeyPatch,

@@ -339,6 +339,39 @@ export interface FundHoldingRisk {
   warning: string;
 }
 
+export interface FundPortfolioMember {
+  fund_code: string;
+  fund_name: string;
+  allocation_weight: string;
+  sample_count: number;
+}
+
+export interface FundPortfolioPerformancePoint {
+  nav_date: string;
+  portfolio_index: string;
+  equal_weight_index: string;
+  drawdown: string;
+}
+
+export interface FundPortfolioPerformance {
+  fund_count: number;
+  included_fund_count: number;
+  sample_limit: number;
+  sample_count: number;
+  start_date: string | null;
+  end_date: string | null;
+  valuation_complete: boolean;
+  cumulative_return: string | null;
+  equal_weight_return: string | null;
+  annualized_volatility: string | null;
+  maximum_drawdown: string | null;
+  calculation_available: boolean;
+  members: FundPortfolioMember[];
+  excluded_fund_codes: string[];
+  points: FundPortfolioPerformancePoint[];
+  warning: string;
+}
+
 export interface FundWatchlistSummary {
   item_count: number;
   fund_count: number;
@@ -548,6 +581,14 @@ export function fetchFundAllocation(): Promise<FundAllocation> {
 
 export function fetchFundHoldingRisk(limit = 365): Promise<FundHoldingRisk> {
   return getApiData<FundHoldingRisk>(`/fund/holdings/risk?limit=${limit}`);
+}
+
+export function fetchFundPortfolioPerformance(
+  limit = 365,
+): Promise<FundPortfolioPerformance> {
+  return getApiData<FundPortfolioPerformance>(
+    `/fund/holdings/performance?limit=${limit}`,
+  );
 }
 
 export function syncFundHoldingHistory(limit = 365): Promise<FundHoldingHistorySyncResult> {

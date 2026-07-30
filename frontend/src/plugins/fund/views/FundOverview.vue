@@ -379,6 +379,8 @@
 
     <FundAllocation :refresh-key="allocationRefreshKey" />
 
+    <FundPortfolioPerformance :refresh-key="holdingRiskRefreshKey" />
+
     <FundHoldingRisk
       :refresh-key="holdingRiskRefreshKey"
       @synced="handleHistorySynced"
@@ -423,6 +425,7 @@ import FundCashFlowPerformance from '@/plugins/fund/components/FundCashFlowPerfo
 import FundDailyReport from '@/plugins/fund/components/FundDailyReport.vue';
 import FundHoldingRisk from '@/plugins/fund/components/FundHoldingRisk.vue';
 import FundNavTrend from '@/plugins/fund/components/FundNavTrend.vue';
+import FundPortfolioPerformance from '@/plugins/fund/components/FundPortfolioPerformance.vue';
 import FundTransactions from '@/plugins/fund/components/FundTransactions.vue';
 import {
   createFundNavRecord,
