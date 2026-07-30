@@ -432,6 +432,32 @@ class FundPortfolioPerformanceRead(BaseModel):
     warning: str
 
 
+class FundCorrelationMemberRead(BaseModel):
+    fund_code: str
+    fund_name: str
+    allocation_weight: Decimal
+    sample_count: int
+
+
+class FundCorrelationPairRead(BaseModel):
+    first_fund_code: str
+    second_fund_code: str
+    observation_count: int
+    correlation: Decimal | None
+
+
+class FundHoldingCorrelationRead(BaseModel):
+    fund_count: int
+    sample_limit: int
+    calculated_pair_count: int
+    total_pair_count: int
+    average_pairwise_correlation: Decimal | None
+    high_correlation_pair_count: int
+    members: list[FundCorrelationMemberRead]
+    pairs: list[FundCorrelationPairRead]
+    warning: str
+
+
 class FundWatchlistSummaryRead(BaseModel):
     item_count: int
     fund_count: int

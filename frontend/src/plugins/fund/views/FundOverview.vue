@@ -381,6 +381,8 @@
 
     <FundPortfolioPerformance :refresh-key="holdingRiskRefreshKey" />
 
+    <FundHoldingCorrelation :refresh-key="holdingRiskRefreshKey" />
+
     <FundHoldingRisk
       :refresh-key="holdingRiskRefreshKey"
       @synced="handleHistorySynced"
@@ -424,6 +426,7 @@ import FundAllocation from '@/plugins/fund/components/FundAllocation.vue';
 import FundCashFlowPerformance from '@/plugins/fund/components/FundCashFlowPerformance.vue';
 import FundDailyReport from '@/plugins/fund/components/FundDailyReport.vue';
 import FundHoldingRisk from '@/plugins/fund/components/FundHoldingRisk.vue';
+import FundHoldingCorrelation from '@/plugins/fund/components/FundHoldingCorrelation.vue';
 import FundNavTrend from '@/plugins/fund/components/FundNavTrend.vue';
 import FundPortfolioPerformance from '@/plugins/fund/components/FundPortfolioPerformance.vue';
 import FundTransactions from '@/plugins/fund/components/FundTransactions.vue';

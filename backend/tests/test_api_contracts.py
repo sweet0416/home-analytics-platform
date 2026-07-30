@@ -557,6 +557,59 @@ def test_fund_portfolio_performance_uses_current_weights(
     assert "静态回放" in body["warning"]
 
 
+def test_fund_holding_correlation_returns_pair_matrix(
+    client: TestClient,
+) -> None:
+    for fund_code in ("510300", "513100"):
+        assert client.post(
+            "/api/v1/fund/positions",
+            json={
+                "fund_code": fund_code,
+                "fund_name": fund_code,
+                "fund_type": "ETF",
+                "account_name": "Default",
+                "shares": "100",
+                "cost_price": "1.0000",
+                "current_nav": "1.0000",
+                "tags": "",
+                "note": "",
+            },
+        ).status_code == 200
+
+    observations = {
+        "510300": ["1.0000", "1.1000", "1.3200"],
+        "513100": ["2.0000", "2.1000", "2.3100"],
+    }
+    for fund_code, values in observations.items():
+        for day, unit_nav in enumerate(values, start=1):
+            assert client.post(
+                "/api/v1/fund/nav-records",
+                json={
+                    "fund_code": fund_code,
+                    "fund_name": fund_code,
+                    "fund_type": "ETF",
+                    "nav_date": f"2026-07-0{day}",
+                    "unit_nav": unit_nav,
+                    "source": "test",
+                    "note": "",
+                },
+            ).status_code == 200
+
+    response = client.get(
+        "/api/v1/fund/holdings/correlation",
+        params={"limit": 60},
+    )
+
+    assert response.status_code == 200
+    body = response.json()["data"]
+    assert body["fund_count"] == 2
+    assert body["total_pair_count"] == 1
+    assert body["calculated_pair_count"] == 1
+    assert body["pairs"][0]["observation_count"] == 2
+    assert body["pairs"][0]["correlation"] == "1.000000"
+    assert body["high_correlation_pair_count"] == 1
+
+
 def test_fund_holding_history_sync_deduplicates_and_isolates_failures(
     client: TestClient,
     monkeypatch: pytest.MonkeyPatch,

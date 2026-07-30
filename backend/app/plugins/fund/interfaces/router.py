@@ -13,6 +13,7 @@ from app.plugins.fund.interfaces.schemas import (
     FundCashFlowPerformanceRead,
     FundDailyPushRequest,
     FundDailyReportRead,
+    FundHoldingCorrelationRead,
     FundHoldingHistorySyncRead,
     FundHoldingHistorySyncRequest,
     FundHoldingRiskRead,
@@ -311,6 +312,17 @@ def get_fund_portfolio_performance(
     service: FundService = Depends(get_fund_service),
 ) -> ApiResponse[FundPortfolioPerformanceRead]:
     return ok(service.get_portfolio_performance(limit=limit))
+
+
+@router.get(
+    "/holdings/correlation",
+    response_model=ApiResponse[FundHoldingCorrelationRead],
+)
+def get_fund_holding_correlation(
+    limit: int = Query(default=365, ge=3, le=500),
+    service: FundService = Depends(get_fund_service),
+) -> ApiResponse[FundHoldingCorrelationRead]:
+    return ok(service.get_holding_correlation(limit=limit))
 
 
 @router.post(

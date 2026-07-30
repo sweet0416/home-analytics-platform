@@ -372,6 +372,32 @@ export interface FundPortfolioPerformance {
   warning: string;
 }
 
+export interface FundCorrelationMember {
+  fund_code: string;
+  fund_name: string;
+  allocation_weight: string;
+  sample_count: number;
+}
+
+export interface FundCorrelationPair {
+  first_fund_code: string;
+  second_fund_code: string;
+  observation_count: number;
+  correlation: string | null;
+}
+
+export interface FundHoldingCorrelation {
+  fund_count: number;
+  sample_limit: number;
+  calculated_pair_count: number;
+  total_pair_count: number;
+  average_pairwise_correlation: string | null;
+  high_correlation_pair_count: number;
+  members: FundCorrelationMember[];
+  pairs: FundCorrelationPair[];
+  warning: string;
+}
+
 export interface FundWatchlistSummary {
   item_count: number;
   fund_count: number;
@@ -588,6 +614,14 @@ export function fetchFundPortfolioPerformance(
 ): Promise<FundPortfolioPerformance> {
   return getApiData<FundPortfolioPerformance>(
     `/fund/holdings/performance?limit=${limit}`,
+  );
+}
+
+export function fetchFundHoldingCorrelation(
+  limit = 365,
+): Promise<FundHoldingCorrelation> {
+  return getApiData<FundHoldingCorrelation>(
+    `/fund/holdings/correlation?limit=${limit}`,
   );
 }
 

@@ -6,6 +6,10 @@ from zoneinfo import ZoneInfo
 from loguru import logger
 
 from app.core.config.settings import Settings
+from app.plugins.fund.domain.holding_correlation import (
+    FundCorrelationSeries,
+    calculate_holding_correlations,
+)
 from app.plugins.fund.domain.nav_risk import calculate_nav_risk
 from app.plugins.fund.domain.portfolio_performance import (
     PortfolioFundSeries,
@@ -28,8 +32,11 @@ from app.plugins.fund.interfaces.schemas import (
     FundAllocationHoldingRead,
     FundAllocationRead,
     FundCashFlowPerformanceRead,
+    FundCorrelationMemberRead,
+    FundCorrelationPairRead,
     FundDailyAlertRead,
     FundDailyReportRead,
+    FundHoldingCorrelationRead,
     FundHoldingHistorySyncItemRead,
     FundHoldingHistorySyncRead,
     FundHoldingRiskItemRead,
@@ -941,6 +948,89 @@ class FundService:
             warning=(
                 "这是用当前持仓权重对共同净值日期进行的静态回放，不代表账户真实历史收益；"
                 "未计入历史调仓、申购赎回、费用和分红。等权线只用于观察当前仓位权重的影响。"
+            ),
+        )
+
+    def get_holding_correlation(
+        self,
+        limit: int = 365,
+    ) -> FundHoldingCorrelationRead:
+        bounded_limit = max(3, min(limit, 500))
+        allocation = self.get_allocation()
+        grouped: dict[str, dict[str, str | Decimal]] = {}
+        for holding in allocation.holdings:
+            entry = grouped.setdefault(
+                holding.fund_code,
+                {
+                    "fund_name": holding.fund_name,
+                    "allocation_weight": Decimal("0"),
+                },
+            )
+            entry["allocation_weight"] = (
+                Decimal(entry["allocation_weight"]) + holding.weight
+            )
+
+        members: list[FundCorrelationMemberRead] = []
+        series: list[FundCorrelationSeries] = []
+        for fund_code, entry in grouped.items():
+            records = self.repository.list_nav_history(
+                fund_code=fund_code,
+                limit=bounded_limit,
+            )
+            members.append(
+                FundCorrelationMemberRead(
+                    fund_code=fund_code,
+                    fund_name=str(entry["fund_name"]),
+                    allocation_weight=Decimal(entry["allocation_weight"]),
+                    sample_count=len(records),
+                )
+            )
+            series.append(
+                FundCorrelationSeries(
+                    fund_code=fund_code,
+                    observations=[
+                        (record.nav_date, record.unit_nav)
+                        for record in records
+                    ],
+                )
+            )
+
+        calculated = calculate_holding_correlations(series)
+        valid_values = [
+            item.correlation
+            for item in calculated
+            if item.correlation is not None
+        ]
+        members.sort(key=lambda item: (-item.allocation_weight, item.fund_code))
+        return FundHoldingCorrelationRead(
+            fund_count=len(members),
+            sample_limit=bounded_limit,
+            calculated_pair_count=len(valid_values),
+            total_pair_count=len(calculated),
+            average_pairwise_correlation=(
+                (
+                    sum(valid_values, Decimal("0"))
+                    / Decimal(len(valid_values))
+                ).quantize(Decimal("0.000001"))
+                if valid_values
+                else None
+            ),
+            high_correlation_pair_count=sum(
+                value >= Decimal("0.8") for value in valid_values
+            ),
+            members=members,
+            pairs=[
+                FundCorrelationPairRead(
+                    first_fund_code=item.first_fund_code,
+                    second_fund_code=item.second_fund_code,
+                    observation_count=item.observation_count,
+                    correlation=item.correlation,
+                )
+                for item in calculated
+            ],
+            warning=(
+                "相关性基于两只基金相邻共同净值日期的收益率计算，只描述所选样本内的同步程度；"
+                "相关性会随市场阶段变化，不代表未来关系，也不能替代底层资产穿透分析。"
             ),
         )
 
