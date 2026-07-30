@@ -136,6 +136,7 @@ class FundWatchlistNavSyncItemRead(BaseModel):
     status: str
     nav_date: date | None = None
     unit_nav: Decimal | None = None
+    updated: bool = False
     message: str = ""
 
 
@@ -143,7 +144,33 @@ class FundWatchlistNavSyncRead(BaseModel):
     total: int
     succeeded: int
     failed: int
+    updated: int = 0
     items: list[FundWatchlistNavSyncItemRead]
+
+
+class FundTrackedNavSyncRead(FundWatchlistNavSyncRead):
+    pass
+
+
+class FundScheduledNavSyncRunRead(BaseModel):
+    status: Literal["succeeded", "partial", "failed"]
+    started_at: datetime
+    finished_at: datetime
+    total: int
+    succeeded: int
+    failed: int
+    updated: int
+    skipped: bool
+    message: str
+
+
+class FundNavSchedulerStatusRead(BaseModel):
+    enabled: bool
+    running: bool
+    cron: str
+    timezone: str
+    next_run_at: datetime | None
+    last_run: FundScheduledNavSyncRunRead | None
 
 
 class FundNavRecordRead(BaseModel):

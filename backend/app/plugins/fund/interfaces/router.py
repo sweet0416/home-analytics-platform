@@ -23,6 +23,7 @@ from app.plugins.fund.interfaces.schemas import (
     FundNavRecordCreate,
     FundNavRecordRead,
     FundNavRiskRead,
+    FundNavSchedulerStatusRead,
     FundNavSummaryRead,
     FundNavSyncLatestRequest,
     FundPositionCreate,
@@ -38,6 +39,7 @@ from app.plugins.fund.interfaces.schemas import (
     FundWatchlistSummaryRead,
     FundWatchlistUpdate,
 )
+from app.plugins.fund.jobs.scheduler import get_fund_scheduler_status
 from app.shared.responses.schemas import ApiResponse, ok
 
 router = APIRouter(prefix="/fund")
@@ -65,6 +67,14 @@ def get_fund_status() -> ApiResponse[FundStatusRead]:
             next_step="下一步接入基金净值数据源，并基于持仓计算收益曲线、回撤和日报。",
         )
     )
+
+
+@router.get(
+    "/nav-scheduler/status",
+    response_model=ApiResponse[FundNavSchedulerStatusRead],
+)
+def get_fund_nav_scheduler_status() -> ApiResponse[FundNavSchedulerStatusRead]:
+    return ok(FundNavSchedulerStatusRead.model_validate(get_fund_scheduler_status()))
 
 
 @router.get("/positions", response_model=ApiResponse[list[FundPositionRead]])

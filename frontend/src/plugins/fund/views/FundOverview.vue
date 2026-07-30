@@ -13,6 +13,7 @@
       <MetricCard label="净值记录" :value="String(navSummary?.record_count ?? 0)" :meta="latestNavMeta" :delay="160" />
       <MetricCard label="持仓数量" :value="String(summary?.position_count ?? 0)" meta="已录入记录" :delay="200" />
       <MetricCard label="浮盈亏" :value="formatMoney(summary?.unrealized_profit)" :meta="returnRateMeta" :delay="240" />
+      <MetricCard label="自动净值" :value="schedulerStatusText" :meta="schedulerNextRunMeta" :delay="250" />
     </div>
 
     <RevealContent as="section" class="panel fund-panel" :delay="260">
@@ -422,6 +423,7 @@ import {
   deleteFundWatchlistItem,
   fetchFundHoldingSummary,
   fetchFundNavRecords,
+  fetchFundNavSchedulerStatus,
   fetchFundNavSummary,
   fetchFundPositions,
   fetchFundStatus,
@@ -434,6 +436,7 @@ import {
   type FundLatestNav,
   type FundNavRecord,
   type FundNavRecordCreate,
+  type FundNavSchedulerStatus,
   type FundNavSummary,
   type FundPosition,
   type FundPositionCreate,
@@ -470,6 +473,7 @@ const navRecords = ref<FundNavRecord[]>([]);
 const summary = ref<FundHoldingSummary | null>(null);
 const watchSummary = ref<FundWatchlistSummary | null>(null);
 const navSummary = ref<FundNavSummary | null>(null);
+const navSchedulerStatus = ref<FundNavSchedulerStatus | null>(null);
 const allocationRefreshKey = ref(0);
 const cashFlowPerformanceRefreshKey = ref(0);
 const dailyReportRefreshKey = ref(0);
@@ -558,6 +562,23 @@ const returnRateMeta = computed(() => {
 });
 
 const latestNavMeta = computed(() => navSummary.value?.latest_nav_date ?? '等待净值');
+const schedulerStatusText = computed(() => {
+  if (!navSchedulerStatus.value?.enabled) return '已关闭';
+  return navSchedulerStatus.value.running ? '运行中' : '未运行';
+});
+const schedulerNextRunMeta = computed(() => {
+  const value = navSchedulerStatus.value?.next_run_at;
+  if (!value) return '19:00-22:00 每小时检查';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '19:00-22:00 每小时检查';
+  return `下次 ${date.toLocaleString('zh-CN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    month: '2-digit',
+    day: '2-digit',
+    hour12: false,
+  })}`;
+});
 const sortedPositions = computed(() => {
   const direction = positionSortDirection.value === 'asc' ? 1 : -1;
   return [...positions.value].sort((left, right) => {
@@ -1059,7 +1080,10 @@ onMounted(async () => {
   isLoading.value = true;
   errorMessage.value = '';
   try {
-    fundStatus.value = await fetchFundStatus();
+    [fundStatus.value, navSchedulerStatus.value] = await Promise.all([
+      fetchFundStatus(),
+      fetchFundNavSchedulerStatus(),
+    ]);
     await Promise.all([loadHoldings(), loadWatchlist(), loadNavRecords()]);
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : '基金模块状态加载失败';

@@ -57,6 +57,8 @@ class Settings(BaseSettings):
     )
     fund_nav_sync_timeout_seconds: int = Field(default=20, ge=5, le=120)
     fund_nav_sync_max_workers: int = Field(default=4, ge=1, le=10)
+    fund_nav_auto_sync_enabled: bool = True
+    fund_nav_sync_cron: str = "0 19-22 * * 1-5"
     fund_eastmoney_pingzhongdata_url: str = (
         "https://fund.eastmoney.com/pingzhongdata/{fund_code}.js"
     )

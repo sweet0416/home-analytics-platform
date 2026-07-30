@@ -53,6 +53,11 @@ services:
       LOTTERY_DLT_NOTIFY_ON_NO_CHANGES: ${LOTTERY_DLT_NOTIFY_ON_NO_CHANGES:-false}
       LOTTERY_DLT_SPORTTERY_URL: ${LOTTERY_DLT_SPORTTERY_URL:-https://webapi.sporttery.cn/gateway/lottery/getHistoryPageListV1.qry}
       LOTTERY_DLT_500_HISTORY_URL: ${LOTTERY_DLT_500_HISTORY_URL:-https://datachart.500.com/dlt/history/newinc/history.php}
+      FUND_NAV_SYNC_TIMEOUT_SECONDS: ${FUND_NAV_SYNC_TIMEOUT_SECONDS:-20}
+      FUND_NAV_SYNC_MAX_WORKERS: ${FUND_NAV_SYNC_MAX_WORKERS:-4}
+      FUND_NAV_AUTO_SYNC_ENABLED: ${FUND_NAV_AUTO_SYNC_ENABLED:-true}
+      FUND_NAV_SYNC_CRON: '${FUND_NAV_SYNC_CRON:-0 19-22 * * 1-5}'
+      FUND_EASTMONEY_PINGZHONGDATA_URL: ${FUND_EASTMONEY_PINGZHONGDATA_URL:-https://fund.eastmoney.com/pingzhongdata/{fund_code}.js}
     volumes:
       - hap_sqlite:/app/data/sqlite
       - hap_exports:/app/data/exports

@@ -288,6 +288,18 @@ def test_fund_status_endpoint_returns_scaffold_contract(client: TestClient) -> N
     assert len(body["modules"]) >= 4
 
 
+def test_fund_nav_scheduler_status_is_available(client: TestClient) -> None:
+    response = client.get("/api/v1/fund/nav-scheduler/status")
+
+    assert response.status_code == 200
+    body = response.json()["data"]
+    assert body["enabled"] is True
+    assert body["running"] is True
+    assert body["cron"] == "0 19-22 * * 1-5"
+    assert body["timezone"] == "Asia/Shanghai"
+    assert body["next_run_at"] is not None
+
+
 def test_fund_positions_can_be_created_and_summarized(client: TestClient) -> None:
     empty_summary_response = client.get("/api/v1/fund/holdings/summary")
     assert empty_summary_response.status_code == 200

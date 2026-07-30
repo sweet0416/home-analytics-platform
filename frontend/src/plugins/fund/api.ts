@@ -19,6 +19,25 @@ export interface FundStatus {
   next_step: string;
 }
 
+export interface FundNavSchedulerStatus {
+  enabled: boolean;
+  running: boolean;
+  cron: string;
+  timezone: string;
+  next_run_at: string | null;
+  last_run: {
+    status: 'succeeded' | 'partial' | 'failed';
+    started_at: string;
+    finished_at: string;
+    total: number;
+    succeeded: number;
+    failed: number;
+    updated: number;
+    skipped: boolean;
+    message: string;
+  } | null;
+}
+
 export interface FundPosition {
   id: number;
   fund_id: number;
@@ -366,6 +385,10 @@ export interface FundDailyPushResult {
 
 export function fetchFundStatus(): Promise<FundStatus> {
   return getApiData<FundStatus>('/fund/status');
+}
+
+export function fetchFundNavSchedulerStatus(): Promise<FundNavSchedulerStatus> {
+  return getApiData<FundNavSchedulerStatus>('/fund/nav-scheduler/status');
 }
 
 export function fetchFundPositions(): Promise<FundPosition[]> {

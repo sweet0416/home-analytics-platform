@@ -42,6 +42,7 @@ from app.plugins.fund.interfaces.schemas import (
     FundPositionCreate,
     FundPositionRead,
     FundPositionUpdate,
+    FundTrackedNavSyncRead,
     FundTransactionCreate,
     FundTransactionRead,
     FundTransactionSummaryRead,
@@ -292,19 +293,45 @@ class FundService:
 
     def sync_watchlist_navs(self) -> FundWatchlistNavSyncRead:
         items = self.repository.list_watchlist_items()
-        results: list[FundWatchlistNavSyncItemRead] = []
         targets = [
             (item.fund.code, item.fund.name, item.fund.fund_type)
             for item in items
         ]
+        result = self._sync_latest_targets(targets)
+        return FundWatchlistNavSyncRead(**result.model_dump())
+
+    def sync_tracked_navs(self) -> FundTrackedNavSyncRead:
+        targets_by_code: dict[str, tuple[str, str]] = {}
+        for position in self.repository.list_positions():
+            targets_by_code[position.fund.code] = (
+                position.fund.name,
+                position.fund.fund_type,
+            )
+        for item in self.repository.list_watchlist_items():
+            targets_by_code[item.fund.code] = (
+                item.fund.name,
+                item.fund.fund_type,
+            )
+        targets = [
+            (fund_code, fund_name, fund_type)
+            for fund_code, (fund_name, fund_type) in sorted(targets_by_code.items())
+        ]
+        return self._sync_latest_targets(targets)
+
+    def _sync_latest_targets(
+        self,
+        targets: list[tuple[str, str, str]],
+    ) -> FundTrackedNavSyncRead:
         if not targets:
-            return FundWatchlistNavSyncRead(
+            return FundTrackedNavSyncRead(
                 total=0,
                 succeeded=0,
                 failed=0,
+                updated=0,
                 items=[],
             )
 
+        results: list[FundWatchlistNavSyncItemRead] = []
         configured_workers = self.settings.fund_nav_sync_max_workers if self.settings else 4
         with ThreadPoolExecutor(max_workers=min(configured_workers, len(targets))) as executor:
             futures = [
@@ -315,6 +342,11 @@ class FundService:
         for (fund_code, fund_name, _), future in zip(targets, futures, strict=True):
             try:
                 latest = future.result()
+                existing = self.repository.list_nav_history(
+                    fund_code=fund_code,
+                    limit=2,
+                )
+                previous_date = existing[0].nav_date if existing else None
                 self._persist_latest_nav(latest)
                 results.append(
                     FundWatchlistNavSyncItemRead(
@@ -323,6 +355,9 @@ class FundService:
                         status="succeeded",
                         nav_date=latest.nav_date,
                         unit_nav=latest.unit_nav,
+                        updated=(
+                            previous_date is None or latest.nav_date > previous_date
+                        ),
                     )
                 )
             except Exception as exc:
@@ -343,10 +378,11 @@ class FundService:
                 )
 
         succeeded = len([item for item in results if item.status == "succeeded"])
-        return FundWatchlistNavSyncRead(
+        return FundTrackedNavSyncRead(
             total=len(results),
             succeeded=succeeded,
             failed=len(results) - succeeded,
+            updated=len([item for item in results if item.updated]),
             items=results,
         )
 
