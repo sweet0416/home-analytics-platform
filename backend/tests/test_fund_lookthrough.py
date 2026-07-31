@@ -14,6 +14,10 @@ from app.plugins.fund.domain.target_links import TargetFundLink
 from app.plugins.fund.infrastructure.persistence.repositories import (
     FundRepository,
 )
+from app.plugins.fund.infrastructure.sources.eastmoney_holdings import (
+    FundDisclosureHolding,
+    FundHoldingsDisclosure,
+)
 
 
 def test_lookthrough_aggregates_duplicates_and_excludes_stale_data() -> None:
@@ -271,3 +275,78 @@ def test_lookthrough_prefers_current_direct_disclosure(
     assert result.assets[0].asset_code == "DIRECT"
     assert result.snapshots[0].source_mode == "direct"
     assert result.snapshots[0].target_fund_code is None
+
+
+def test_disclosure_sync_includes_configured_target_etf(
+    db_session: Session,
+) -> None:
+    repository = FundRepository(db_session)
+    parent = repository.upsert_fund(
+        code="050025",
+        name="Linked Fund",
+        fund_type="QDII",
+    )
+    repository.create_position(
+        fund=parent,
+        account_name="Default",
+        shares=Decimal("100"),
+        cost_price=Decimal("1"),
+        total_cost=Decimal("100"),
+        current_nav=Decimal("1"),
+        opened_at=None,
+        tags="",
+        note="",
+    )
+    repository.commit()
+    today = datetime.now(ZoneInfo("Asia/Shanghai")).date()
+
+    class HoldingsSourceStub:
+        def __init__(self) -> None:
+            self.calls: list[str] = []
+
+        def fetch_latest(self, fund_code: str) -> FundHoldingsDisclosure:
+            self.calls.append(fund_code)
+            return FundHoldingsDisclosure(
+                fund_code=fund_code,
+                fund_name=f"Fund {fund_code}",
+                report_date=today,
+                report_period="2026Q2",
+                asset_type="stock",
+                source="test",
+                source_url=f"https://example.test/{fund_code}",
+                holdings=[
+                    FundDisclosureHolding(
+                        rank=1,
+                        asset_type="stock",
+                        asset_code="AAPL",
+                        asset_name="Apple",
+                        nav_ratio=Decimal("0.10"),
+                        reported_quantity=None,
+                        reported_market_value=None,
+                    )
+                ],
+            )
+
+    source = HoldingsSourceStub()
+    result = FundService(
+        repository,
+        holdings_source=source,
+        target_links=[
+            TargetFundLink(
+                parent_fund_code="050025",
+                target_fund_code="513500",
+                target_fund_name="Target ETF",
+                target_allocation_ratio=Decimal("0.94"),
+                report_date=today,
+                source_url="https://example.test/relation",
+            )
+        ],
+    ).sync_holding_disclosures()
+
+    assert result.total == 2
+    assert result.succeeded == 2
+    assert sorted(source.calls) == ["050025", "513500"]
+    target = repository.get_fund_by_code("513500")
+    assert target is not None
+    disclosures = repository.list_latest_disclosures(fund_ids=[target.id])
+    assert disclosures[0].holdings[0].asset_code == "AAPL"

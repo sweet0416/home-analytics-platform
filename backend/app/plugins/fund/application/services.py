@@ -229,12 +229,6 @@ class FundService:
                 position.fund.name,
                 position.fund.fund_type,
             )
-        for link in self.target_links:
-            if link.parent_fund_code in targets_by_code:
-                targets_by_code.setdefault(
-                    link.target_fund_code,
-                    (link.target_fund_name, "ETF"),
-                )
         targets = [
             (fund_code, fund_name, fund_type)
             for fund_code, (fund_name, fund_type) in sorted(targets_by_code.items())
@@ -1230,6 +1224,12 @@ class FundService:
                 position.fund.name,
                 position.fund.fund_type,
             )
+        for link in self.target_links:
+            if link.parent_fund_code in targets_by_code:
+                targets_by_code.setdefault(
+                    link.target_fund_code,
+                    (link.target_fund_name, "ETF"),
+                )
         targets = [
             (fund_code, fund_name, fund_type)
             for fund_code, (fund_name, fund_type) in sorted(
