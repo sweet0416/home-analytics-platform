@@ -1,5 +1,5 @@
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from zoneinfo import ZoneInfo
 
@@ -27,7 +27,12 @@ from app.plugins.fund.domain.risk_contribution import (
     FundRiskContributionSeries,
     calculate_risk_contributions,
 )
+from app.plugins.fund.domain.target_links import (
+    TargetFundLink,
+    parse_target_fund_links,
+)
 from app.plugins.fund.infrastructure.persistence.models import (
+    FundDisclosureModel,
     FundModel,
     FundNavRecordModel,
     FundPositionModel,
@@ -103,11 +108,21 @@ class FundService:
         settings: Settings | None = None,
         nav_source: EastmoneyFundNavSource | None = None,
         holdings_source: EastmoneyFundHoldingsSource | None = None,
+        target_links: list[TargetFundLink] | None = None,
     ) -> None:
         self.repository = repository
         self.settings = settings
         self.nav_source = nav_source
         self.holdings_source = holdings_source
+        self.target_links = (
+            target_links
+            if target_links is not None
+            else parse_target_fund_links(
+                settings.fund_lookthrough_target_links_json
+                if settings is not None
+                else "[]"
+            )
+        )
 
     def list_positions(self) -> list[FundPositionRead]:
         return [self._to_position_read(position) for position in self.repository.list_positions()]
@@ -214,6 +229,12 @@ class FundService:
                 position.fund.name,
                 position.fund.fund_type,
             )
+        for link in self.target_links:
+            if link.parent_fund_code in targets_by_code:
+                targets_by_code.setdefault(
+                    link.target_fund_code,
+                    (link.target_fund_name, "ETF"),
+                )
         targets = [
             (fund_code, fund_name, fund_type)
             for fund_code, (fund_name, fund_type) in sorted(targets_by_code.items())
@@ -1337,59 +1358,158 @@ class FundService:
                 Decimal(entry["allocation_weight"]) + holding.weight
             )
 
+        links_by_parent = {
+            link.parent_fund_code: link for link in self.target_links
+        }
+        lookup_codes = set(grouped) | {
+            link.target_fund_code
+            for link in self.target_links
+            if link.parent_fund_code in grouped
+        }
+        funds_by_code = {
+            fund_code: fund
+            for fund_code in lookup_codes
+            if (fund := self.repository.get_fund_by_code(fund_code)) is not None
+        }
         records = self.repository.list_latest_disclosures(
-            fund_ids=[int(entry["fund_id"]) for entry in grouped.values()],
+            fund_ids=[fund.id for fund in funds_by_code.values()],
         )
-        records_by_fund_id = {record.fund_id: record for record in records}
+        records_by_code = {record.fund.code: record for record in records}
         domain_disclosures: list[LookthroughFundDisclosure] = []
         snapshots: list[FundLookthroughSnapshotRead] = []
         for fund_code, entry in grouped.items():
-            record = records_by_fund_id.get(int(entry["fund_id"]))
+            record = records_by_code.get(fund_code)
             allocation_weight = Decimal(entry["allocation_weight"])
-            if record is None:
+            direct_current = self._is_current_disclosure(
+                record,
+                as_of_date=as_of_date,
+                stale_after_days=bounded_stale_days,
+            )
+            link = links_by_parent.get(fund_code)
+            target_record = (
+                records_by_code.get(link.target_fund_code)
+                if link is not None
+                else None
+            )
+            link_age_days = (
+                (as_of_date - link.report_date).days
+                if link is not None
+                else None
+            )
+            target_current = (
+                link is not None
+                and link_age_days is not None
+                and 0 <= link_age_days <= bounded_stale_days
+                and self._is_current_disclosure(
+                    target_record,
+                    as_of_date=as_of_date,
+                    stale_after_days=bounded_stale_days,
+                )
+            )
+
+            effective_weight = Decimal("0")
+            if direct_current:
+                selected_record = record
+                source_mode = "direct"
+                effective_weight = allocation_weight
+            elif target_current and link is not None:
+                selected_record = target_record
+                source_mode = "target_etf"
+                effective_weight = (
+                    allocation_weight * link.target_allocation_ratio
+                )
+            elif link is not None and target_record is not None:
+                selected_record = target_record
+                source_mode = "target_etf"
+            elif record is not None:
+                selected_record = record
+                source_mode = "direct"
+            else:
+                selected_record = None
+                source_mode = "target_etf" if link is not None else "none"
+
+            if selected_record is None:
                 snapshots.append(
                     FundLookthroughSnapshotRead(
                         fund_code=fund_code,
                         fund_name=str(entry["fund_name"]),
                         allocation_weight=allocation_weight,
+                        covered_weight=Decimal("0"),
                         report_date=None,
                         report_period=None,
                         age_days=None,
                         holding_count=0,
                         status="missing",
+                        source_mode=source_mode,
+                        target_fund_code=(
+                            link.target_fund_code if link is not None else None
+                        ),
+                        target_fund_name=(
+                            link.target_fund_name if link is not None else None
+                        ),
+                        target_allocation_ratio=(
+                            link.target_allocation_ratio
+                            if link is not None
+                            else None
+                        ),
+                        relation_report_date=(
+                            link.report_date if link is not None else None
+                        ),
                     )
                 )
                 continue
-            age_days = (as_of_date - record.report_date).days
-            status = (
-                "current"
-                if 0 <= age_days <= bounded_stale_days
-                else "stale"
-            )
+            age_days = (as_of_date - selected_record.report_date).days
+            selected_current = direct_current or target_current
             snapshots.append(
                 FundLookthroughSnapshotRead(
                     fund_code=fund_code,
                     fund_name=str(entry["fund_name"]),
                     allocation_weight=allocation_weight,
-                    report_date=record.report_date,
-                    report_period=record.report_period,
-                    age_days=age_days,
-                    holding_count=len(record.holdings),
-                    status=status,
+                    covered_weight=effective_weight,
+                    report_date=selected_record.report_date,
+                    report_period=selected_record.report_period,
+                    age_days=(
+                        max(age_days, link_age_days or 0)
+                        if source_mode == "target_etf"
+                        else age_days
+                    ),
+                    holding_count=len(selected_record.holdings),
+                    status="current" if selected_current else "stale",
+                    source_mode=source_mode,
+                    target_fund_code=(
+                        link.target_fund_code if source_mode == "target_etf" else None
+                    ),
+                    target_fund_name=(
+                        link.target_fund_name if source_mode == "target_etf" else None
+                    ),
+                    target_allocation_ratio=(
+                        link.target_allocation_ratio
+                        if source_mode == "target_etf"
+                        else None
+                    ),
+                    relation_report_date=(
+                        link.report_date if source_mode == "target_etf" else None
+                    ),
                 )
             )
+            if not selected_current:
+                continue
             domain_disclosures.append(
                 LookthroughFundDisclosure(
                     fund_code=fund_code,
-                    allocation_weight=allocation_weight,
-                    report_date=record.report_date,
+                    allocation_weight=effective_weight,
+                    report_date=(
+                        min(selected_record.report_date, link.report_date)
+                        if source_mode == "target_etf" and link is not None
+                        else selected_record.report_date
+                    ),
                     holdings=[
                         LookthroughHolding(
                             asset_code=holding.asset_code,
                             asset_name=holding.asset_name,
                             nav_ratio=holding.nav_ratio,
                         )
-                        for holding in record.holdings
+                        for holding in selected_record.holdings
                     ],
                 )
             )
@@ -1420,11 +1540,23 @@ class FundService:
             ],
             snapshots=snapshots,
             warning=(
-                "穿透结果使用基金最近一次公开披露的前十大股票，并按当前基金仓位加权。"
-                "它不是实时持仓，也不包含未披露资产；超过设定天数的旧快照不会纳入聚合。"
-                "ETF 联接和 QDII 的目标基金二级穿透将在后续版本补充。"
+                "穿透结果使用基金公开披露的前十大股票；ETF 联接基金在直接股票披露失效时，"
+                "按母基金披露的目标 ETF 占比进行二级推导。结果不是实时持仓，不包含现金、"
+                "期货和未披露资产；任一层数据过期时都不会纳入聚合。"
             ),
         )
+
+    @staticmethod
+    def _is_current_disclosure(
+        record: FundDisclosureModel | None,
+        *,
+        as_of_date: date,
+        stale_after_days: int,
+    ) -> bool:
+        if record is None:
+            return False
+        age_days = (as_of_date - record.report_date).days
+        return 0 <= age_days <= stale_after_days
 
     def _fetch_holding_disclosure(
         self,

@@ -5,7 +5,7 @@ from app.plugins.fund.jobs.scheduler import start_fund_scheduler, stop_fund_sche
 fund_plugin = PluginManifest(
     name="fund",
     display_name="Fund",
-    version="0.3.0",
+    version="0.4.0",
     description="Fund portfolio, NAV, allocation, risk, automation, and report analytics.",
     routes=[router],
     menu_items=[

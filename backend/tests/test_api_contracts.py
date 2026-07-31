@@ -282,7 +282,7 @@ def test_fund_status_endpoint_returns_operational_contract(client: TestClient) -
     assert response.status_code == 200
     body = response.json()["data"]
     assert body["plugin"] == "fund"
-    assert body["version"] == "0.3.0"
+    assert body["version"] == "0.4.0"
     assert body["status"] == "operational"
     assert body["data_source_status"] == "configured"
     assert body["storage_status"] == "storage_ready"

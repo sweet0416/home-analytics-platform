@@ -66,6 +66,7 @@ class Settings(BaseSettings):
         "http://fundf10.eastmoney.com/FundArchivesDatas.aspx"
         "?type=jjcc&code={fund_code}&topline=10&year=&month="
     )
+    fund_lookthrough_target_links_json: str = "[]"
     cors_origins: list[str] = Field(
         default_factory=lambda: [
             "http://localhost:5173",

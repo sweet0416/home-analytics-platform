@@ -473,11 +473,17 @@ export interface FundLookthroughSnapshot {
   fund_code: string;
   fund_name: string;
   allocation_weight: string;
+  covered_weight: string;
   report_date: string | null;
   report_period: string | null;
   age_days: number | null;
   holding_count: number;
   status: 'current' | 'stale' | 'missing';
+  source_mode: 'direct' | 'target_etf' | 'none';
+  target_fund_code: string | null;
+  target_fund_name: string | null;
+  target_allocation_ratio: string | null;
+  relation_report_date: string | null;
 }
 
 export interface FundLookthrough {

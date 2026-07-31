@@ -64,13 +64,13 @@ def get_fund_status() -> ApiResponse[FundStatusRead]:
         FundStatusRead(
             plugin=FUND_PLUGIN_CODE,
             display_name="Fund",
-            version="0.3.0",
+            version="0.4.0",
             status="operational",
             description="基金插件已支持持仓、净值、组合风险、自动更新和日报推送。",
             modules=FUND_MODULES,
             data_source_status="configured",
             storage_status="storage_ready",
-            next_step="下一步补充基准对比、底层资产穿透和 AI 日报总结。",
+            next_step="下一步补充目标 ETF 关系维护、更多资产类型穿透和 AI 日报总结。",
         )
     )
 

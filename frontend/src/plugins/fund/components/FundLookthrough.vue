@@ -77,12 +77,22 @@
           >
             <div>
               <strong>{{ snapshot.fund_name }}</strong>
-              <small>{{ snapshot.fund_code }} · 仓位 {{ formatPercent(snapshot.allocation_weight) }}</small>
+              <small>
+                {{ snapshot.fund_code }} · 仓位 {{ formatPercent(snapshot.allocation_weight) }}
+                · 覆盖 {{ formatPercent(snapshot.covered_weight) }}
+              </small>
+              <small v-if="snapshot.source_mode === 'target_etf'">
+                目标 {{ snapshot.target_fund_code }} {{ snapshot.target_fund_name }}
+                · 占比 {{ formatOptionalPercent(snapshot.target_allocation_ratio) }}
+              </small>
             </div>
             <div class="snapshot-meta">
               <span>{{ snapshotDateText(snapshot) }}</span>
+              <span v-if="snapshot.source_mode === 'target_etf'">
+                关系披露 {{ snapshot.relation_report_date || '--' }}
+              </span>
               <span :class="['snapshot-status', `is-${snapshot.status}`]">
-                {{ snapshotStatusText(snapshot.status) }}
+                {{ snapshotSourceText(snapshot) }} · {{ snapshotStatusText(snapshot.status) }}
               </span>
             </div>
           </div>
@@ -157,6 +167,10 @@ function formatPercent(value: string): string {
   return Number.isFinite(numeric) ? `${(numeric * 100).toFixed(2)}%` : '--';
 }
 
+function formatOptionalPercent(value: string | null): string {
+  return value === null ? '--' : formatPercent(value);
+}
+
 function barStyle(value: string): Record<string, string> {
   const numeric = Number(value);
   const width = Number.isFinite(numeric) ? Math.min(numeric * 500, 100) : 0;
@@ -167,6 +181,12 @@ function snapshotStatusText(status: FundLookthroughSnapshot['status']): string {
   if (status === 'current') return '有效';
   if (status === 'stale') return '已过期';
   return '未同步';
+}
+
+function snapshotSourceText(snapshot: FundLookthroughSnapshot): string {
+  if (snapshot.source_mode === 'direct') return '直接披露';
+  if (snapshot.source_mode === 'target_etf') return '二级穿透';
+  return '暂无来源';
 }
 
 function snapshotDateText(snapshot: FundLookthroughSnapshot): string {

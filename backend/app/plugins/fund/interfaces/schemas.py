@@ -535,11 +535,17 @@ class FundLookthroughSnapshotRead(BaseModel):
     fund_code: str
     fund_name: str
     allocation_weight: Decimal
+    covered_weight: Decimal
     report_date: date | None
     report_period: str | None
     age_days: int | None
     holding_count: int
     status: Literal["current", "stale", "missing"]
+    source_mode: Literal["direct", "target_etf", "none"]
+    target_fund_code: str | None
+    target_fund_name: str | None
+    target_allocation_ratio: Decimal | None
+    relation_report_date: date | None
 
 
 class FundLookthroughRead(BaseModel):
