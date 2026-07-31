@@ -11,6 +11,7 @@ from app.plugins.fund.infrastructure.persistence.models import (
     FundNavRecordModel,
     FundNavSyncRunModel,
     FundPositionModel,
+    FundTargetLinkModel,
     FundTransactionModel,
     FundWatchlistItemModel,
 )
@@ -76,6 +77,64 @@ class FundRepository:
 
     def get_fund_by_code(self, code: str) -> FundModel | None:
         return self.db.scalar(select(FundModel).where(FundModel.code == code))
+
+    def list_target_links(self) -> list[FundTargetLinkModel]:
+        return list(
+            self.db.scalars(
+                select(FundTargetLinkModel).order_by(
+                    FundTargetLinkModel.parent_fund_code
+                )
+            )
+        )
+
+    def get_target_link(
+        self,
+        parent_fund_code: str,
+    ) -> FundTargetLinkModel | None:
+        return self.db.scalar(
+            select(FundTargetLinkModel).where(
+                FundTargetLinkModel.parent_fund_code == parent_fund_code
+            )
+        )
+
+    def upsert_target_link(
+        self,
+        *,
+        parent_fund_code: str,
+        target_fund_code: str,
+        target_fund_name: str,
+        target_allocation_ratio: Decimal,
+        report_date: date,
+        source_url: str,
+    ) -> FundTargetLinkModel:
+        link = self.get_target_link(parent_fund_code)
+        now = datetime.utcnow()
+        if link is None:
+            link = FundTargetLinkModel(
+                parent_fund_code=parent_fund_code,
+                target_fund_code=target_fund_code,
+                target_fund_name=target_fund_name,
+                target_allocation_ratio=target_allocation_ratio,
+                report_date=report_date,
+                source_url=source_url,
+                enabled=True,
+            )
+            self.db.add(link)
+        else:
+            link.target_fund_code = target_fund_code
+            link.target_fund_name = target_fund_name
+            link.target_allocation_ratio = target_allocation_ratio
+            link.report_date = report_date
+            link.source_url = source_url
+            link.enabled = True
+            link.updated_at = now
+        self.db.flush()
+        return link
+
+    def disable_target_link(self, link: FundTargetLinkModel) -> None:
+        link.enabled = False
+        link.updated_at = datetime.utcnow()
+        self.db.flush()
 
     def upsert_fund(self, *, code: str, name: str, fund_type: str) -> FundModel:
         fund = self.get_fund_by_code(code)

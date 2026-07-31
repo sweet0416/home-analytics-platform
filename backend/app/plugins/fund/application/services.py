@@ -36,6 +36,7 @@ from app.plugins.fund.infrastructure.persistence.models import (
     FundModel,
     FundNavRecordModel,
     FundPositionModel,
+    FundTargetLinkModel,
     FundTransactionModel,
     FundWatchlistItemModel,
 )
@@ -86,6 +87,8 @@ from app.plugins.fund.interfaces.schemas import (
     FundPositionUpdate,
     FundRiskContributionItemRead,
     FundRiskContributionRead,
+    FundTargetLinkCreate,
+    FundTargetLinkRead,
     FundTrackedNavSyncRead,
     FundTransactionCreate,
     FundTransactionRead,
@@ -114,8 +117,9 @@ class FundService:
         self.settings = settings
         self.nav_source = nav_source
         self.holdings_source = holdings_source
-        self.target_links = (
-            target_links
+        self._target_links_override = target_links
+        self._environment_target_links = (
+            []
             if target_links is not None
             else parse_target_fund_links(
                 settings.fund_lookthrough_target_links_json
@@ -123,6 +127,89 @@ class FundService:
                 else "[]"
             )
         )
+
+    def _effective_target_links(self) -> list[TargetFundLink]:
+        if self._target_links_override is not None:
+            return self._target_links_override
+
+        links_by_parent = {
+            link.parent_fund_code: link
+            for link in self._environment_target_links
+        }
+        for record in self.repository.list_target_links():
+            if not record.enabled:
+                links_by_parent.pop(record.parent_fund_code, None)
+                continue
+            links_by_parent[record.parent_fund_code] = self._to_target_link(record)
+        return [links_by_parent[code] for code in sorted(links_by_parent)]
+
+    def list_target_links(self) -> list[FundTargetLinkRead]:
+        database_records = {
+            record.parent_fund_code: record
+            for record in self.repository.list_target_links()
+        }
+        result: list[FundTargetLinkRead] = []
+        for link in self._effective_target_links():
+            record = database_records.get(link.parent_fund_code)
+            result.append(
+                self._to_target_link_read(
+                    link,
+                    origin=(
+                        "database"
+                        if record is not None and record.enabled
+                        else "environment"
+                    ),
+                )
+            )
+        return result
+
+    def save_target_link(
+        self,
+        payload: FundTargetLinkCreate,
+    ) -> FundTargetLinkRead:
+        record = self.repository.upsert_target_link(
+            parent_fund_code=payload.parent_fund_code,
+            target_fund_code=payload.target_fund_code,
+            target_fund_name=payload.target_fund_name,
+            target_allocation_ratio=payload.target_allocation_ratio,
+            report_date=payload.report_date,
+            source_url=payload.source_url,
+        )
+        self.repository.commit()
+        return self._to_target_link_read(
+            self._to_target_link(record),
+            origin="database",
+        )
+
+    def delete_target_link(self, parent_fund_code: str) -> dict[str, object]:
+        normalized_code = parent_fund_code.strip()
+        record = self.repository.get_target_link(normalized_code)
+        if record is None:
+            environment_link = next(
+                (
+                    link
+                    for link in self._environment_target_links
+                    if link.parent_fund_code == normalized_code
+                ),
+                None,
+            )
+            if environment_link is None:
+                raise AppError(
+                    code=ErrorCode.not_found,
+                    message="Target ETF relationship was not found.",
+                    status_code=404,
+                )
+            record = self.repository.upsert_target_link(
+                parent_fund_code=environment_link.parent_fund_code,
+                target_fund_code=environment_link.target_fund_code,
+                target_fund_name=environment_link.target_fund_name,
+                target_allocation_ratio=environment_link.target_allocation_ratio,
+                report_date=environment_link.report_date,
+                source_url=environment_link.source_url,
+            )
+        self.repository.disable_target_link(record)
+        self.repository.commit()
+        return {"deleted": True, "parent_fund_code": normalized_code}
 
     def list_positions(self) -> list[FundPositionRead]:
         return [self._to_position_read(position) for position in self.repository.list_positions()]
@@ -1218,13 +1305,14 @@ class FundService:
         )
 
     def sync_holding_disclosures(self) -> FundDisclosureSyncRead:
+        target_links = self._effective_target_links()
         targets_by_code: dict[str, tuple[str, str]] = {}
         for position in self.repository.list_positions():
             targets_by_code[position.fund.code] = (
                 position.fund.name,
                 position.fund.fund_type,
             )
-        for link in self.target_links:
+        for link in target_links:
             if link.parent_fund_code in targets_by_code:
                 targets_by_code.setdefault(
                     link.target_fund_code,
@@ -1358,12 +1446,13 @@ class FundService:
                 Decimal(entry["allocation_weight"]) + holding.weight
             )
 
+        target_links = self._effective_target_links()
         links_by_parent = {
-            link.parent_fund_code: link for link in self.target_links
+            link.parent_fund_code: link for link in target_links
         }
         lookup_codes = set(grouped) | {
             link.target_fund_code
-            for link in self.target_links
+            for link in target_links
             if link.parent_fund_code in grouped
         }
         funds_by_code = {
@@ -1717,6 +1806,33 @@ class FundService:
             note=record.note,
             created_at=record.created_at,
             updated_at=record.updated_at,
+        )
+
+    @staticmethod
+    def _to_target_link(record: FundTargetLinkModel) -> TargetFundLink:
+        return TargetFundLink(
+            parent_fund_code=record.parent_fund_code,
+            target_fund_code=record.target_fund_code,
+            target_fund_name=record.target_fund_name,
+            target_allocation_ratio=record.target_allocation_ratio,
+            report_date=record.report_date,
+            source_url=record.source_url,
+        )
+
+    @staticmethod
+    def _to_target_link_read(
+        link: TargetFundLink,
+        *,
+        origin: str,
+    ) -> FundTargetLinkRead:
+        return FundTargetLinkRead(
+            parent_fund_code=link.parent_fund_code,
+            target_fund_code=link.target_fund_code,
+            target_fund_name=link.target_fund_name,
+            target_allocation_ratio=link.target_allocation_ratio,
+            report_date=link.report_date,
+            source_url=link.source_url,
+            origin=origin,
         )
 
     def _to_watchlist_read(self, item: FundWatchlistItemModel) -> FundWatchlistRead:

@@ -14,6 +14,9 @@
         <el-button :icon="Refresh" :loading="loading" @click="loadLookthrough">
           刷新
         </el-button>
+        <el-button :icon="Connection" @click="openTargetLinkManager">
+          目标 ETF
+        </el-button>
         <el-button type="primary" :loading="syncing" @click="syncDisclosures">
           同步披露
         </el-button>
@@ -101,21 +104,134 @@
         <p class="lookthrough-note">{{ lookthrough.warning }}</p>
       </div>
     </div>
+
+    <el-dialog
+      v-model="managerVisible"
+      title="目标 ETF 关系"
+      width="min(780px, 92vw)"
+      destroy-on-close
+    >
+      <div class="target-manager">
+        <div class="target-manager-head">
+          <p>联接基金直接披露过期时，系统按这里的目标 ETF 和配置占比进行二级穿透。</p>
+          <el-button type="primary" :icon="Plus" @click="startCreateLink">
+            新增关系
+          </el-button>
+        </div>
+
+        <div v-if="editingLink" class="target-form">
+          <label>
+            <span>联接基金代码</span>
+            <el-input
+              v-model="linkForm.parent_fund_code"
+              :disabled="editingParentCode !== null"
+              maxlength="6"
+              placeholder="例如 050025"
+            />
+          </label>
+          <label>
+            <span>目标 ETF 代码</span>
+            <el-input
+              v-model="linkForm.target_fund_code"
+              maxlength="6"
+              placeholder="例如 513500"
+            />
+          </label>
+          <label class="wide">
+            <span>目标 ETF 名称</span>
+            <el-input v-model="linkForm.target_fund_name" maxlength="128" />
+          </label>
+          <label>
+            <span>目标 ETF 占比</span>
+            <el-input-number
+              v-model="linkForm.target_allocation_percent"
+              :min="0.01"
+              :max="100"
+              :precision="2"
+              :step="0.1"
+              controls-position="right"
+            />
+          </label>
+          <label>
+            <span>关系披露日期</span>
+            <el-date-picker
+              v-model="linkForm.report_date"
+              type="date"
+              value-format="YYYY-MM-DD"
+              placeholder="选择日期"
+            />
+          </label>
+          <label class="wide">
+            <span>公开来源链接</span>
+            <el-input v-model="linkForm.source_url" placeholder="https://..." />
+          </label>
+          <div class="target-form-actions wide">
+            <el-button @click="cancelEditLink">取消</el-button>
+            <el-button type="primary" :loading="savingLink" @click="submitTargetLink">
+              保存关系
+            </el-button>
+          </div>
+        </div>
+
+        <div v-loading="loadingLinks" class="target-list">
+          <div v-if="!targetLinks.length && !loadingLinks" class="target-empty">
+            暂无目标 ETF 关系
+          </div>
+          <div v-for="link in targetLinks" :key="link.parent_fund_code" class="target-row">
+            <div class="target-route">
+              <strong>{{ link.parent_fund_code }}</strong>
+              <span>联接至</span>
+              <strong>{{ link.target_fund_code }}</strong>
+              <span>{{ link.target_fund_name }}</span>
+            </div>
+            <div class="target-meta">
+              <span>占比 {{ formatPercent(link.target_allocation_ratio) }}</span>
+              <span>披露 {{ link.report_date }}</span>
+              <el-link :href="link.source_url" :icon="TopRight" target="_blank">
+                来源
+              </el-link>
+              <el-tag size="small" effect="plain">
+                {{ link.origin === 'database' ? '页面配置' : '部署默认' }}
+              </el-tag>
+            </div>
+            <div class="target-row-actions">
+              <el-tooltip content="编辑关系" placement="top">
+                <el-button circle :icon="Edit" @click="startEditLink(link)" />
+              </el-tooltip>
+              <el-tooltip content="删除关系" placement="top">
+                <el-button
+                  circle
+                  type="danger"
+                  plain
+                  :icon="Delete"
+                  :loading="deletingLinkCode === link.parent_fund_code"
+                  @click="removeTargetLink(link)"
+                />
+              </el-tooltip>
+            </div>
+          </div>
+        </div>
+      </div>
+    </el-dialog>
   </RevealContent>
 </template>
 
 <script setup lang="ts">
-import { Refresh } from '@element-plus/icons-vue';
-import { ElMessage } from 'element-plus';
+import { Connection, Delete, Edit, Plus, Refresh, TopRight } from '@element-plus/icons-vue';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import { computed, onMounted, ref, watch } from 'vue';
 
 import EmptyState from '@/components/common/EmptyState.vue';
 import RevealContent from '@/components/common/RevealContent.vue';
 import {
+  deleteFundTargetLink,
+  fetchFundTargetLinks,
   fetchFundLookthrough,
+  saveFundTargetLink,
   syncFundLookthrough,
   type FundLookthrough,
   type FundLookthroughSnapshot,
+  type FundTargetLink,
 } from '@/plugins/fund/api';
 
 const props = defineProps<{
@@ -126,6 +242,22 @@ const staleAfterDays = ref(180);
 const lookthrough = ref<FundLookthrough | null>(null);
 const loading = ref(false);
 const syncing = ref(false);
+const managerVisible = ref(false);
+const loadingLinks = ref(false);
+const savingLink = ref(false);
+const deletingLinkCode = ref<string | null>(null);
+const editingLink = ref(false);
+const editingParentCode = ref<string | null>(null);
+const targetLinks = ref<FundTargetLink[]>([]);
+const emptyLinkForm = () => ({
+  parent_fund_code: '',
+  target_fund_code: '',
+  target_fund_name: '',
+  target_allocation_percent: 100,
+  report_date: '',
+  source_url: '',
+});
+const linkForm = ref(emptyLinkForm());
 
 const coverageClass = computed(() => {
   const coverage = Number(lookthrough.value?.coverage_weight);
@@ -159,6 +291,108 @@ async function syncDisclosures(): Promise<void> {
     ElMessage.error(error instanceof Error ? error.message : '基金披露同步失败');
   } finally {
     syncing.value = false;
+  }
+}
+
+async function loadTargetLinks(): Promise<void> {
+  loadingLinks.value = true;
+  try {
+    targetLinks.value = await fetchFundTargetLinks();
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : '目标 ETF 关系加载失败');
+  } finally {
+    loadingLinks.value = false;
+  }
+}
+
+function openTargetLinkManager(): void {
+  managerVisible.value = true;
+  editingLink.value = false;
+  void loadTargetLinks();
+}
+
+function startCreateLink(): void {
+  linkForm.value = emptyLinkForm();
+  editingParentCode.value = null;
+  editingLink.value = true;
+}
+
+function startEditLink(link: FundTargetLink): void {
+  editingParentCode.value = link.parent_fund_code;
+  linkForm.value = {
+    parent_fund_code: link.parent_fund_code,
+    target_fund_code: link.target_fund_code,
+    target_fund_name: link.target_fund_name,
+    target_allocation_percent: Number(link.target_allocation_ratio) * 100,
+    report_date: link.report_date,
+    source_url: link.source_url,
+  };
+  editingLink.value = true;
+}
+
+function cancelEditLink(): void {
+  editingLink.value = false;
+  editingParentCode.value = null;
+  linkForm.value = emptyLinkForm();
+}
+
+async function submitTargetLink(): Promise<void> {
+  const form = linkForm.value;
+  if (!/^\d{6}$/.test(form.parent_fund_code) || !/^\d{6}$/.test(form.target_fund_code)) {
+    ElMessage.warning('联接基金和目标 ETF 必须填写 6 位数字代码');
+    return;
+  }
+  if (form.parent_fund_code === form.target_fund_code) {
+    ElMessage.warning('联接基金和目标 ETF 不能是同一只基金');
+    return;
+  }
+  if (!form.target_fund_name.trim() || !form.report_date || !form.source_url.trim()) {
+    ElMessage.warning('请填写完整的关系名称、披露日期和公开来源');
+    return;
+  }
+  savingLink.value = true;
+  try {
+    await saveFundTargetLink({
+      parent_fund_code: form.parent_fund_code,
+      target_fund_code: form.target_fund_code,
+      target_fund_name: form.target_fund_name.trim(),
+      target_allocation_ratio: form.target_allocation_percent / 100,
+      report_date: form.report_date,
+      source_url: form.source_url.trim(),
+    });
+    ElMessage.success('目标 ETF 关系已保存');
+    cancelEditLink();
+    await Promise.all([loadTargetLinks(), loadLookthrough()]);
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : '目标 ETF 关系保存失败');
+  } finally {
+    savingLink.value = false;
+  }
+}
+
+async function removeTargetLink(link: FundTargetLink): Promise<void> {
+  try {
+    await ElMessageBox.confirm(
+      `删除 ${link.parent_fund_code} 到 ${link.target_fund_code} 的穿透关系？`,
+      '确认删除关系',
+      {
+        confirmButtonText: '删除',
+        cancelButtonText: '取消',
+        type: 'warning',
+      },
+    );
+  } catch {
+    return;
+  }
+  deletingLinkCode.value = link.parent_fund_code;
+  try {
+    await deleteFundTargetLink(link.parent_fund_code);
+    ElMessage.success('目标 ETF 关系已删除');
+    await Promise.all([loadTargetLinks(), loadLookthrough()]);
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : '目标 ETF 关系删除失败');
+  } finally {
+    deletingLinkCode.value = null;
   }
 }
 
@@ -215,6 +449,101 @@ watch(
 .lookthrough-note {
   color: var(--color-muted);
   font-size: 12px;
+}
+
+.target-manager {
+  display: grid;
+  gap: 16px;
+}
+
+.target-manager-head {
+  align-items: center;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+}
+
+.target-manager-head p,
+.target-empty {
+  color: var(--color-muted);
+  font-size: 13px;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.target-form {
+  border-block: 1px solid rgba(148, 163, 184, 0.14);
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding-block: 14px;
+}
+
+.target-form label {
+  display: grid;
+  gap: 6px;
+}
+
+.target-form label > span {
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
+.target-form .wide {
+  grid-column: span 2;
+}
+
+.target-form .el-input-number,
+.target-form .el-date-editor {
+  width: 100%;
+}
+
+.target-form-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.target-list {
+  display: grid;
+  min-height: 56px;
+}
+
+.target-row {
+  align-items: center;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr) auto;
+  min-height: 62px;
+  padding-block: 9px;
+}
+
+.target-route,
+.target-meta,
+.target-row-actions {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
+.target-route span,
+.target-meta span {
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
+.target-meta {
+  flex-wrap: wrap;
+}
+
+.target-row-actions {
+  justify-content: flex-end;
+}
+
+.target-empty {
+  padding: 18px 0;
+  text-align: center;
 }
 
 .lookthrough-actions {
@@ -383,6 +712,32 @@ watch(
   .snapshot-meta {
     align-items: start;
     justify-items: start;
+  }
+
+  .target-manager-head,
+  .target-row {
+    align-items: stretch;
+    grid-template-columns: 1fr;
+  }
+
+  .target-manager-head {
+    flex-direction: column;
+  }
+
+  .target-manager-head .el-button {
+    width: 100%;
+  }
+
+  .target-form {
+    grid-template-columns: 1fr;
+  }
+
+  .target-form .wide {
+    grid-column: auto;
+  }
+
+  .target-row-actions {
+    justify-content: flex-start;
   }
 }
 </style>

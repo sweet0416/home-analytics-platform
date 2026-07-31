@@ -1,6 +1,7 @@
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Literal
+from urllib.parse import urlparse
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -522,6 +523,39 @@ class FundDisclosureSyncRead(BaseModel):
     succeeded: int
     failed: int
     items: list[FundDisclosureSyncItemRead]
+
+
+class FundTargetLinkCreate(BaseModel):
+    parent_fund_code: str = Field(pattern=r"^\d{6}$")
+    target_fund_code: str = Field(pattern=r"^\d{6}$")
+    target_fund_name: str = Field(min_length=1, max_length=128)
+    target_allocation_ratio: Decimal = Field(gt=0, le=1)
+    report_date: date
+    source_url: str = Field(min_length=1, max_length=512)
+
+    @field_validator("parent_fund_code", "target_fund_code", "target_fund_name")
+    @classmethod
+    def strip_target_link_text(cls, value: str) -> str:
+        return value.strip()
+
+    @field_validator("source_url")
+    @classmethod
+    def validate_source_url(cls, value: str) -> str:
+        stripped = value.strip()
+        parsed = urlparse(stripped)
+        if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+            raise ValueError("source_url must be an HTTP or HTTPS URL")
+        return stripped
+
+    @model_validator(mode="after")
+    def validate_distinct_funds(self) -> "FundTargetLinkCreate":
+        if self.parent_fund_code == self.target_fund_code:
+            raise ValueError("parent and target fund codes must be different")
+        return self
+
+
+class FundTargetLinkRead(FundTargetLinkCreate):
+    origin: Literal["environment", "database"]
 
 
 class FundLookthroughAssetRead(BaseModel):

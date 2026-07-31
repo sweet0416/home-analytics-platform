@@ -28,6 +28,23 @@ class FundModel(Base):
     )
 
 
+class FundTargetLinkModel(Base):
+    __tablename__ = "fund_target_links"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    parent_fund_code: Mapped[str] = mapped_column(
+        String(16), unique=True, index=True
+    )
+    target_fund_code: Mapped[str] = mapped_column(String(16), index=True)
+    target_fund_name: Mapped[str] = mapped_column(String(128))
+    target_allocation_ratio: Mapped[Decimal] = mapped_column(Numeric(12, 8))
+    report_date: Mapped[date] = mapped_column(Date)
+    source_url: Mapped[str] = mapped_column(String(512))
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
 class FundWatchlistItemModel(Base):
     __tablename__ = "fund_watchlist_items"
     __table_args__ = (

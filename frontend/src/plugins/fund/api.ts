@@ -462,6 +462,25 @@ export interface FundDisclosureSyncResult {
   }>;
 }
 
+export interface FundTargetLinkInput {
+  parent_fund_code: string;
+  target_fund_code: string;
+  target_fund_name: string;
+  target_allocation_ratio: number;
+  report_date: string;
+  source_url: string;
+}
+
+export interface FundTargetLink {
+  parent_fund_code: string;
+  target_fund_code: string;
+  target_fund_name: string;
+  target_allocation_ratio: string;
+  report_date: string;
+  source_url: string;
+  origin: 'environment' | 'database';
+}
+
 export interface FundLookthroughAsset {
   asset_code: string;
   asset_name: string;
@@ -760,6 +779,28 @@ export function syncFundLookthrough(): Promise<FundDisclosureSyncResult> {
     {},
     { timeout: 120000 },
   );
+}
+
+export function fetchFundTargetLinks(): Promise<FundTargetLink[]> {
+  return getApiData<FundTargetLink[]>('/fund/holdings/lookthrough/target-links');
+}
+
+export function saveFundTargetLink(
+  payload: FundTargetLinkInput,
+): Promise<FundTargetLink> {
+  return postApiData<FundTargetLink, FundTargetLinkInput>(
+    '/fund/holdings/lookthrough/target-links',
+    payload,
+  );
+}
+
+export async function deleteFundTargetLink(
+  parentFundCode: string,
+): Promise<{ deleted: boolean; parent_fund_code: string }> {
+  const response = await apiClient.delete<
+    ApiResponse<{ deleted: boolean; parent_fund_code: string }>
+  >(`/fund/holdings/lookthrough/target-links/${parentFundCode}`);
+  return response.data.data;
 }
 
 export function syncFundHoldingHistory(limit = 365): Promise<FundHoldingHistorySyncResult> {

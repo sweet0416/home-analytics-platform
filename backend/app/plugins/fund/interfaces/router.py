@@ -36,6 +36,8 @@ from app.plugins.fund.interfaces.schemas import (
     FundPositionUpdate,
     FundRiskContributionRead,
     FundStatusRead,
+    FundTargetLinkCreate,
+    FundTargetLinkRead,
     FundTransactionCreate,
     FundTransactionRead,
     FundTransactionSummaryRead,
@@ -64,13 +66,13 @@ def get_fund_status() -> ApiResponse[FundStatusRead]:
         FundStatusRead(
             plugin=FUND_PLUGIN_CODE,
             display_name="Fund",
-            version="0.4.0",
+            version="0.5.0",
             status="operational",
             description="基金插件已支持持仓、净值、组合风险、自动更新和日报推送。",
             modules=FUND_MODULES,
             data_source_status="configured",
             storage_status="storage_ready",
-            next_step="下一步补充目标 ETF 关系维护、更多资产类型穿透和 AI 日报总结。",
+            next_step="下一步补充更多资产类型穿透和 AI 日报总结。",
         )
     )
 
@@ -376,6 +378,38 @@ def sync_fund_lookthrough(
     service: FundService = Depends(get_fund_service),
 ) -> ApiResponse[FundDisclosureSyncRead]:
     return ok(service.sync_holding_disclosures())
+
+
+@router.get(
+    "/holdings/lookthrough/target-links",
+    response_model=ApiResponse[list[FundTargetLinkRead]],
+)
+def list_fund_target_links(
+    service: FundService = Depends(get_fund_service),
+) -> ApiResponse[list[FundTargetLinkRead]]:
+    return ok(service.list_target_links())
+
+
+@router.post(
+    "/holdings/lookthrough/target-links",
+    response_model=ApiResponse[FundTargetLinkRead],
+)
+def save_fund_target_link(
+    payload: FundTargetLinkCreate,
+    service: FundService = Depends(get_fund_service),
+) -> ApiResponse[FundTargetLinkRead]:
+    return ok(service.save_target_link(payload))
+
+
+@router.delete(
+    "/holdings/lookthrough/target-links/{parent_fund_code}",
+    response_model=ApiResponse[dict[str, object]],
+)
+def delete_fund_target_link(
+    parent_fund_code: str,
+    service: FundService = Depends(get_fund_service),
+) -> ApiResponse[dict[str, object]]:
+    return ok(service.delete_target_link(parent_fund_code))
 
 
 @router.post(
