@@ -489,7 +489,7 @@ class FundService:
                     fund_code=fund_code,
                     limit=2,
                 )
-                previous_date = existing[0].nav_date if existing else None
+                previous_date = existing[-1].nav_date if existing else None
                 self._persist_latest_nav(latest)
                 results.append(
                     FundWatchlistNavSyncItemRead(

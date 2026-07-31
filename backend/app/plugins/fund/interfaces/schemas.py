@@ -172,6 +172,8 @@ class FundNavSchedulerStatusRead(BaseModel):
     running: bool
     cron: str
     timezone: str
+    notification_enabled: bool
+    notification_channel: NotificationChannel
     next_run_at: datetime | None
     last_run: FundScheduledNavSyncRunRead | None
 

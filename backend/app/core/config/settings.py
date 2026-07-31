@@ -59,6 +59,11 @@ class Settings(BaseSettings):
     fund_nav_sync_max_workers: int = Field(default=4, ge=1, le=10)
     fund_nav_auto_sync_enabled: bool = True
     fund_nav_sync_cron: str = "0 19-22 * * 1-5"
+    fund_nav_notify_enabled: bool = True
+    fund_nav_notify_channel: str = Field(
+        default="bark",
+        pattern=r"^(all|bark|wecom|whatsapp|custom_webhook)$",
+    )
     fund_eastmoney_pingzhongdata_url: str = (
         "https://fund.eastmoney.com/pingzhongdata/{fund_code}.js"
     )

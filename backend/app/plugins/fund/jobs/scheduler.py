@@ -7,6 +7,8 @@ from loguru import logger
 
 from app.core.config.settings import get_settings
 from app.core.database.session import SessionLocal
+from app.core.notification.schemas import NotificationChannel
+from app.plugins.fund.application.notification import FundDailyNotificationService
 from app.plugins.fund.application.services import FundService
 from app.plugins.fund.infrastructure.persistence.models import FundNavSyncRunModel
 from app.plugins.fund.infrastructure.persistence.repositories import FundRepository
@@ -81,6 +83,8 @@ def get_fund_scheduler_status() -> dict[str, object]:
         "running": bool(_scheduler is not None and _scheduler.running),
         "cron": settings.fund_nav_sync_cron,
         "timezone": TIMEZONE,
+        "notification_enabled": settings.fund_nav_notify_enabled,
+        "notification_channel": settings.fund_nav_notify_channel,
         "next_run_at": job.next_run_time if job and job.next_run_time else None,
         "last_run": _last_run,
     }
@@ -118,13 +122,20 @@ def _run_scheduled_fund_nav_sync() -> None:
         settings = get_settings()
         service = FundService(repository, settings=settings)
         result = service.sync_tracked_navs()
+        notification_summary = ""
         if result.updated > 0:
             _completed_date = now.date()
+            notification_summary = _send_daily_report_notification(
+                service=service,
+                settings=settings,
+            )
         status = "succeeded" if result.failed == 0 else "partial"
         message = (
             f"Fund NAV sync finished: {result.succeeded}/{result.total} succeeded, "
             f"{result.updated} updated, {result.failed} failed."
         )
+        if notification_summary:
+            message = f"{message} Daily report notification: {notification_summary}."
         logger.info(message)
         _last_run = _save_run(
             repository,
@@ -155,6 +166,34 @@ def _run_scheduled_fund_nav_sync() -> None:
         )
     finally:
         db.close()
+
+
+def _send_daily_report_notification(
+    *,
+    service: FundService,
+    settings: object,
+) -> str:
+    if not getattr(settings, "fund_nav_notify_enabled", False):
+        return "disabled"
+    try:
+        channel = NotificationChannel(
+            str(getattr(settings, "fund_nav_notify_channel", "bark"))
+        )
+        result = FundDailyNotificationService(settings=settings).send(
+            report=service.get_daily_report(),
+            channel=channel,
+        )
+        statuses = ", ".join(
+            f"{item.channel.value} {item.status}" for item in result.results
+        )
+        if any(item.status == "sent" for item in result.results):
+            logger.info("Fund daily report notification sent: {}", statuses)
+        else:
+            logger.warning("Fund daily report notification not sent: {}", statuses)
+        return statuses or "no channel result"
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("Fund daily report notification failed: {}", exc)
+        return "failed"
 
 
 def _save_run(

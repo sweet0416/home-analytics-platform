@@ -596,18 +596,29 @@ const schedulerStatusText = computed(() => {
   return navSchedulerStatus.value.running ? '运行中' : '未运行';
 });
 const schedulerNextRunMeta = computed(() => {
+  const notification = navSchedulerStatus.value?.notification_enabled
+    ? ` · ${notificationChannelLabel(navSchedulerStatus.value.notification_channel)} 推送`
+    : '';
   const value = navSchedulerStatus.value?.next_run_at;
-  if (!value) return '19:00-22:00 每小时检查';
+  if (!value) return `19:00-22:00 每小时检查${notification}`;
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '19:00-22:00 每小时检查';
+  if (Number.isNaN(date.getTime())) return `19:00-22:00 每小时检查${notification}`;
   return `下次 ${date.toLocaleString('zh-CN', {
     hour: '2-digit',
     minute: '2-digit',
     month: '2-digit',
     day: '2-digit',
     hour12: false,
-  })}`;
+  })}${notification}`;
 });
+
+function notificationChannelLabel(channel: FundNavSchedulerStatus['notification_channel']): string {
+  if (channel === 'bark') return 'Bark';
+  if (channel === 'wecom') return '企业微信';
+  if (channel === 'whatsapp') return 'WhatsApp';
+  if (channel === 'custom_webhook') return 'Webhook';
+  return '全部通道';
+}
 const lastSyncStatusText = computed(() => {
   const run = navSchedulerStatus.value?.last_run;
   if (!run) return '尚无自动检查记录';

@@ -24,6 +24,8 @@ export interface FundNavSchedulerStatus {
   running: boolean;
   cron: string;
   timezone: string;
+  notification_enabled: boolean;
+  notification_channel: 'all' | 'bark' | 'wecom' | 'whatsapp' | 'custom_webhook';
   next_run_at: string | null;
   last_run: {
     id: number | null;

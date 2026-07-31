@@ -79,6 +79,63 @@ def test_scheduled_sync_skips_after_data_updated_today(
     assert scheduler._last_run["updated"] == 0
 
 
+def test_scheduled_sync_pushes_daily_report_after_new_nav(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    sent_reports: list[tuple[object, object]] = []
+
+    class FakeDb:
+        def close(self) -> None:
+            pass
+
+    class FakeService:
+        def __init__(self, repository: object, settings: object) -> None:
+            self.repository = repository
+            self.settings = settings
+
+        def sync_tracked_navs(self) -> SimpleNamespace:
+            return SimpleNamespace(total=4, succeeded=4, failed=0, updated=1)
+
+        def get_daily_report(self) -> SimpleNamespace:
+            return SimpleNamespace(report_date="2026-07-31")
+
+    class FakeNotificationService:
+        def __init__(self, settings: object) -> None:
+            self.settings = settings
+
+        def send(self, *, report: object, channel: object) -> SimpleNamespace:
+            sent_reports.append((report, channel))
+            return SimpleNamespace(
+                results=[
+                    SimpleNamespace(
+                        channel=SimpleNamespace(value="bark"),
+                        status="sent",
+                    )
+                ]
+            )
+
+    settings = SimpleNamespace(
+        fund_nav_notify_enabled=True,
+        fund_nav_notify_channel="bark",
+    )
+    monkeypatch.setattr(scheduler, "_completed_date", None)
+    monkeypatch.setattr(scheduler, "SessionLocal", FakeDb)
+    monkeypatch.setattr(scheduler, "FundRepository", FakeRepository)
+    monkeypatch.setattr(scheduler, "FundService", FakeService)
+    monkeypatch.setattr(
+        scheduler,
+        "FundDailyNotificationService",
+        FakeNotificationService,
+    )
+    monkeypatch.setattr(scheduler, "get_settings", lambda: settings)
+
+    scheduler._run_scheduled_fund_nav_sync()
+
+    assert len(sent_reports) == 1
+    assert scheduler._last_run is not None
+    assert "bark sent" in scheduler._last_run["message"]
+
+
 def test_nav_sync_run_is_persisted(db_session: Session) -> None:
     repository = FundRepository(db_session)
     now = datetime.now(ZoneInfo(scheduler.TIMEZONE))
