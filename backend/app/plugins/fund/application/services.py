@@ -220,6 +220,7 @@ class FundService:
     def get_nav_freshness(
         self,
         stale_after_business_days: int = 2,
+        qdii_stale_after_business_days: int = 4,
         as_of_date: date | None = None,
     ) -> FundNavFreshnessRead:
         observation_date = as_of_date or datetime.now(
@@ -242,6 +243,11 @@ class FundService:
             fund_positions = positions_by_fund_id[fund_id]
             fund = fund_positions[0].fund
             latest = latest_by_fund_id.get(fund_id)
+            allowed_business_days = (
+                qdii_stale_after_business_days
+                if "QDII" in fund.fund_type.upper()
+                else stale_after_business_days
+            )
             if latest is None:
                 age = None
                 status = "missing"
@@ -252,7 +258,7 @@ class FundService:
                 )
                 status = (
                     "fresh"
-                    if age <= stale_after_business_days
+                    if age <= allowed_business_days
                     else "stale"
                 )
             items.append(
@@ -265,6 +271,7 @@ class FundService:
                     ),
                     latest_nav_date=latest.nav_date if latest else None,
                     business_day_age=age,
+                    allowed_business_days=allowed_business_days,
                     source=latest.source if latest else None,
                     status=status,
                 )
@@ -278,6 +285,7 @@ class FundService:
         return FundNavFreshnessRead(
             as_of_date=observation_date,
             stale_after_business_days=stale_after_business_days,
+            qdii_stale_after_business_days=qdii_stale_after_business_days,
             position_count=len(positions),
             fund_count=len(items),
             fresh_count=sum(item.status == "fresh" for item in items),

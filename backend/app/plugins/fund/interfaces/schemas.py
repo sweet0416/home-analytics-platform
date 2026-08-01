@@ -355,6 +355,7 @@ class FundNavFreshnessItemRead(BaseModel):
     account_names: list[str]
     latest_nav_date: date | None
     business_day_age: int | None
+    allowed_business_days: int
     source: str | None
     status: Literal["fresh", "stale", "missing"]
 
@@ -362,6 +363,7 @@ class FundNavFreshnessItemRead(BaseModel):
 class FundNavFreshnessRead(BaseModel):
     as_of_date: date
     stale_after_business_days: int
+    qdii_stale_after_business_days: int
     position_count: int
     fund_count: int
     fresh_count: int

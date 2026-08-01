@@ -23,16 +23,18 @@ def test_nav_freshness_summarizes_unique_position_funds(
     db_session: Session,
 ) -> None:
     repository = FundRepository(db_session)
-    nav_dates = {
-        "000001": date(2026, 7, 31),
-        "000002": date(2026, 7, 29),
-        "000003": None,
+    fund_cases = {
+        "000001": (date(2026, 7, 31), "ETF"),
+        "000002": (date(2026, 7, 29), "ETF"),
+        "000003": (None, "ETF"),
+        "000004": (date(2026, 7, 29), "QDII"),
     }
-    for index, (fund_code, nav_date) in enumerate(nav_dates.items(), start=1):
+    for index, (fund_code, case) in enumerate(fund_cases.items(), start=1):
+        nav_date, fund_type = case
         fund = repository.upsert_fund(
             code=fund_code,
             name=f"Fund {index}",
-            fund_type="ETF",
+            fund_type=fund_type,
         )
         repository.create_position(
             fund=fund,
@@ -58,16 +60,22 @@ def test_nav_freshness_summarizes_unique_position_funds(
 
     result = FundService(repository).get_nav_freshness(
         stale_after_business_days=2,
+        qdii_stale_after_business_days=4,
         as_of_date=date(2026, 8, 3),
     )
 
-    assert result.position_count == 3
-    assert result.fund_count == 3
-    assert result.fresh_count == 1
+    assert result.position_count == 4
+    assert result.fund_count == 4
+    assert result.fresh_count == 2
     assert result.stale_count == 1
     assert result.missing_count == 1
     assert [item.status for item in result.items] == [
         "missing",
         "stale",
         "fresh",
+        "fresh",
     ]
+    qdii_item = next(item for item in result.items if item.fund_code == "000004")
+    assert qdii_item.business_day_age == 3
+    assert qdii_item.allowed_business_days == 4
+    assert qdii_item.status == "fresh"

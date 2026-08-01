@@ -99,11 +99,13 @@ def list_fund_positions(
 )
 def get_fund_nav_freshness(
     stale_after_business_days: int = Query(default=2, ge=1, le=10),
+    qdii_stale_after_business_days: int = Query(default=4, ge=1, le=10),
     service: FundService = Depends(get_fund_service),
 ) -> ApiResponse[FundNavFreshnessRead]:
     return ok(
         service.get_nav_freshness(
-            stale_after_business_days=stale_after_business_days
+            stale_after_business_days=stale_after_business_days,
+            qdii_stale_after_business_days=qdii_stale_after_business_days,
         )
     )
 

@@ -8,13 +8,25 @@
       <div class="freshness-actions">
         <el-select
           v-model="staleAfterBusinessDays"
-          aria-label="净值滞后阈值"
+          aria-label="境内基金净值滞后阈值"
           @change="loadFreshness"
         >
           <el-option
             v-for="option in thresholdOptions"
             :key="option"
-            :label="`${option} 个工作日`"
+            :label="`境内 ${option} 日`"
+            :value="option"
+          />
+        </el-select>
+        <el-select
+          v-model="qdiiStaleAfterBusinessDays"
+          aria-label="QDII 净值滞后阈值"
+          @change="loadFreshness"
+        >
+          <el-option
+            v-for="option in qdiiThresholdOptions"
+            :key="option"
+            :label="`QDII ${option} 日`"
             :value="option"
           />
         </el-select>
@@ -48,7 +60,7 @@
         <div class="freshness-row table-head">
           <span>基金</span>
           <span>最新净值</span>
-          <span>工作日滞后</span>
+          <span>滞后 / 阈值</span>
           <span>来源</span>
           <span>状态</span>
         </div>
@@ -62,7 +74,7 @@
             <small>{{ item.fund_code }} · {{ item.account_names.join('、') }}</small>
           </span>
           <span>{{ item.latest_nav_date ?? '--' }}</span>
-          <span>{{ ageText(item.business_day_age) }}</span>
+          <span>{{ ageText(item.business_day_age, item.allowed_business_days) }}</span>
           <span>{{ item.source ?? '--' }}</span>
           <span :class="['freshness-status', `is-${item.status}`]">
             {{ statusText(item.status) }}
@@ -77,7 +89,7 @@
       <div v-else class="freshness-message">录入持仓后，这里会逐只检查最新净值日期。</div>
 
       <p class="freshness-note">
-        工作日口径仅排除周六和周日，暂未接入各市场节假日日历；QDII 净值通常会比境内基金晚公布。
+        工作日口径仅排除周六和周日，暂未接入各市场节假日日历；境内基金与 QDII 分别采用独立阈值。
       </p>
     </div>
   </section>
@@ -100,7 +112,9 @@ const props = withDefaults(defineProps<{
 });
 
 const thresholdOptions = [1, 2, 3, 5];
+const qdiiThresholdOptions = [2, 3, 4, 5, 7];
 const staleAfterBusinessDays = ref(2);
+const qdiiStaleAfterBusinessDays = ref(4);
 const freshness = ref<FundNavFreshness | null>(null);
 const loading = ref(false);
 const errorMessage = ref('');
@@ -117,9 +131,10 @@ function statusText(status: FundNavFreshnessItem['status']): string {
   return statusLabels[status];
 }
 
-function ageText(age: number | null): string {
-  if (age === null) return '--';
-  return age === 0 ? '当天' : `${age} 天`;
+function ageText(age: number | null, allowedBusinessDays: number): string {
+  if (age === null) return `-- / ${allowedBusinessDays} 天`;
+  const ageLabel = age === 0 ? '当天' : `${age} 天`;
+  return `${ageLabel} / ${allowedBusinessDays} 天`;
 }
 
 async function loadFreshness(): Promise<void> {
@@ -128,6 +143,7 @@ async function loadFreshness(): Promise<void> {
   try {
     freshness.value = await fetchFundNavFreshness(
       staleAfterBusinessDays.value,
+      qdiiStaleAfterBusinessDays.value,
     );
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : '净值新鲜度加载失败';
@@ -155,7 +171,7 @@ onMounted(loadFreshness);
 }
 
 .freshness-actions .el-select {
-  width: 132px;
+  width: 126px;
 }
 
 .freshness-summary {

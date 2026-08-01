@@ -310,12 +310,16 @@ def test_fund_nav_scheduler_status_is_available(client: TestClient) -> None:
 def test_fund_nav_freshness_returns_empty_contract(client: TestClient) -> None:
     response = client.get(
         "/api/v1/fund/holdings/nav-freshness",
-        params={"stale_after_business_days": 3},
+        params={
+            "stale_after_business_days": 3,
+            "qdii_stale_after_business_days": 5,
+        },
     )
 
     assert response.status_code == 200
     body = response.json()["data"]
     assert body["stale_after_business_days"] == 3
+    assert body["qdii_stale_after_business_days"] == 5
     assert body["position_count"] == 0
     assert body["fund_count"] == 0
     assert body["fresh_count"] == 0

@@ -541,6 +541,7 @@ export interface FundNavFreshnessItem {
   account_names: string[];
   latest_nav_date: string | null;
   business_day_age: number | null;
+  allowed_business_days: number;
   source: string | null;
   status: 'fresh' | 'stale' | 'missing';
 }
@@ -548,6 +549,7 @@ export interface FundNavFreshnessItem {
 export interface FundNavFreshness {
   as_of_date: string;
   stale_after_business_days: number;
+  qdii_stale_after_business_days: number;
   position_count: number;
   fund_count: number;
   fresh_count: number;
@@ -602,9 +604,11 @@ export function fetchFundPositions(): Promise<FundPosition[]> {
 
 export function fetchFundNavFreshness(
   staleAfterBusinessDays = 2,
+  qdiiStaleAfterBusinessDays = 4,
 ): Promise<FundNavFreshness> {
   return getApiData<FundNavFreshness>(
-    `/fund/holdings/nav-freshness?stale_after_business_days=${staleAfterBusinessDays}`,
+    `/fund/holdings/nav-freshness?stale_after_business_days=${staleAfterBusinessDays}`
+      + `&qdii_stale_after_business_days=${qdiiStaleAfterBusinessDays}`,
   );
 }
 
