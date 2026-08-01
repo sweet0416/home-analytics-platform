@@ -303,6 +303,16 @@
             <el-input-number v-model="form.current_nav" :min="0" :precision="4" :step="0.01" />
           </label>
           <label>
+            <span>目标占比（%）</span>
+            <el-input-number
+              v-model="targetWeightPercent"
+              :min="0"
+              :max="100"
+              :precision="2"
+              :step="5"
+            />
+          </label>
+          <label>
             <span>买入日期</span>
             <el-date-picker v-model="form.opened_at" type="date" value-format="YYYY-MM-DD" />
           </label>
@@ -356,6 +366,7 @@
             <span>份额</span>
             <span>成本</span>
             <span>当前估值</span>
+            <span>目标占比</span>
             <span>浮盈亏</span>
             <span>操作</span>
           </div>
@@ -368,6 +379,7 @@
             <span>{{ formatNumber(position.shares, 4) }}</span>
             <span>{{ formatMoney(position.total_cost) }}</span>
             <span>{{ formatMoney(position.current_value) }}</span>
+            <span>{{ formatPercent(position.target_weight) }}</span>
             <span :class="profitClass(position.unrealized_profit)">
               {{ formatMoney(position.unrealized_profit) }}
             </span>
@@ -544,6 +556,7 @@ const editingPositionId = ref<number | null>(null);
 const editingWatchId = ref<number | null>(null);
 const positionSortField = ref<PositionSortField>('current_value');
 const positionSortDirection = ref<'asc' | 'desc'>('desc');
+const targetWeightPercent = ref<number | null>(null);
 
 const form = ref<FundPositionCreate>({
   fund_code: '',
@@ -736,6 +749,13 @@ function formatNullableNumber(value: string | number | null, digits = 2): string
   return formatNumber(value, digits);
 }
 
+function formatPercent(value: string | number | null): string {
+  if (value === null) return '--';
+  const numberValue = Number(value);
+  if (!Number.isFinite(numberValue)) return '--';
+  return `${(numberValue * 100).toFixed(2)}%`;
+}
+
 function profitClass(value: string | null): string {
   const numberValue = Number(value ?? 0);
   if (numberValue > 0) return 'profit positive';
@@ -745,6 +765,7 @@ function profitClass(value: string | null): string {
 
 function resetForm(): void {
   editingPositionId.value = null;
+  targetWeightPercent.value = null;
   form.value = {
     fund_code: '',
     fund_name: '',
@@ -1114,6 +1135,8 @@ async function savePosition(): Promise<void> {
       ...form.value,
       total_cost: form.value.total_cost && form.value.total_cost > 0 ? form.value.total_cost : null,
       current_nav: form.value.current_nav && form.value.current_nav > 0 ? form.value.current_nav : null,
+      target_weight:
+        targetWeightPercent.value === null ? null : targetWeightPercent.value / 100,
     };
     if (editingPositionId.value === null) {
       await createFundPosition(payload);
@@ -1133,6 +1156,8 @@ async function savePosition(): Promise<void> {
 
 function editPosition(position: FundPosition): void {
   editingPositionId.value = position.id;
+  targetWeightPercent.value =
+    position.target_weight === null ? null : Number(position.target_weight) * 100;
   form.value = {
     fund_code: position.fund_code,
     fund_name: position.fund_name,
@@ -1399,7 +1424,7 @@ onMounted(loadOverview);
   border-radius: 8px;
   display: grid;
   gap: 12px;
-  grid-template-columns: 1.5fr 0.65fr repeat(4, 0.8fr) 0.95fr;
+  grid-template-columns: 1.5fr 0.65fr repeat(5, 0.8fr) 0.95fr;
   padding: 11px 12px;
 }
 

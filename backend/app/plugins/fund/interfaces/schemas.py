@@ -219,6 +219,12 @@ class FundPositionCreate(BaseModel):
     cost_price: Decimal = Field(gt=0, decimal_places=4)
     total_cost: Decimal | None = Field(default=None, gt=0, decimal_places=2)
     current_nav: Decimal | None = Field(default=None, gt=0, decimal_places=4)
+    target_weight: Decimal | None = Field(
+        default=None,
+        ge=0,
+        le=1,
+        decimal_places=8,
+    )
     opened_at: date | None = None
     tags: str = Field(default="", max_length=256)
     note: str = ""
@@ -249,6 +255,7 @@ class FundPositionRead(BaseModel):
     cost_price: Decimal
     total_cost: Decimal
     current_nav: Decimal | None
+    target_weight: Decimal | None
     current_value: Decimal | None
     unrealized_profit: Decimal | None
     unrealized_return_rate: Decimal | None
@@ -406,6 +413,10 @@ class FundAllocationHoldingRead(BaseModel):
     account_name: str
     amount: Decimal
     weight: Decimal
+    target_weight: Decimal | None
+    weight_deviation: Decimal | None
+    target_amount: Decimal | None
+    calibration_amount: Decimal | None
     valuation_basis: Literal["current_nav", "cost"]
 
 
@@ -416,6 +427,10 @@ class FundAllocationRead(BaseModel):
     cost_fallback_count: int
     top_holding_weight: Decimal | None
     concentration_hhi: Decimal | None
+    configured_target_count: int
+    target_weight_total: Decimal
+    target_configuration_complete: bool
+    target_warning: str
     by_fund_type: list[FundAllocationGroupRead]
     by_account: list[FundAllocationGroupRead]
     holdings: list[FundAllocationHoldingRead]

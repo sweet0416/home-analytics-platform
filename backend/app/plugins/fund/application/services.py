@@ -886,6 +886,7 @@ class FundService:
             cost_price=payload.cost_price,
             total_cost=payload.normalized_total_cost,
             current_nav=payload.current_nav,
+            target_weight=payload.target_weight,
             opened_at=payload.opened_at,
             tags=payload.tags,
             note=payload.note,
@@ -916,6 +917,7 @@ class FundService:
             cost_price=payload.cost_price,
             total_cost=payload.normalized_total_cost,
             current_nav=payload.current_nav,
+            target_weight=payload.target_weight,
             opened_at=payload.opened_at,
             tags=payload.tags,
             note=payload.note,
@@ -1109,6 +1111,26 @@ class FundService:
             for position in positions
         ]
         total_amount = sum((amount for _, amount, _ in valued), Decimal("0"))
+        configured_target_count = len(
+            [position for position in positions if position.target_weight is not None]
+        )
+        target_weight_total = sum(
+            (
+                position.target_weight
+                for position in positions
+                if position.target_weight is not None
+            ),
+            Decimal("0"),
+        )
+        target_configuration_complete = bool(positions) and (
+            configured_target_count == len(positions)
+            and abs(target_weight_total - Decimal("1")) <= Decimal("0.0001")
+        )
+        target_warning = self._target_allocation_warning(
+            position_count=len(positions),
+            configured_target_count=configured_target_count,
+            target_weight_total=target_weight_total,
+        )
 
         holdings = [
             FundAllocationHoldingRead(
@@ -1119,6 +1141,22 @@ class FundService:
                 account_name=position.account_name,
                 amount=amount,
                 weight=amount / total_amount if total_amount > 0 else Decimal("0"),
+                target_weight=position.target_weight,
+                weight_deviation=(
+                    amount / total_amount - position.target_weight
+                    if total_amount > 0 and position.target_weight is not None
+                    else None
+                ),
+                target_amount=(
+                    total_amount * position.target_weight
+                    if position.target_weight is not None
+                    else None
+                ),
+                calibration_amount=(
+                    total_amount * position.target_weight - amount
+                    if position.target_weight is not None
+                    else None
+                ),
                 valuation_basis=basis,
             )
             for position, amount, basis in valued
@@ -1149,6 +1187,10 @@ class FundService:
                 if fund_weights
                 else None
             ),
+            configured_target_count=configured_target_count,
+            target_weight_total=target_weight_total,
+            target_configuration_complete=target_configuration_complete,
+            target_warning=target_warning,
             by_fund_type=self._build_allocation_groups(
                 valued,
                 total_amount=total_amount,
@@ -1161,6 +1203,29 @@ class FundService:
             ),
             holdings=holdings,
         )
+
+    @staticmethod
+    def _target_allocation_warning(
+        *,
+        position_count: int,
+        configured_target_count: int,
+        target_weight_total: Decimal,
+    ) -> str:
+        if position_count == 0:
+            return ""
+        if configured_target_count == 0:
+            return "尚未设置目标占比，当前仅展示实际配置。"
+        if configured_target_count < position_count:
+            return (
+                f"已设置 {configured_target_count}/{position_count} 条持仓的目标占比，"
+                "补齐后才能完整比较配置偏离。"
+            )
+        if abs(target_weight_total - Decimal("1")) > Decimal("0.0001"):
+            return (
+                f"目标占比合计为 {target_weight_total * 100:.2f}%，"
+                "应调整为 100% 后再解读校准金额。"
+            )
+        return "目标占比配置完整；校准金额仅用于结构测算，不构成交易建议。"
 
     def get_holding_risk(self, limit: int = 365) -> FundHoldingRiskRead:
         bounded_limit = max(2, min(limit, 500))
@@ -2098,6 +2163,7 @@ class FundService:
             cost_price=position.cost_price,
             total_cost=position.total_cost,
             current_nav=position.current_nav,
+            target_weight=position.target_weight,
             current_value=current_value,
             unrealized_profit=unrealized_profit,
             unrealized_return_rate=unrealized_return_rate,

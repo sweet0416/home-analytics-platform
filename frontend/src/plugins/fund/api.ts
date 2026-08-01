@@ -53,6 +53,7 @@ export interface FundPosition {
   cost_price: string;
   total_cost: string;
   current_nav: string | null;
+  target_weight: string | null;
   current_value: string | null;
   unrealized_profit: string | null;
   unrealized_return_rate: string | null;
@@ -210,6 +211,7 @@ export interface FundPositionCreate {
   cost_price: number;
   total_cost?: number | null;
   current_nav?: number | null;
+  target_weight?: number | null;
   opened_at?: string | null;
   tags: string;
   note: string;
@@ -302,6 +304,10 @@ export interface FundAllocationHolding {
   account_name: string;
   amount: string;
   weight: string;
+  target_weight: string | null;
+  weight_deviation: string | null;
+  target_amount: string | null;
+  calibration_amount: string | null;
   valuation_basis: 'current_nav' | 'cost';
 }
 
@@ -312,6 +318,10 @@ export interface FundAllocation {
   cost_fallback_count: number;
   top_holding_weight: string | null;
   concentration_hhi: string | null;
+  configured_target_count: number;
+  target_weight_total: string;
+  target_configuration_complete: boolean;
+  target_warning: string;
   by_fund_type: FundAllocationGroup[];
   by_account: FundAllocationGroup[];
   holdings: FundAllocationHolding[];

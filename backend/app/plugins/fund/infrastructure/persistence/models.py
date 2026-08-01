@@ -101,6 +101,10 @@ class FundPositionModel(Base):
     cost_price: Mapped[Decimal] = mapped_column(Numeric(18, 4))
     total_cost: Mapped[Decimal] = mapped_column(Numeric(18, 2))
     current_nav: Mapped[Decimal | None] = mapped_column(Numeric(18, 4), nullable=True)
+    target_weight: Mapped[Decimal | None] = mapped_column(
+        Numeric(12, 8),
+        nullable=True,
+    )
     opened_at: Mapped[date | None] = mapped_column(Date, nullable=True)
     tags: Mapped[str] = mapped_column(String(256), default="")
     note: Mapped[str] = mapped_column(Text, default="")

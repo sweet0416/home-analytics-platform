@@ -22,8 +22,8 @@ FUND_MODULES = [
     {
         "code": "allocation",
         "name": "资产配置",
-        "description": "已支持持仓、账户配置和季度股票披露穿透，后续补充目标 ETF 二级穿透。",
-        "status": "in_progress",
+        "description": "支持持仓与账户配置、目标占比偏离、季度股票披露和目标 ETF 二级穿透。",
+        "status": "completed",
     },
     {
         "code": "report",

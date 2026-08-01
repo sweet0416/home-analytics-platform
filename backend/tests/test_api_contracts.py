@@ -296,7 +296,7 @@ def test_fund_status_endpoint_returns_operational_contract(client: TestClient) -
     assert response.status_code == 200
     body = response.json()["data"]
     assert body["plugin"] == "fund"
-    assert body["version"] == "0.5.0"
+    assert body["version"] == "0.6.0"
     assert body["status"] == "operational"
     assert body["data_source_status"] == "configured"
     assert body["storage_status"] == "storage_ready"
@@ -423,6 +423,7 @@ def test_fund_allocation_uses_nav_and_cost_fallback(client: TestClient) -> None:
             "shares": "100",
             "cost_price": "1.0000",
             "current_nav": "2.0000",
+            "target_weight": "0.50000000",
             "tags": "",
             "note": "",
         },
@@ -433,6 +434,7 @@ def test_fund_allocation_uses_nav_and_cost_fallback(client: TestClient) -> None:
             "account_name": "Account B",
             "shares": "100",
             "cost_price": "1.0000",
+            "target_weight": "0.10000000",
             "tags": "",
             "note": "",
         },
@@ -444,6 +446,7 @@ def test_fund_allocation_uses_nav_and_cost_fallback(client: TestClient) -> None:
             "shares": "100",
             "cost_price": "2.0000",
             "current_nav": "2.0000",
+            "target_weight": "0.40000000",
             "tags": "",
             "note": "",
         },
@@ -462,12 +465,44 @@ def test_fund_allocation_uses_nav_and_cost_fallback(client: TestClient) -> None:
     assert body["cost_fallback_count"] == 1
     assert body["top_holding_weight"] == "0.6"
     assert body["concentration_hhi"] == "0.52"
+    assert body["configured_target_count"] == 3
+    assert body["target_weight_total"] == "1.00000000"
+    assert body["target_configuration_complete"] is True
+    assert "不构成交易建议" in body["target_warning"]
     assert body["by_fund_type"][0]["label"] == "ETF"
     assert body["by_fund_type"][0]["weight"] == "0.6"
     assert {holding["valuation_basis"] for holding in body["holdings"]} == {
         "current_nav",
         "cost",
     }
+    account_a = next(
+        holding
+        for holding in body["holdings"]
+        if holding["account_name"] == "Account A"
+    )
+    assert account_a["target_weight"] == "0.50000000"
+    assert Decimal(account_a["weight_deviation"]) == Decimal("-0.1")
+    assert Decimal(account_a["target_amount"]) == Decimal("250")
+    assert Decimal(account_a["calibration_amount"]) == Decimal("50")
+
+
+def test_fund_position_rejects_target_weight_above_one(client: TestClient) -> None:
+    response = client.post(
+        "/api/v1/fund/positions",
+        json={
+            "fund_code": "510300",
+            "fund_name": "Core ETF",
+            "fund_type": "ETF",
+            "account_name": "Account A",
+            "shares": "100",
+            "cost_price": "1.0000",
+            "target_weight": "1.01",
+            "tags": "",
+            "note": "",
+        },
+    )
+
+    assert response.status_code == 422
 
 
 def test_fund_holding_risk_compares_unique_funds(client: TestClient) -> None:

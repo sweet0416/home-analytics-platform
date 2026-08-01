@@ -81,3 +81,32 @@ def test_fund_nav_sync_migration_skips_table_created_by_orm(
         revision.upgrade()
 
     create_table.assert_not_called()
+
+
+def test_fund_target_weight_migration_adds_missing_column(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    revision_path = (
+        Path(__file__).parents[1]
+        / "alembic"
+        / "versions"
+        / "20260801_2300_add_fund_position_target_weight.py"
+    )
+    spec = spec_from_file_location("fund_target_weight_revision", revision_path)
+    assert spec is not None and spec.loader is not None
+    revision = module_from_spec(spec)
+    spec.loader.exec_module(revision)
+    database_engine = create_engine("sqlite://")
+    with database_engine.begin() as connection:
+        connection.execute(
+            text("CREATE TABLE fund_positions (id INTEGER PRIMARY KEY)")
+        )
+        add_column = Mock()
+        monkeypatch.setattr(revision.op, "get_bind", lambda: connection)
+        monkeypatch.setattr(revision.op, "add_column", add_column)
+
+        revision.upgrade()
+
+    add_column.assert_called_once()
+    assert add_column.call_args.args[0] == "fund_positions"
+    assert add_column.call_args.args[1].name == "target_weight"

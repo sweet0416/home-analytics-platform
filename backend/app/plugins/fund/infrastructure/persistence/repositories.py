@@ -160,6 +160,7 @@ class FundRepository:
         cost_price: Decimal,
         total_cost: Decimal,
         current_nav: Decimal | None,
+        target_weight: Decimal | None = None,
         opened_at: date | None,
         tags: str,
         note: str,
@@ -171,6 +172,7 @@ class FundRepository:
             cost_price=cost_price,
             total_cost=total_cost,
             current_nav=current_nav,
+            target_weight=target_weight,
             opened_at=opened_at,
             tags=tags,
             note=note,
@@ -196,6 +198,7 @@ class FundRepository:
         cost_price: Decimal,
         total_cost: Decimal,
         current_nav: Decimal | None,
+        target_weight: Decimal | None = None,
         opened_at: date | None,
         tags: str,
         note: str,
@@ -206,6 +209,7 @@ class FundRepository:
         position.cost_price = cost_price
         position.total_cost = total_cost
         position.current_nav = current_nav
+        position.target_weight = target_weight
         position.opened_at = opened_at
         position.tags = tags
         position.note = note

@@ -32,6 +32,16 @@
               {{ allocation.current_nav_count }}/{{ allocation.position_count }} 使用当前净值
             </strong>
           </div>
+          <div>
+            <span>目标占比合计</span>
+            <strong>{{ formatPercent(allocation.target_weight_total) }}</strong>
+          </div>
+          <div>
+            <span>目标配置状态</span>
+            <strong :class="{ complete: allocation.target_configuration_complete }">
+              {{ allocation.configured_target_count }}/{{ allocation.position_count }} 已设置
+            </strong>
+          </div>
         </div>
 
         <div class="allocation-toolbar">
@@ -73,7 +83,10 @@
             <span>基金</span>
             <span>账户</span>
             <span>估值金额</span>
-            <span>占比</span>
+            <span>实际占比</span>
+            <span>目标占比</span>
+            <span>偏离</span>
+            <span>校准金额</span>
             <span>估值依据</span>
           </div>
           <div
@@ -88,14 +101,24 @@
             <span>{{ holding.account_name }}</span>
             <span>{{ formatMoney(holding.amount) }}</span>
             <span>{{ formatPercent(holding.weight) }}</span>
+            <span>{{ formatPercent(holding.target_weight) }}</span>
+            <span :class="deviationClass(holding.weight_deviation)">
+              {{ formatSignedPercent(holding.weight_deviation) }}
+            </span>
+            <span :class="calibrationClass(holding.calibration_amount)">
+              {{ formatSignedMoney(holding.calibration_amount) }}
+            </span>
             <span :class="{ fallback: holding.valuation_basis === 'cost' }">
               {{ holding.valuation_basis === 'current_nav' ? '当前净值' : '成本估算' }}
             </span>
           </div>
         </div>
 
+        <p class="allocation-note" :class="{ warning: !allocation.target_configuration_complete }">
+          {{ allocation.target_warning }}
+        </p>
         <p class="allocation-note">
-          本区仅按基金类型和账户汇总；下方底层资产穿透会结合季度股票披露与已配置的目标 ETF 关系，仍不代表实时持仓。
+          正数校准金额表示按当前组合总额计算的待提高空间，负数表示待降低空间；不考虑交易费用、税费和市场波动，不构成交易建议。
         </p>
       </div>
       <EmptyState
@@ -218,6 +241,36 @@ function formatHhi(value: string | null): string {
   return numeric.toFixed(4);
 }
 
+function formatSignedPercent(value: string | null): string {
+  if (value === null) return '--';
+  const numeric = Number(value) * 100;
+  if (!Number.isFinite(numeric)) return '--';
+  return `${numeric > 0 ? '+' : ''}${numeric.toFixed(2)}%`;
+}
+
+function formatSignedMoney(value: string | null): string {
+  if (value === null) return '--';
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return '--';
+  return `${numeric > 0 ? '+' : ''}¥${numeric.toLocaleString('zh-CN', {
+    maximumFractionDigits: 2,
+  })}`;
+}
+
+function deviationClass(value: string | null): string {
+  const numeric = Number(value ?? 0);
+  if (numeric > 0) return 'deviation high';
+  if (numeric < 0) return 'deviation low';
+  return 'deviation';
+}
+
+function calibrationClass(value: string | null): string {
+  const numeric = Number(value ?? 0);
+  if (numeric > 0) return 'calibration increase';
+  if (numeric < 0) return 'calibration decrease';
+  return 'calibration';
+}
+
 function resizeChart(): void {
   chart?.resize();
 }
@@ -259,7 +312,7 @@ onBeforeUnmount(() => {
   border-bottom: 1px solid rgba(148, 163, 184, 0.14);
   display: grid;
   gap: 12px;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   padding-bottom: 14px;
 }
 
@@ -325,7 +378,7 @@ onBeforeUnmount(() => {
 }
 
 .holding-row {
-  grid-template-columns: 1.5fr 0.8fr 0.85fr 0.65fr 0.7fr;
+  grid-template-columns: 1.45fr 0.7fr 0.8fr repeat(3, 0.65fr) 0.85fr 0.65fr;
 }
 
 .allocation-row span,
@@ -357,6 +410,24 @@ onBeforeUnmount(() => {
   margin: 0;
 }
 
+.allocation-note.warning,
+.deviation.high {
+  color: #fbbf24;
+}
+
+.deviation.low,
+.complete {
+  color: #34d399;
+}
+
+.calibration.increase {
+  color: #7dd3fc;
+}
+
+.calibration.decrease {
+  color: #fbbf24;
+}
+
 @media (max-width: 920px) {
   .allocation-summary {
     grid-template-columns: 1fr 1fr;
@@ -383,7 +454,7 @@ onBeforeUnmount(() => {
   }
 
   .holding-row {
-    min-width: 680px;
+    min-width: 980px;
   }
 }
 </style>
