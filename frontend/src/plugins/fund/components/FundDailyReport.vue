@@ -85,6 +85,45 @@
           </div>
         </div>
 
+        <div class="analysis-context">
+          <div class="analysis-context-heading">
+            <div>
+              <strong>结构化分析摘要</strong>
+              <span>{{ report.analysis_context.contract_version }}</span>
+            </div>
+            <span class="quality-badge" :class="`is-${qualityLevel}`">
+              {{ qualityLabel }}
+            </span>
+          </div>
+          <div class="analysis-context-metrics">
+            <div>
+              <span>风险覆盖</span>
+              <strong>
+                {{ report.analysis_context.data_quality.risk_covered_fund_count }}/{{
+                  report.analysis_context.data_quality.risk_fund_count
+                }} 只
+              </strong>
+            </div>
+            <div>
+              <span>风险样本</span>
+              <strong>{{ report.analysis_context.data_quality.risk_sample_count }} 个</strong>
+            </div>
+            <div>
+              <span>目标配置</span>
+              <strong>
+                {{ report.analysis_context.data_quality.target_configured_count }}/{{
+                  report.analysis_context.data_quality.position_count
+                }} 条
+              </strong>
+            </div>
+            <div>
+              <span>可追溯事实</span>
+              <strong>{{ report.analysis_context.facts.length }} 项</strong>
+            </div>
+          </div>
+          <p>当前内容由固定规则生成，为后续 AI 总结提供带样本口径的数据，不直接生成投资结论。</p>
+        </div>
+
         <div v-if="report.holding_risk.fund_count" class="risk-digest">
           <div class="risk-digest-title">
             <strong>风险摘要</strong>
@@ -168,6 +207,19 @@ const profitClass = computed(() => {
   if (value > 0) return 'is-profit';
   if (value < 0) return 'is-loss';
   return '';
+});
+
+const qualityLevel = computed(
+  () => report.value?.analysis_context.data_quality.level ?? 'insufficient',
+);
+
+const qualityLabel = computed(() => {
+  const labels = {
+    complete: '数据完整',
+    partial: '部分可用',
+    insufficient: '样本不足',
+  } as const;
+  return labels[qualityLevel.value];
 });
 
 const analyzedRiskItems = computed(() =>
@@ -359,6 +411,70 @@ watch(
   padding-block: 14px;
 }
 
+.analysis-context {
+  border-block: 1px solid rgba(148, 163, 184, 0.14);
+  display: grid;
+  gap: 10px;
+  padding-block: 14px;
+}
+
+.analysis-context-heading,
+.analysis-context-heading > div {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.analysis-context-heading > div {
+  justify-content: flex-start;
+}
+
+.analysis-context-heading span,
+.analysis-context p,
+.analysis-context-metrics span {
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
+.analysis-context-metrics {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.analysis-context-metrics div {
+  display: grid;
+  gap: 4px;
+}
+
+.analysis-context-metrics strong {
+  color: var(--color-text);
+  font-size: 14px;
+}
+
+.analysis-context p {
+  line-height: 1.6;
+  margin: 0;
+}
+
+.quality-badge {
+  border: 1px solid rgba(56, 189, 248, 0.28);
+  border-radius: 6px;
+  color: #7dd3fc !important;
+  padding: 4px 8px;
+}
+
+.quality-badge.is-complete {
+  border-color: rgba(52, 211, 153, 0.3);
+  color: #34d399 !important;
+}
+
+.quality-badge.is-insufficient {
+  border-color: rgba(251, 191, 36, 0.3);
+  color: #fbbf24 !important;
+}
+
 .risk-digest-title {
   align-items: baseline;
   display: flex;
@@ -457,6 +573,7 @@ watch(
 
   .report-metrics,
   .report-status,
+  .analysis-context-metrics,
   .risk-digest-metrics {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }

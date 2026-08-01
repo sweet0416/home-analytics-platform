@@ -296,7 +296,7 @@ def test_fund_status_endpoint_returns_operational_contract(client: TestClient) -
     assert response.status_code == 200
     body = response.json()["data"]
     assert body["plugin"] == "fund"
-    assert body["version"] == "0.6.0"
+    assert body["version"] == "0.7.0"
     assert body["status"] == "operational"
     assert body["data_source_status"] == "configured"
     assert body["storage_status"] == "storage_ready"
@@ -849,6 +849,16 @@ def test_fund_daily_report_summarizes_data_quality(client: TestClient) -> None:
     assert empty["holding_summary"]["position_count"] == 0
     assert empty["holding_risk"]["fund_count"] == 0
     assert empty["valuation_complete"] is False
+    assert empty["analysis_context"]["contract_version"] == "fund-daily-context.v1"
+    assert empty["analysis_context"]["data_quality"]["level"] == "insufficient"
+    assert empty["analysis_context"]["data_quality"]["risk_sample_count"] == 0
+    assert {
+        fact["code"] for fact in empty["analysis_context"]["facts"]
+    } == {
+        "valuation_coverage",
+        "risk_coverage",
+        "target_configuration",
+    }
     assert {alert["code"] for alert in empty["alerts"]} == {
         "no_positions",
         "nav_missing",
@@ -890,6 +900,16 @@ def test_fund_daily_report_summarizes_data_quality(client: TestClient) -> None:
     assert Decimal(body["allocation"]["total_amount"]) == Decimal("400")
     assert body["valuation_complete"] is False
     assert body["nav_age_days"] is None
+    context = body["analysis_context"]
+    assert context["data_quality"]["level"] == "partial"
+    assert context["data_quality"]["position_count"] == 2
+    assert context["data_quality"]["valued_position_count"] == 1
+    assert context["data_quality"]["target_configuration_complete"] is False
+    assert context["data_quality"]["warnings"]
+    assert "unrealized_return_rate" in {
+        fact["code"] for fact in context["facts"]
+    }
+    assert len(context["disclaimers"]) == 3
     assert {alert["code"] for alert in body["alerts"]} == {
         "valuation_incomplete",
         "nav_missing",

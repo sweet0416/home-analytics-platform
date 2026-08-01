@@ -675,6 +675,39 @@ class FundDailyAlertRead(BaseModel):
     message: str
 
 
+class FundDailyDataQualityRead(BaseModel):
+    level: Literal["complete", "partial", "insufficient"]
+    position_count: int
+    valued_position_count: int
+    latest_nav_date: date | None
+    nav_age_days: int | None
+    risk_fund_count: int
+    risk_covered_fund_count: int
+    risk_sample_count: int
+    target_configured_count: int
+    target_configuration_complete: bool
+    target_weight_total: Decimal
+    warnings: list[str]
+
+
+class FundDailyFactRead(BaseModel):
+    code: str
+    category: Literal["performance", "risk", "allocation", "data_quality"]
+    label: str
+    value: str
+    unit: str
+    sample_scope: str
+    severity: Literal["info", "warning"]
+
+
+class FundDailyAnalysisContextRead(BaseModel):
+    contract_version: Literal["fund-daily-context.v1"]
+    report_date: date
+    data_quality: FundDailyDataQualityRead
+    facts: list[FundDailyFactRead]
+    disclaimers: list[str]
+
+
 class FundDailyReportRead(BaseModel):
     report_date: date
     generated_at: datetime
@@ -687,6 +720,7 @@ class FundDailyReportRead(BaseModel):
     valuation_complete: bool
     nav_age_days: int | None
     alerts: list[FundDailyAlertRead]
+    analysis_context: FundDailyAnalysisContextRead
 
 
 class FundDailyPushRequest(BaseModel):

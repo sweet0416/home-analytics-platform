@@ -28,7 +28,7 @@ FUND_MODULES = [
     {
         "code": "report",
         "name": "基金日报",
-        "description": "已支持数据汇总和 Bark 推送，后续接入 AI 总结。",
+        "description": "已支持数据汇总、结构化分析上下文和 Bark 推送，后续接入 AI 总结。",
         "status": "in_progress",
     },
 ]

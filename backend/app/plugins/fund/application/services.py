@@ -58,6 +58,9 @@ from app.plugins.fund.interfaces.schemas import (
     FundCorrelationMemberRead,
     FundCorrelationPairRead,
     FundDailyAlertRead,
+    FundDailyAnalysisContextRead,
+    FundDailyDataQualityRead,
+    FundDailyFactRead,
     FundDailyReportRead,
     FundDisclosureSyncItemRead,
     FundDisclosureSyncRead,
@@ -2058,6 +2061,16 @@ class FundService:
                 )
             )
 
+        analysis_context = self._build_daily_analysis_context(
+            report_date=now.date(),
+            holding_summary=holding_summary,
+            allocation=allocation,
+            holding_risk=holding_risk,
+            nav_summary=nav_summary,
+            nav_age_days=nav_age_days,
+            valuation_complete=valuation_complete,
+            alerts=alerts,
+        )
         return FundDailyReportRead(
             report_date=now.date(),
             generated_at=now,
@@ -2070,6 +2083,173 @@ class FundService:
             valuation_complete=valuation_complete,
             nav_age_days=nav_age_days,
             alerts=alerts,
+            analysis_context=analysis_context,
+        )
+
+    @staticmethod
+    def _build_daily_analysis_context(
+        *,
+        report_date: date,
+        holding_summary: FundHoldingSummaryRead,
+        allocation: FundAllocationRead,
+        holding_risk: FundHoldingRiskRead,
+        nav_summary: FundNavSummaryRead,
+        nav_age_days: int | None,
+        valuation_complete: bool,
+        alerts: list[FundDailyAlertRead],
+    ) -> FundDailyAnalysisContextRead:
+        risk_sample_count = sum(item.sample_count for item in holding_risk.items)
+        quality_warnings = [
+            alert.message
+            for alert in alerts
+            if alert.code
+            in {
+                "no_positions",
+                "valuation_incomplete",
+                "nav_missing",
+                "nav_stale",
+                "risk_history_incomplete",
+            }
+        ]
+        if holding_summary.position_count == 0:
+            quality_level = "insufficient"
+        elif (
+            valuation_complete
+            and nav_summary.latest_nav_date is not None
+            and (nav_age_days is None or nav_age_days <= 5)
+            and holding_risk.analyzed_fund_count == holding_risk.fund_count
+        ):
+            quality_level = "complete"
+        else:
+            quality_level = "partial"
+
+        facts = [
+            FundDailyFactRead(
+                code="valuation_coverage",
+                category="data_quality",
+                label="持仓估值覆盖",
+                value=(
+                    f"{holding_summary.valued_position_count}/"
+                    f"{holding_summary.position_count}"
+                ),
+                unit="条持仓",
+                sample_scope=f"截至 {report_date} 的当前持仓",
+                severity="info" if valuation_complete else "warning",
+            ),
+            FundDailyFactRead(
+                code="risk_coverage",
+                category="data_quality",
+                label="风险样本覆盖",
+                value=(
+                    f"{holding_risk.analyzed_fund_count}/"
+                    f"{holding_risk.fund_count}"
+                ),
+                unit="只基金",
+                sample_scope=(
+                    f"每只最多 {holding_risk.sample_limit} 个净值样本，"
+                    f"合计 {risk_sample_count} 个"
+                ),
+                severity=(
+                    "info"
+                    if holding_risk.fund_count > 0
+                    and holding_risk.analyzed_fund_count == holding_risk.fund_count
+                    else "warning"
+                ),
+            ),
+            FundDailyFactRead(
+                code="target_configuration",
+                category="allocation",
+                label="目标配置覆盖",
+                value=(
+                    f"{allocation.configured_target_count}/"
+                    f"{allocation.position_count}"
+                ),
+                unit="条持仓",
+                sample_scope=(
+                    f"目标占比合计 {allocation.target_weight_total * 100:.2f}%"
+                ),
+                severity=(
+                    "info" if allocation.target_configuration_complete else "warning"
+                ),
+            ),
+        ]
+        if holding_summary.unrealized_return_rate is not None:
+            facts.append(
+                FundDailyFactRead(
+                    code="unrealized_return_rate",
+                    category="performance",
+                    label="持仓浮动收益率",
+                    value=f"{holding_summary.unrealized_return_rate * 100:.2f}",
+                    unit="%",
+                    sample_scope=(
+                        f"有净值的 {holding_summary.valued_position_count} 条持仓"
+                    ),
+                    severity="info",
+                )
+            )
+        if allocation.concentration_hhi is not None:
+            facts.append(
+                FundDailyFactRead(
+                    code="allocation_hhi",
+                    category="allocation",
+                    label="持仓集中度 HHI",
+                    value=f"{allocation.concentration_hhi:.4f}",
+                    unit="指数",
+                    sample_scope=f"{allocation.position_count} 条当前持仓",
+                    severity="info",
+                )
+            )
+
+        risk_items = [
+            item for item in holding_risk.items if item.calculation_available
+        ]
+        if risk_items:
+            deepest_drawdown = min(
+                risk_items,
+                key=lambda item: item.maximum_drawdown or Decimal("0"),
+            )
+            facts.append(
+                FundDailyFactRead(
+                    code="deepest_fund_drawdown",
+                    category="risk",
+                    label="样本内最大基金回撤",
+                    value=f"{(deepest_drawdown.maximum_drawdown or Decimal('0')) * 100:.2f}",
+                    unit="%",
+                    sample_scope=(
+                        f"{deepest_drawdown.fund_name}，"
+                        f"{deepest_drawdown.start_date or '--'} 至 "
+                        f"{deepest_drawdown.end_date or '--'}，"
+                        f"{deepest_drawdown.sample_count} 个样本"
+                    ),
+                    severity="info",
+                )
+            )
+
+        return FundDailyAnalysisContextRead(
+            contract_version="fund-daily-context.v1",
+            report_date=report_date,
+            data_quality=FundDailyDataQualityRead(
+                level=quality_level,
+                position_count=holding_summary.position_count,
+                valued_position_count=holding_summary.valued_position_count,
+                latest_nav_date=nav_summary.latest_nav_date,
+                nav_age_days=nav_age_days,
+                risk_fund_count=holding_risk.fund_count,
+                risk_covered_fund_count=holding_risk.analyzed_fund_count,
+                risk_sample_count=risk_sample_count,
+                target_configured_count=allocation.configured_target_count,
+                target_configuration_complete=(
+                    allocation.target_configuration_complete
+                ),
+                target_weight_total=allocation.target_weight_total,
+                warnings=quality_warnings,
+            ),
+            facts=facts,
+            disclaimers=[
+                "数据来自 HAP 已保存记录，不代表实时行情。",
+                "风险指标仅描述历史样本，不代表未来表现。",
+                "结构化摘要用于数据分析，不构成投资建议。",
+            ],
         )
 
     def _to_nav_record_read(self, record: FundNavRecordModel) -> FundNavRecordRead:

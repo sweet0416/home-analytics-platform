@@ -593,6 +593,39 @@ export interface FundDailyAlert {
   message: string;
 }
 
+export interface FundDailyDataQuality {
+  level: 'complete' | 'partial' | 'insufficient';
+  position_count: number;
+  valued_position_count: number;
+  latest_nav_date: string | null;
+  nav_age_days: number | null;
+  risk_fund_count: number;
+  risk_covered_fund_count: number;
+  risk_sample_count: number;
+  target_configured_count: number;
+  target_configuration_complete: boolean;
+  target_weight_total: string;
+  warnings: string[];
+}
+
+export interface FundDailyFact {
+  code: string;
+  category: 'performance' | 'risk' | 'allocation' | 'data_quality';
+  label: string;
+  value: string;
+  unit: string;
+  sample_scope: string;
+  severity: 'info' | 'warning';
+}
+
+export interface FundDailyAnalysisContext {
+  contract_version: 'fund-daily-context.v1';
+  report_date: string;
+  data_quality: FundDailyDataQuality;
+  facts: FundDailyFact[];
+  disclaimers: string[];
+}
+
 export interface FundDailyReport {
   report_date: string;
   generated_at: string;
@@ -605,6 +638,7 @@ export interface FundDailyReport {
   valuation_complete: boolean;
   nav_age_days: number | null;
   alerts: FundDailyAlert[];
+  analysis_context: FundDailyAnalysisContext;
 }
 
 export interface FundDailyPushResult {
