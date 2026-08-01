@@ -8,13 +8,31 @@
     </RevealContent>
 
     <div class="grid metrics">
-      <MetricCard label="观察基金" :value="String(watchSummary?.item_count ?? 0)" meta="关注池记录" :delay="80" />
-      <MetricCard label="高优先级" :value="String(watchSummary?.high_priority_count ?? 0)" meta="优先级 1-2" :delay="120" />
-      <MetricCard label="净值记录" :value="String(navSummary?.record_count ?? 0)" :meta="latestNavMeta" :delay="160" />
-      <MetricCard label="持仓数量" :value="String(summary?.position_count ?? 0)" meta="已录入记录" :delay="200" />
+      <MetricCard label="观察基金" :value="watchCountText" meta="关注池记录" :delay="80" />
+      <MetricCard label="高优先级" :value="highPriorityCountText" meta="优先级 1-2" :delay="120" />
+      <MetricCard label="净值记录" :value="navRecordCountText" :meta="latestNavMeta" :delay="160" />
+      <MetricCard label="持仓数量" :value="positionCountText" meta="已录入记录" :delay="200" />
       <MetricCard label="浮盈亏" :value="formatMoney(summary?.unrealized_profit)" :meta="returnRateMeta" :delay="240" />
       <MetricCard label="自动净值" :value="schedulerStatusText" :meta="schedulerNextRunMeta" :delay="250" />
     </div>
+
+    <RevealContent
+      v-if="isLoading || errorMessage"
+      as="section"
+      class="overview-load-state"
+      :delay="252"
+    >
+      <span>{{ isLoading ? '正在读取基金数据...' : errorMessage }}</span>
+      <el-button
+        v-if="errorMessage"
+        :icon="Refresh"
+        plain
+        size="small"
+        @click="loadOverview"
+      >
+        重新加载
+      </el-button>
+    </RevealContent>
 
     <RevealContent
       v-if="navSchedulerStatus?.last_run"
@@ -585,17 +603,38 @@ const riskMap: Record<string, string> = {
 const statusText = (status: string): string => labelMap[status] ?? status;
 const riskText = (risk: string): string => riskMap[risk] ?? risk;
 
+const watchCountText = computed(() => (
+  watchSummary.value === null ? '--' : String(watchSummary.value.item_count)
+));
+const highPriorityCountText = computed(() => (
+  watchSummary.value === null ? '--' : String(watchSummary.value.high_priority_count)
+));
+const navRecordCountText = computed(() => (
+  navSummary.value === null ? '--' : String(navSummary.value.record_count)
+));
+const positionCountText = computed(() => (
+  summary.value === null ? '--' : String(summary.value.position_count)
+));
+
 const returnRateMeta = computed(() => {
-  if (!summary.value?.unrealized_return_rate) return '等待当前净值';
+  if (summary.value === null) return isLoading.value ? '正在加载' : '暂不可用';
+  if (summary.value.unrealized_return_rate === null) return '等待当前净值';
   return `${(Number(summary.value.unrealized_return_rate) * 100).toFixed(2)}%`;
 });
 
-const latestNavMeta = computed(() => navSummary.value?.latest_nav_date ?? '等待净值');
+const latestNavMeta = computed(() => {
+  if (navSummary.value === null) return isLoading.value ? '正在加载' : '暂不可用';
+  return navSummary.value.latest_nav_date ?? '等待净值';
+});
 const schedulerStatusText = computed(() => {
-  if (!navSchedulerStatus.value?.enabled) return '已关闭';
+  if (navSchedulerStatus.value === null) return isLoading.value ? '检查中' : '暂不可用';
+  if (!navSchedulerStatus.value.enabled) return '已关闭';
   return navSchedulerStatus.value.running ? '运行中' : '未运行';
 });
 const schedulerNextRunMeta = computed(() => {
+  if (navSchedulerStatus.value === null) {
+    return isLoading.value ? '正在读取任务状态' : '请重新加载';
+  }
   const notification = navSchedulerStatus.value?.notification_enabled
     ? ` · ${notificationChannelLabel(navSchedulerStatus.value.notification_channel)} 推送`
     : '';
@@ -1134,21 +1173,32 @@ async function removePosition(position: FundPosition): Promise<void> {
   }
 }
 
-onMounted(async () => {
+async function loadOverviewData(): Promise<void> {
+  [fundStatus.value, navSchedulerStatus.value] = await Promise.all([
+    fetchFundStatus(),
+    fetchFundNavSchedulerStatus(),
+  ]);
+  await Promise.all([loadHoldings(), loadWatchlist(), loadNavRecords()]);
+}
+
+async function loadOverview(): Promise<void> {
   isLoading.value = true;
   errorMessage.value = '';
   try {
-    [fundStatus.value, navSchedulerStatus.value] = await Promise.all([
-      fetchFundStatus(),
-      fetchFundNavSchedulerStatus(),
-    ]);
-    await Promise.all([loadHoldings(), loadWatchlist(), loadNavRecords()]);
-  } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : '基金模块状态加载失败';
+    try {
+      await loadOverviewData();
+    } catch {
+      await new Promise((resolve) => window.setTimeout(resolve, 800));
+      await loadOverviewData();
+    }
+  } catch (loadError) {
+    errorMessage.value = loadError instanceof Error ? loadError.message : '基金模块状态加载失败';
   } finally {
     isLoading.value = false;
   }
-});
+}
+
+onMounted(loadOverview);
 </script>
 
 <style scoped>
@@ -1161,6 +1211,17 @@ onMounted(async () => {
   border-block: 1px solid rgba(148, 163, 184, 0.14);
   display: flex;
   gap: 12px;
+  margin-top: 12px;
+  padding: 10px 2px;
+}
+
+.overview-load-state {
+  align-items: center;
+  border-block: 1px solid rgba(56, 189, 248, 0.2);
+  color: var(--color-muted);
+  display: flex;
+  font-size: 13px;
+  justify-content: space-between;
   margin-top: 12px;
   padding: 10px 2px;
 }
