@@ -136,6 +136,51 @@ def test_scheduled_sync_pushes_daily_report_after_new_nav(
     assert "bark sent" in scheduler._last_run["message"]
 
 
+def test_scheduled_sync_backfills_holding_history_after_new_nav(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    history_limits: list[int] = []
+
+    class FakeDb:
+        def close(self) -> None:
+            pass
+
+    class FakeService:
+        def __init__(self, repository: object, settings: object) -> None:
+            self.repository = repository
+            self.settings = settings
+
+        def sync_tracked_navs(self) -> SimpleNamespace:
+            return SimpleNamespace(total=4, succeeded=4, failed=0, updated=2)
+
+        def sync_holding_history(self, limit: int) -> SimpleNamespace:
+            history_limits.append(limit)
+            return SimpleNamespace(
+                total=4,
+                succeeded=4,
+                failed=0,
+                synced_count=1460,
+            )
+
+    settings = SimpleNamespace(
+        fund_nav_history_auto_sync_enabled=True,
+        fund_nav_history_sync_limit=365,
+        fund_nav_notify_enabled=False,
+    )
+    monkeypatch.setattr(scheduler, "_completed_date", None)
+    monkeypatch.setattr(scheduler, "SessionLocal", FakeDb)
+    monkeypatch.setattr(scheduler, "FundRepository", FakeRepository)
+    monkeypatch.setattr(scheduler, "FundService", FakeService)
+    monkeypatch.setattr(scheduler, "get_settings", lambda: settings)
+
+    scheduler._run_scheduled_fund_nav_sync()
+
+    assert history_limits == [365]
+    assert scheduler._last_run is not None
+    assert "Holding history: 4/4 succeeded" in scheduler._last_run["message"]
+    assert "1460 records" in scheduler._last_run["message"]
+
+
 def test_nav_sync_run_is_persisted(db_session: Session) -> None:
     repository = FundRepository(db_session)
     now = datetime.now(ZoneInfo(scheduler.TIMEZONE))

@@ -3,7 +3,7 @@
     <div class="panel-header">
       <div>
         <h2 class="panel-title">持仓风险比较</h2>
-        <span class="panel-meta">使用各基金自身的历史净值样本，不把不同基金强行合成一个风险值</span>
+        <span class="panel-meta">历史净值会在每日更新后自动回填，也可在这里手动同步</span>
       </div>
       <div class="risk-actions">
         <el-select v-model="sampleLimit" class="sample-select" @change="loadRisk">
@@ -18,7 +18,6 @@
           type="primary"
           :icon="Refresh"
           :loading="syncing"
-          :disabled="!risk?.fund_count"
           @click="syncHistory"
         >
           同步全部历史

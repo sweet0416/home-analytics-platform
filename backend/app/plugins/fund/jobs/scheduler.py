@@ -123,8 +123,13 @@ def _run_scheduled_fund_nav_sync() -> None:
         service = FundService(repository, settings=settings)
         result = service.sync_tracked_navs()
         notification_summary = ""
+        history_summary = ""
         if result.updated > 0:
             _completed_date = now.date()
+            history_summary = _sync_holding_history(
+                service=service,
+                settings=settings,
+            )
             notification_summary = _send_daily_report_notification(
                 service=service,
                 settings=settings,
@@ -136,6 +141,8 @@ def _run_scheduled_fund_nav_sync() -> None:
         )
         if notification_summary:
             message = f"{message} Daily report notification: {notification_summary}."
+        if history_summary:
+            message = f"{message} Holding history: {history_summary}."
         logger.info(message)
         _last_run = _save_run(
             repository,
@@ -166,6 +173,30 @@ def _run_scheduled_fund_nav_sync() -> None:
         )
     finally:
         db.close()
+
+
+def _sync_holding_history(
+    *,
+    service: FundService,
+    settings: object,
+) -> str:
+    if not getattr(settings, "fund_nav_history_auto_sync_enabled", False):
+        return ""
+    limit = int(getattr(settings, "fund_nav_history_sync_limit", 365))
+    try:
+        result = service.sync_holding_history(limit=limit)
+        summary = (
+            f"{result.succeeded}/{result.total} succeeded, "
+            f"{result.synced_count} records, {result.failed} failed"
+        )
+        if result.failed:
+            logger.warning("Fund holding history backfill partial: {}", summary)
+        else:
+            logger.info("Fund holding history backfill completed: {}", summary)
+        return summary
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("Fund holding history backfill failed: {}", exc)
+        return "failed"
 
 
 def _send_daily_report_notification(

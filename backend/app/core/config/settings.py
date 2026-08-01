@@ -59,6 +59,8 @@ class Settings(BaseSettings):
     fund_nav_sync_max_workers: int = Field(default=4, ge=1, le=10)
     fund_nav_auto_sync_enabled: bool = True
     fund_nav_sync_cron: str = "0 19-22 * * 0-4"
+    fund_nav_history_auto_sync_enabled: bool = True
+    fund_nav_history_sync_limit: int = Field(default=365, ge=60, le=500)
     fund_nav_notify_enabled: bool = True
     fund_nav_notify_channel: str = Field(
         default="bark",
