@@ -1,6 +1,8 @@
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
+from zoneinfo import ZoneInfo
 
+from apscheduler.triggers.cron import CronTrigger
 from sqlalchemy.orm import Session
 
 from app.plugins.fund.application.services import FundService
@@ -23,6 +25,21 @@ class LatestNavSourceStub:
             source="test",
             source_url="https://example.test/nav",
         )
+
+
+def test_fund_nav_cron_runs_monday_through_friday() -> None:
+    timezone = ZoneInfo("Asia/Shanghai")
+    trigger = CronTrigger.from_crontab(
+        "0 19-22 * * 0-4",
+        timezone=timezone,
+    )
+
+    next_run = trigger.get_next_fire_time(
+        None,
+        datetime(2026, 7, 31, 22, 30, tzinfo=timezone),
+    )
+
+    assert next_run == datetime(2026, 8, 3, 19, 0, tzinfo=timezone)
 
 
 def test_tracked_sync_does_not_treat_existing_latest_date_as_updated(

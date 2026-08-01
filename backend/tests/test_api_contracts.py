@@ -302,7 +302,7 @@ def test_fund_nav_scheduler_status_is_available(client: TestClient) -> None:
     body = response.json()["data"]
     assert body["enabled"] is True
     assert body["running"] is True
-    assert body["cron"] == "0 19-22 * * 1-5"
+    assert body["cron"] == "0 19-22 * * 0-4"
     assert body["timezone"] == "Asia/Shanghai"
     assert body["next_run_at"] is not None
 
