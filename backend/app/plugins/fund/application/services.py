@@ -243,9 +243,13 @@ class FundService:
             fund_positions = positions_by_fund_id[fund_id]
             fund = fund_positions[0].fund
             latest = latest_by_fund_id.get(fund_id)
+            is_qdii = any(
+                "QDII" in value.upper()
+                for value in (fund.fund_type, fund.name)
+            )
             allowed_business_days = (
                 qdii_stale_after_business_days
-                if "QDII" in fund.fund_type.upper()
+                if is_qdii
                 else stale_after_business_days
             )
             if latest is None:

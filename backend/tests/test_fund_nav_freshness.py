@@ -27,13 +27,17 @@ def test_nav_freshness_summarizes_unique_position_funds(
         "000001": (date(2026, 7, 31), "ETF"),
         "000002": (date(2026, 7, 29), "ETF"),
         "000003": (None, "ETF"),
-        "000004": (date(2026, 7, 29), "QDII"),
+        "000004": (date(2026, 7, 29), "ETF"),
     }
     for index, (fund_code, case) in enumerate(fund_cases.items(), start=1):
         nav_date, fund_type = case
         fund = repository.upsert_fund(
             code=fund_code,
-            name=f"Fund {index}",
+            name=(
+                "Fund 4 (QDII)"
+                if fund_code == "000004"
+                else f"Fund {index}"
+            ),
             fund_type=fund_type,
         )
         repository.create_position(
