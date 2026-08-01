@@ -88,6 +88,8 @@ from app.plugins.fund.interfaces.schemas import (
     FundPositionCreate,
     FundPositionRead,
     FundPositionUpdate,
+    FundProfileSyncItemRead,
+    FundProfileSyncRead,
     FundRiskContributionItemRead,
     FundRiskContributionRead,
     FundTargetLinkCreate,
@@ -304,6 +306,83 @@ class FundService:
                     item.fund_code,
                 ),
             ),
+        )
+
+    def sync_held_fund_profiles(self) -> FundProfileSyncRead:
+        funds_by_id = {
+            position.fund_id: position.fund
+            for position in self.repository.list_positions()
+        }
+        source = self.nav_source or self._build_default_nav_source()
+        items: list[FundProfileSyncItemRead] = []
+
+        for fund_id in sorted(funds_by_id):
+            fund = funds_by_id[fund_id]
+            previous_type = fund.fund_type
+            try:
+                detected_type = source.fetch_profile_type(fund.code)
+                is_qdii = (
+                    "QDII" in detected_type.upper()
+                    or "海外" in detected_type
+                )
+                current_type = "QDII" if is_qdii else previous_type
+                status = (
+                    "updated"
+                    if current_type != previous_type
+                    else "unchanged"
+                )
+                if status == "updated":
+                    self.repository.upsert_fund(
+                        code=fund.code,
+                        name=fund.name,
+                        fund_type=current_type,
+                    )
+                items.append(
+                    FundProfileSyncItemRead(
+                        fund_code=fund.code,
+                        fund_name=fund.name,
+                        previous_type=previous_type,
+                        detected_type=detected_type,
+                        current_type=current_type,
+                        status=status,
+                        message=(
+                            "Fund type normalized from profile."
+                            if status == "updated"
+                            else "Existing fund type retained."
+                        ),
+                    )
+                )
+            except Exception as exc:
+                message = (
+                    exc.message
+                    if isinstance(exc, AppError)
+                    else "Fund profile sync failed."
+                )
+                logger.warning(
+                    "Fund profile sync failed for {}: {}",
+                    fund.code,
+                    exc,
+                )
+                items.append(
+                    FundProfileSyncItemRead(
+                        fund_code=fund.code,
+                        fund_name=fund.name,
+                        previous_type=previous_type,
+                        detected_type=None,
+                        current_type=previous_type,
+                        status="failed",
+                        message=message,
+                    )
+                )
+
+        if any(item.status == "updated" for item in items):
+            self.repository.commit()
+        return FundProfileSyncRead(
+            total=len(items),
+            updated=sum(item.status == "updated" for item in items),
+            unchanged=sum(item.status == "unchanged" for item in items),
+            failed=sum(item.status == "failed" for item in items),
+            items=items,
         )
 
     def list_transactions(self, limit: int = 100) -> list[FundTransactionRead]:

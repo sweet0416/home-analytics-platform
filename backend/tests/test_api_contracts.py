@@ -19,6 +19,20 @@ def test_eastmoney_fund_nav_source_decodes_utf8_without_charset() -> None:
     assert "æ" not in content
 
 
+def test_eastmoney_fund_profile_source_parses_fund_type() -> None:
+    content = """
+    <table>
+      <tr><td>基金代码</td><td>050025</td></tr>
+      <tr><td>基金类型</td><td>指数型-海外股票</td></tr>
+    </table>
+    """
+
+    assert (
+        EastmoneyFundNavSource.parse_profile_type(content)
+        == "指数型-海外股票"
+    )
+
+
 def test_eastmoney_fund_nav_source_parses_latest_record() -> None:
     source = EastmoneyFundNavSource()
     content = """
@@ -327,6 +341,20 @@ def test_fund_nav_freshness_returns_empty_contract(client: TestClient) -> None:
     assert body["missing_count"] == 0
     assert body["oldest_nav_date"] is None
     assert body["items"] == []
+
+
+def test_fund_profile_sync_returns_empty_contract(client: TestClient) -> None:
+    response = client.post("/api/v1/fund/holdings/sync-profiles")
+
+    assert response.status_code == 200
+    body = response.json()["data"]
+    assert body == {
+        "total": 0,
+        "updated": 0,
+        "unchanged": 0,
+        "failed": 0,
+        "items": [],
+    }
 
 
 def test_fund_positions_can_be_created_and_summarized(client: TestClient) -> None:

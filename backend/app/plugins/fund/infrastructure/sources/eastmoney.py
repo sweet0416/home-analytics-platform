@@ -6,6 +6,7 @@ from datetime import UTC, date, datetime
 from decimal import Decimal, InvalidOperation
 
 import requests
+from bs4 import BeautifulSoup
 
 from app.shared.exceptions.base import AppError
 from app.shared.exceptions.codes import ErrorCode
@@ -27,6 +28,7 @@ class EastmoneyFundNavSource:
     source = "eastmoney"
     default_url_template = "https://fund.eastmoney.com/pingzhongdata/{fund_code}.js"
     referer_template = "https://fund.eastmoney.com/{fund_code}.html"
+    profile_url_template = "https://fundf10.eastmoney.com/jbgk_{fund_code}.html"
 
     def __init__(
         self,
@@ -81,6 +83,53 @@ class EastmoneyFundNavSource:
                 message=f"Eastmoney fund NAV history could not be parsed: {exc}",
                 status_code=502,
             ) from exc
+
+    def fetch_profile_type(self, fund_code: str) -> str:
+        normalized_code = fund_code.strip()
+        source_url = self.profile_url_template.format(fund_code=normalized_code)
+        try:
+            response = self.session.get(
+                source_url,
+                headers={
+                    "Accept": "text/html,application/xhtml+xml",
+                    "Referer": self.referer_template.format(
+                        fund_code=normalized_code
+                    ),
+                    "User-Agent": "Mozilla/5.0 HAP/1.1",
+                },
+                timeout=self.timeout_seconds,
+            )
+            response.raise_for_status()
+        except requests.RequestException as exc:
+            raise AppError(
+                code=ErrorCode.fund_nav_source_unavailable,
+                message=f"Eastmoney fund profile source is unavailable: {exc}",
+                status_code=502,
+            ) from exc
+
+        fund_type = self.parse_profile_type(self._decode_response(response))
+        if fund_type is None:
+            raise AppError(
+                code=ErrorCode.fund_nav_parse_failed,
+                message="Eastmoney fund profile did not include fund type.",
+                status_code=502,
+            )
+        return fund_type
+
+    @staticmethod
+    def parse_profile_type(content: str) -> str | None:
+        soup = BeautifulSoup(content, "html.parser")
+        for cell in soup.find_all(["th", "td"]):
+            label = "".join(cell.get_text(" ", strip=True).split())
+            if label != "基金类型":
+                continue
+            value_cell = cell.find_next_sibling(["th", "td"])
+            if value_cell is None:
+                continue
+            value = value_cell.get_text(" ", strip=True)
+            if value:
+                return value
+        return None
 
     def _fetch_script(self, fund_code: str) -> tuple[str, str]:
         source_url = self._build_source_url(fund_code)

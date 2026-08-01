@@ -30,6 +30,12 @@
             :value="option"
           />
         </el-select>
+        <el-button
+          :loading="profileSyncing"
+          @click="syncProfiles"
+        >
+          校准类型
+        </el-button>
         <el-button :icon="Refresh" :loading="loading" @click="loadFreshness">
           刷新
         </el-button>
@@ -55,6 +61,10 @@
           <strong class="status-missing">{{ freshness.missing_count }}</strong>
         </div>
       </div>
+
+      <p v-if="profileSyncMessage" class="profile-sync-message">
+        {{ profileSyncMessage }}
+      </p>
 
       <div v-if="freshness?.items.length" class="freshness-table">
         <div class="freshness-row table-head">
@@ -101,6 +111,7 @@ import { computed, onMounted, ref, watch } from 'vue';
 
 import {
   fetchFundNavFreshness,
+  syncHeldFundProfiles,
   type FundNavFreshness,
   type FundNavFreshnessItem,
 } from '@/plugins/fund/api';
@@ -110,6 +121,9 @@ const props = withDefaults(defineProps<{
 }>(), {
   refreshKey: 0,
 });
+const emit = defineEmits<{
+  profilesSynced: [];
+}>();
 
 const thresholdOptions = [1, 2, 3, 5];
 const qdiiThresholdOptions = [2, 3, 4, 5, 7];
@@ -117,6 +131,8 @@ const staleAfterBusinessDays = ref(2);
 const qdiiStaleAfterBusinessDays = ref(4);
 const freshness = ref<FundNavFreshness | null>(null);
 const loading = ref(false);
+const profileSyncing = ref(false);
+const profileSyncMessage = ref('');
 const errorMessage = ref('');
 
 const statusLabels: Record<FundNavFreshnessItem['status'], string> = {
@@ -152,6 +168,21 @@ async function loadFreshness(): Promise<void> {
   }
 }
 
+async function syncProfiles(): Promise<void> {
+  profileSyncing.value = true;
+  profileSyncMessage.value = '';
+  try {
+    const result = await syncHeldFundProfiles();
+    profileSyncMessage.value = `类型校准完成：更新 ${result.updated}，保持 ${result.unchanged}，失败 ${result.failed}`;
+    await loadFreshness();
+    emit('profilesSynced');
+  } catch (error) {
+    profileSyncMessage.value = error instanceof Error ? error.message : '基金类型校准失败';
+  } finally {
+    profileSyncing.value = false;
+  }
+}
+
 watch(() => props.refreshKey, () => {
   if (hasLoaded.value) void loadFreshness();
 });
@@ -167,6 +198,7 @@ onMounted(loadFreshness);
 .freshness-actions {
   align-items: center;
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
@@ -198,6 +230,12 @@ onMounted(loadFreshness);
 .freshness-summary strong {
   font-size: 17px;
   font-variant-numeric: tabular-nums;
+}
+
+.profile-sync-message {
+  color: #67e8f9;
+  font-size: 12px;
+  margin: 0 0 12px;
 }
 
 .freshness-table {

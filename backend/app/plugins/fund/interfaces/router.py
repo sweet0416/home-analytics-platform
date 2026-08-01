@@ -35,6 +35,7 @@ from app.plugins.fund.interfaces.schemas import (
     FundPositionCreate,
     FundPositionRead,
     FundPositionUpdate,
+    FundProfileSyncRead,
     FundRiskContributionRead,
     FundStatusRead,
     FundTargetLinkCreate,
@@ -108,6 +109,16 @@ def get_fund_nav_freshness(
             qdii_stale_after_business_days=qdii_stale_after_business_days,
         )
     )
+
+
+@router.post(
+    "/holdings/sync-profiles",
+    response_model=ApiResponse[FundProfileSyncRead],
+)
+def sync_held_fund_profiles(
+    service: FundService = Depends(get_fund_service),
+) -> ApiResponse[FundProfileSyncRead]:
+    return ok(service.sync_held_fund_profiles())
 
 
 @router.get("/transactions", response_model=ApiResponse[list[FundTransactionRead]])

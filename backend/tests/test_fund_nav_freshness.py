@@ -8,6 +8,14 @@ from app.plugins.fund.domain.nav_freshness import count_business_days_since
 from app.plugins.fund.infrastructure.persistence.repositories import FundRepository
 
 
+class ProfileSourceStub:
+    def __init__(self, fund_types: dict[str, str]) -> None:
+        self.fund_types = fund_types
+
+    def fetch_profile_type(self, fund_code: str) -> str:
+        return self.fund_types[fund_code]
+
+
 def test_business_day_age_excludes_weekends() -> None:
     assert count_business_days_since(
         date(2026, 7, 31),
@@ -83,3 +91,47 @@ def test_nav_freshness_summarizes_unique_position_funds(
     assert qdii_item.business_day_age == 3
     assert qdii_item.allowed_business_days == 4
     assert qdii_item.status == "fresh"
+
+
+def test_profile_sync_normalizes_overseas_fund_type(
+    db_session: Session,
+) -> None:
+    repository = FundRepository(db_session)
+    for code, name in (
+        ("050025", "S&P 500 Feeder A"),
+        ("009776", "Domestic Fund A"),
+    ):
+        fund = repository.upsert_fund(
+            code=code,
+            name=name,
+            fund_type="ETF",
+        )
+        repository.create_position(
+            fund=fund,
+            account_name="Default",
+            shares=Decimal("100"),
+            cost_price=Decimal("1"),
+            total_cost=Decimal("100"),
+            current_nav=Decimal("1"),
+            opened_at=None,
+            tags="",
+            note="",
+        )
+    repository.commit()
+
+    source = ProfileSourceStub(
+        {
+            "050025": "指数型-海外股票",
+            "009776": "混合型-偏股",
+        }
+    )
+    result = FundService(repository, nav_source=source).sync_held_fund_profiles()
+
+    assert result.total == 2
+    assert result.updated == 1
+    assert result.unchanged == 1
+    assert result.failed == 0
+    overseas = repository.get_fund_by_code("050025")
+    domestic = repository.get_fund_by_code("009776")
+    assert overseas is not None and overseas.fund_type == "QDII"
+    assert domestic is not None and domestic.fund_type == "ETF"

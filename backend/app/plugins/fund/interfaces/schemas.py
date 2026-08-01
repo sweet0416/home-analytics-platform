@@ -373,6 +373,24 @@ class FundNavFreshnessRead(BaseModel):
     items: list[FundNavFreshnessItemRead]
 
 
+class FundProfileSyncItemRead(BaseModel):
+    fund_code: str
+    fund_name: str
+    previous_type: str
+    detected_type: str | None
+    current_type: str
+    status: Literal["updated", "unchanged", "failed"]
+    message: str
+
+
+class FundProfileSyncRead(BaseModel):
+    total: int
+    updated: int
+    unchanged: int
+    failed: int
+    items: list[FundProfileSyncItemRead]
+
+
 class FundAllocationGroupRead(BaseModel):
     label: str
     amount: Decimal

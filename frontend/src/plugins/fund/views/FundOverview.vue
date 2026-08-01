@@ -393,7 +393,10 @@
       </div>
     </RevealContent>
 
-    <FundNavFreshness :refresh-key="holdingRiskRefreshKey" />
+    <FundNavFreshness
+      :refresh-key="holdingRiskRefreshKey"
+      @profiles-synced="loadOverview"
+    />
 
     <FundCashFlowPerformance :refresh-key="cashFlowPerformanceRefreshKey" />
 

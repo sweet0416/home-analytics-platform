@@ -559,6 +559,24 @@ export interface FundNavFreshness {
   items: FundNavFreshnessItem[];
 }
 
+export interface FundProfileSyncItem {
+  fund_code: string;
+  fund_name: string;
+  previous_type: string;
+  detected_type: string | null;
+  current_type: string;
+  status: 'updated' | 'unchanged' | 'failed';
+  message: string;
+}
+
+export interface FundProfileSync {
+  total: number;
+  updated: number;
+  unchanged: number;
+  failed: number;
+  items: FundProfileSyncItem[];
+}
+
 export interface FundDailyAlert {
   code: string;
   level: 'info' | 'warning';
@@ -609,6 +627,13 @@ export function fetchFundNavFreshness(
   return getApiData<FundNavFreshness>(
     `/fund/holdings/nav-freshness?stale_after_business_days=${staleAfterBusinessDays}`
       + `&qdii_stale_after_business_days=${qdiiStaleAfterBusinessDays}`,
+  );
+}
+
+export function syncHeldFundProfiles(): Promise<FundProfileSync> {
+  return postApiData<FundProfileSync, Record<string, never>>(
+    '/fund/holdings/sync-profiles',
+    {},
   );
 }
 
