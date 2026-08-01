@@ -321,11 +321,10 @@ class FundService:
             previous_type = fund.fund_type
             try:
                 detected_type = source.fetch_profile_type(fund.code)
-                is_qdii = (
-                    "QDII" in detected_type.upper()
-                    or "海外" in detected_type
+                current_type = self._normalize_profile_fund_type(
+                    detected_type,
+                    previous_type,
                 )
-                current_type = "QDII" if is_qdii else previous_type
                 status = (
                     "updated"
                     if current_type != previous_type
@@ -384,6 +383,40 @@ class FundService:
             failed=sum(item.status == "failed" for item in items),
             items=items,
         )
+
+    @staticmethod
+    def _normalize_profile_fund_type(
+        detected_type: str,
+        fallback_type: str,
+    ) -> str:
+        if "QDII" in detected_type.upper() or "\u6d77\u5916" in detected_type:
+            return "QDII"
+        return fallback_type
+
+    def _resolve_fund_type(
+        self,
+        fund_code: str,
+        fallback_type: str,
+        *,
+        source: EastmoneyFundNavSource | None = None,
+    ) -> str:
+        if "QDII" in fallback_type.upper():
+            return "QDII"
+
+        profile_source = source or self.nav_source or self._build_default_nav_source()
+        if not hasattr(profile_source, "fetch_profile_type"):
+            return fallback_type
+        try:
+            detected_type = profile_source.fetch_profile_type(fund_code)
+        except Exception as exc:
+            logger.warning(
+                "Fund type detection failed for {}; retaining {}: {}",
+                fund_code,
+                fallback_type,
+                exc,
+            )
+            return fallback_type
+        return self._normalize_profile_fund_type(detected_type, fallback_type)
 
     def list_transactions(self, limit: int = 100) -> list[FundTransactionRead]:
         bounded_limit = max(1, min(limit, 500))
@@ -467,8 +500,7 @@ class FundService:
         return self._to_nav_record_read(record)
 
     def sync_latest_nav(self, payload: FundNavSyncLatestRequest) -> FundNavRecordRead:
-        source = self.nav_source or self._build_default_nav_source()
-        latest = source.fetch_latest(fund_code=payload.fund_code, fund_type=payload.fund_type)
+        latest = self._fetch_latest_nav(payload.fund_code, payload.fund_type)
         return self._persist_latest_nav(latest)
 
     def sync_nav_history(self, payload: FundNavHistorySyncRequest) -> FundNavHistorySyncRead:
@@ -561,9 +593,14 @@ class FundService:
         limit: int,
     ) -> list[FundLatestNav]:
         source = self.nav_source or self._build_default_nav_source()
+        resolved_type = self._resolve_fund_type(
+            fund_code,
+            fund_type,
+            source=source,
+        )
         return source.fetch_history(
             fund_code=fund_code,
-            fund_type=fund_type,
+            fund_type=resolved_type,
             limit=limit,
         )
 
@@ -702,7 +739,12 @@ class FundService:
 
     def _fetch_latest_nav(self, fund_code: str, fund_type: str) -> FundLatestNav:
         source = self.nav_source or self._build_default_nav_source()
-        return source.fetch_latest(fund_code=fund_code, fund_type=fund_type)
+        resolved_type = self._resolve_fund_type(
+            fund_code,
+            fund_type,
+            source=source,
+        )
+        return source.fetch_latest(fund_code=fund_code, fund_type=resolved_type)
 
     def _persist_latest_nav(self, latest: FundLatestNav) -> FundNavRecordRead:
         fund = self.repository.upsert_fund(
@@ -723,8 +765,7 @@ class FundService:
         return self._to_nav_record_read(record)
 
     def lookup_latest_nav(self, payload: FundNavSyncLatestRequest) -> FundLatestNavRead:
-        source = self.nav_source or self._build_default_nav_source()
-        latest = source.fetch_latest(fund_code=payload.fund_code, fund_type=payload.fund_type)
+        latest = self._fetch_latest_nav(payload.fund_code, payload.fund_type)
         return FundLatestNavRead(
             fund_code=latest.fund_code,
             fund_name=latest.fund_name,
@@ -748,10 +789,11 @@ class FundService:
         self.repository.commit()
 
     def create_watchlist_item(self, payload: FundWatchlistCreate) -> FundWatchlistRead:
+        fund_type = self._resolve_fund_type(payload.fund_code, payload.fund_type)
         fund = self.repository.upsert_fund(
             code=payload.fund_code,
             name=payload.fund_name,
-            fund_type=payload.fund_type,
+            fund_type=fund_type,
         )
         existing = self.repository.get_watchlist_item_by_fund_id(fund.id)
         if existing is not None:
@@ -792,10 +834,11 @@ class FundService:
                 message="Fund watchlist item was not found.",
                 status_code=404,
             )
+        fund_type = self._resolve_fund_type(payload.fund_code, payload.fund_type)
         fund = self.repository.upsert_fund(
             code=payload.fund_code,
             name=payload.fund_name,
-            fund_type=payload.fund_type,
+            fund_type=fund_type,
         )
         existing = self.repository.get_watchlist_item_by_fund_id(fund.id)
         if existing is not None and existing.id != item_id:
@@ -830,10 +873,11 @@ class FundService:
         self.repository.commit()
 
     def create_position(self, payload: FundPositionCreate) -> FundPositionRead:
+        fund_type = self._resolve_fund_type(payload.fund_code, payload.fund_type)
         fund = self.repository.upsert_fund(
             code=payload.fund_code,
             name=payload.fund_name,
-            fund_type=payload.fund_type,
+            fund_type=fund_type,
         )
         position = self.repository.create_position(
             fund=fund,
@@ -858,10 +902,11 @@ class FundService:
                 status_code=404,
             )
 
+        fund_type = self._resolve_fund_type(payload.fund_code, payload.fund_type)
         fund = self.repository.upsert_fund(
             code=payload.fund_code,
             name=payload.fund_name,
-            fund_type=payload.fund_type,
+            fund_type=fund_type,
         )
         updated = self.repository.update_position(
             position,

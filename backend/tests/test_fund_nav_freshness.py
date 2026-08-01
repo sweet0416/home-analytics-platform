@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.plugins.fund.application.services import FundService
 from app.plugins.fund.domain.nav_freshness import count_business_days_since
 from app.plugins.fund.infrastructure.persistence.repositories import FundRepository
+from app.plugins.fund.interfaces.schemas import FundPositionCreate
 
 
 class ProfileSourceStub:
@@ -14,6 +15,11 @@ class ProfileSourceStub:
 
     def fetch_profile_type(self, fund_code: str) -> str:
         return self.fund_types[fund_code]
+
+
+class FailingProfileSourceStub:
+    def fetch_profile_type(self, fund_code: str) -> str:
+        raise RuntimeError(f"Profile unavailable for {fund_code}")
 
 
 def test_business_day_age_excludes_weekends() -> None:
@@ -135,3 +141,44 @@ def test_profile_sync_normalizes_overseas_fund_type(
     domestic = repository.get_fund_by_code("009776")
     assert overseas is not None and overseas.fund_type == "QDII"
     assert domestic is not None and domestic.fund_type == "ETF"
+
+
+def test_position_creation_automatically_normalizes_overseas_type(
+    db_session: Session,
+) -> None:
+    repository = FundRepository(db_session)
+    result = FundService(
+        repository,
+        nav_source=ProfileSourceStub(
+            {"050025": "\u6307\u6570\u578b-\u6d77\u5916\u80a1\u7968"}
+        ),
+    ).create_position(
+        FundPositionCreate(
+            fund_code="050025",
+            fund_name="S&P 500 Feeder A",
+            fund_type="ETF",
+            shares=Decimal("100"),
+            cost_price=Decimal("1"),
+        )
+    )
+
+    assert result.fund_type == "QDII"
+
+
+def test_position_creation_retains_type_when_profile_lookup_fails(
+    db_session: Session,
+) -> None:
+    result = FundService(
+        FundRepository(db_session),
+        nav_source=FailingProfileSourceStub(),
+    ).create_position(
+        FundPositionCreate(
+            fund_code="009776",
+            fund_name="Domestic Fund A",
+            fund_type="mixed",
+            shares=Decimal("100"),
+            cost_price=Decimal("1"),
+        )
+    )
+
+    assert result.fund_type == "mixed"
