@@ -534,6 +534,29 @@ export interface FundNavSummary {
   sources: string[];
 }
 
+export interface FundNavFreshnessItem {
+  fund_code: string;
+  fund_name: string;
+  fund_type: string;
+  account_names: string[];
+  latest_nav_date: string | null;
+  business_day_age: number | null;
+  source: string | null;
+  status: 'fresh' | 'stale' | 'missing';
+}
+
+export interface FundNavFreshness {
+  as_of_date: string;
+  stale_after_business_days: number;
+  position_count: number;
+  fund_count: number;
+  fresh_count: number;
+  stale_count: number;
+  missing_count: number;
+  oldest_nav_date: string | null;
+  items: FundNavFreshnessItem[];
+}
+
 export interface FundDailyAlert {
   code: string;
   level: 'info' | 'warning';
@@ -575,6 +598,14 @@ export function fetchFundNavSchedulerStatus(): Promise<FundNavSchedulerStatus> {
 
 export function fetchFundPositions(): Promise<FundPosition[]> {
   return getApiData<FundPosition[]>('/fund/positions');
+}
+
+export function fetchFundNavFreshness(
+  staleAfterBusinessDays = 2,
+): Promise<FundNavFreshness> {
+  return getApiData<FundNavFreshness>(
+    `/fund/holdings/nav-freshness?stale_after_business_days=${staleAfterBusinessDays}`,
+  );
 }
 
 export function createFundPosition(payload: FundPositionCreate): Promise<FundPosition> {

@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import distinct, func, select
+from sqlalchemy import and_, distinct, func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.plugins.fund.infrastructure.persistence.models import (
@@ -444,6 +444,38 @@ class FundRepository:
                 .options(selectinload(FundNavRecordModel.fund))
                 .order_by(FundNavRecordModel.nav_date.desc(), FundNavRecordModel.id.desc())
                 .limit(limit)
+            )
+        )
+
+    def list_latest_nav_records_for_fund_ids(
+        self,
+        fund_ids: list[int],
+    ) -> list[FundNavRecordModel]:
+        if not fund_ids:
+            return []
+
+        latest_dates = (
+            select(
+                FundNavRecordModel.fund_id.label("fund_id"),
+                func.max(FundNavRecordModel.nav_date).label("latest_nav_date"),
+            )
+            .where(FundNavRecordModel.fund_id.in_(fund_ids))
+            .group_by(FundNavRecordModel.fund_id)
+            .subquery()
+        )
+        return list(
+            self.db.scalars(
+                select(FundNavRecordModel)
+                .join(
+                    latest_dates,
+                    and_(
+                        FundNavRecordModel.fund_id == latest_dates.c.fund_id,
+                        FundNavRecordModel.nav_date
+                        == latest_dates.c.latest_nav_date,
+                    ),
+                )
+                .options(selectinload(FundNavRecordModel.fund))
+                .order_by(FundNavRecordModel.fund_id)
             )
         )
 

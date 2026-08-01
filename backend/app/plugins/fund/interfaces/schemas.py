@@ -348,6 +348,29 @@ class FundHoldingSummaryRead(BaseModel):
     accounts: list[str]
 
 
+class FundNavFreshnessItemRead(BaseModel):
+    fund_code: str
+    fund_name: str
+    fund_type: str
+    account_names: list[str]
+    latest_nav_date: date | None
+    business_day_age: int | None
+    source: str | None
+    status: Literal["fresh", "stale", "missing"]
+
+
+class FundNavFreshnessRead(BaseModel):
+    as_of_date: date
+    stale_after_business_days: int
+    position_count: int
+    fund_count: int
+    fresh_count: int
+    stale_count: int
+    missing_count: int
+    oldest_nav_date: date | None
+    items: list[FundNavFreshnessItemRead]
+
+
 class FundAllocationGroupRead(BaseModel):
     label: str
     amount: Decimal

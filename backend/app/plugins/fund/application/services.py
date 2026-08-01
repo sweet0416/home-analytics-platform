@@ -15,6 +15,7 @@ from app.plugins.fund.domain.lookthrough import (
     LookthroughHolding,
     calculate_lookthrough,
 )
+from app.plugins.fund.domain.nav_freshness import count_business_days_since
 from app.plugins.fund.domain.nav_risk import calculate_nav_risk
 from app.plugins.fund.domain.portfolio_benchmark import (
     calculate_portfolio_benchmark,
@@ -70,6 +71,8 @@ from app.plugins.fund.interfaces.schemas import (
     FundLookthroughAssetRead,
     FundLookthroughRead,
     FundLookthroughSnapshotRead,
+    FundNavFreshnessItemRead,
+    FundNavFreshnessRead,
     FundNavHistorySyncRead,
     FundNavHistorySyncRequest,
     FundNavRecordCreate,
@@ -213,6 +216,83 @@ class FundService:
 
     def list_positions(self) -> list[FundPositionRead]:
         return [self._to_position_read(position) for position in self.repository.list_positions()]
+
+    def get_nav_freshness(
+        self,
+        stale_after_business_days: int = 2,
+        as_of_date: date | None = None,
+    ) -> FundNavFreshnessRead:
+        observation_date = as_of_date or datetime.now(
+            ZoneInfo("Asia/Shanghai")
+        ).date()
+        positions = self.repository.list_positions()
+        fund_ids = sorted({position.fund_id for position in positions})
+        latest_by_fund_id = {
+            record.fund_id: record
+            for record in self.repository.list_latest_nav_records_for_fund_ids(
+                fund_ids
+            )
+        }
+        positions_by_fund_id: dict[int, list[FundPositionModel]] = {}
+        for position in positions:
+            positions_by_fund_id.setdefault(position.fund_id, []).append(position)
+
+        items: list[FundNavFreshnessItemRead] = []
+        for fund_id in fund_ids:
+            fund_positions = positions_by_fund_id[fund_id]
+            fund = fund_positions[0].fund
+            latest = latest_by_fund_id.get(fund_id)
+            if latest is None:
+                age = None
+                status = "missing"
+            else:
+                age = count_business_days_since(
+                    latest.nav_date,
+                    observation_date,
+                )
+                status = (
+                    "fresh"
+                    if age <= stale_after_business_days
+                    else "stale"
+                )
+            items.append(
+                FundNavFreshnessItemRead(
+                    fund_code=fund.code,
+                    fund_name=fund.name,
+                    fund_type=fund.fund_type,
+                    account_names=sorted(
+                        {position.account_name for position in fund_positions}
+                    ),
+                    latest_nav_date=latest.nav_date if latest else None,
+                    business_day_age=age,
+                    source=latest.source if latest else None,
+                    status=status,
+                )
+            )
+
+        dated_items = [
+            item.latest_nav_date
+            for item in items
+            if item.latest_nav_date is not None
+        ]
+        return FundNavFreshnessRead(
+            as_of_date=observation_date,
+            stale_after_business_days=stale_after_business_days,
+            position_count=len(positions),
+            fund_count=len(items),
+            fresh_count=sum(item.status == "fresh" for item in items),
+            stale_count=sum(item.status == "stale" for item in items),
+            missing_count=sum(item.status == "missing" for item in items),
+            oldest_nav_date=min(dated_items) if dated_items else None,
+            items=sorted(
+                items,
+                key=lambda item: (
+                    {"missing": 0, "stale": 1, "fresh": 2}[item.status],
+                    -(item.business_day_age or 0),
+                    item.fund_code,
+                ),
+            ),
+        )
 
     def list_transactions(self, limit: int = 100) -> list[FundTransactionRead]:
         bounded_limit = max(1, min(limit, 500))

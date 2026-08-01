@@ -307,6 +307,24 @@ def test_fund_nav_scheduler_status_is_available(client: TestClient) -> None:
     assert body["next_run_at"] is not None
 
 
+def test_fund_nav_freshness_returns_empty_contract(client: TestClient) -> None:
+    response = client.get(
+        "/api/v1/fund/holdings/nav-freshness",
+        params={"stale_after_business_days": 3},
+    )
+
+    assert response.status_code == 200
+    body = response.json()["data"]
+    assert body["stale_after_business_days"] == 3
+    assert body["position_count"] == 0
+    assert body["fund_count"] == 0
+    assert body["fresh_count"] == 0
+    assert body["stale_count"] == 0
+    assert body["missing_count"] == 0
+    assert body["oldest_nav_date"] is None
+    assert body["items"] == []
+
+
 def test_fund_positions_can_be_created_and_summarized(client: TestClient) -> None:
     empty_summary_response = client.get("/api/v1/fund/holdings/summary")
     assert empty_summary_response.status_code == 200

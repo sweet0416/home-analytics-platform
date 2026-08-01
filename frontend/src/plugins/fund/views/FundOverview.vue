@@ -393,6 +393,8 @@
       </div>
     </RevealContent>
 
+    <FundNavFreshness :refresh-key="holdingRiskRefreshKey" />
+
     <FundCashFlowPerformance :refresh-key="cashFlowPerformanceRefreshKey" />
 
     <FundAllocation :refresh-key="allocationRefreshKey" />
@@ -452,6 +454,7 @@ import FundDailyReport from '@/plugins/fund/components/FundDailyReport.vue';
 import FundHoldingRisk from '@/plugins/fund/components/FundHoldingRisk.vue';
 import FundHoldingCorrelation from '@/plugins/fund/components/FundHoldingCorrelation.vue';
 import FundLookthrough from '@/plugins/fund/components/FundLookthrough.vue';
+import FundNavFreshness from '@/plugins/fund/components/FundNavFreshness.vue';
 import FundNavTrend from '@/plugins/fund/components/FundNavTrend.vue';
 import FundPortfolioBenchmark from '@/plugins/fund/components/FundPortfolioBenchmark.vue';
 import FundPortfolioPerformance from '@/plugins/fund/components/FundPortfolioPerformance.vue';

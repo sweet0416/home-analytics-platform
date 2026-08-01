@@ -21,6 +21,7 @@ from app.plugins.fund.interfaces.schemas import (
     FundHoldingSummaryRead,
     FundLatestNavRead,
     FundLookthroughRead,
+    FundNavFreshnessRead,
     FundNavHistorySyncRead,
     FundNavHistorySyncRequest,
     FundNavRecordCreate,
@@ -90,6 +91,21 @@ def list_fund_positions(
     service: FundService = Depends(get_fund_service),
 ) -> ApiResponse[list[FundPositionRead]]:
     return ok(service.list_positions())
+
+
+@router.get(
+    "/holdings/nav-freshness",
+    response_model=ApiResponse[FundNavFreshnessRead],
+)
+def get_fund_nav_freshness(
+    stale_after_business_days: int = Query(default=2, ge=1, le=10),
+    service: FundService = Depends(get_fund_service),
+) -> ApiResponse[FundNavFreshnessRead]:
+    return ok(
+        service.get_nav_freshness(
+            stale_after_business_days=stale_after_business_days
+        )
+    )
 
 
 @router.get("/transactions", response_model=ApiResponse[list[FundTransactionRead]])
