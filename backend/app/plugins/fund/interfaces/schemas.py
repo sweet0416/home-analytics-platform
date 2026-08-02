@@ -804,6 +804,25 @@ class FundDailyAiInputRead(BaseModel):
     disclaimers: list[str]
 
 
+class FundDailyAiSummaryStatusRead(BaseModel):
+    provider: Literal["webhook"]
+    enabled: bool
+    configured: bool
+    target: str
+    input_contract: Literal["fund-daily-ai-input.v1"]
+    note: str
+
+
+class FundDailyAiSummaryRead(BaseModel):
+    contract_version: Literal["fund-daily-ai-summary.v1"]
+    generated_at: datetime
+    report_date: date
+    provider: Literal["webhook"]
+    source_contract: Literal["fund-daily-ai-input.v1"]
+    summary: str
+    disclaimer: str
+
+
 class FundDailyPushRequest(BaseModel):
     channel: NotificationChannel = NotificationChannel.bark
 

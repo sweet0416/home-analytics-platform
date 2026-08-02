@@ -74,6 +74,14 @@ class Settings(BaseSettings):
         "?type=jjcc&code={fund_code}&topline=10&year=&month="
     )
     fund_lookthrough_target_links_json: str = "[]"
+    fund_ai_summary_enabled: bool = False
+    fund_ai_summary_provider: str = Field(
+        default="webhook",
+        pattern=r"^webhook$",
+    )
+    fund_ai_summary_webhook_url: str = ""
+    fund_ai_summary_bearer_token: str = ""
+    fund_ai_summary_timeout_seconds: int = Field(default=30, ge=5, le=120)
     cors_origins: list[str] = Field(
         default_factory=lambda: [
             "http://localhost:5173",

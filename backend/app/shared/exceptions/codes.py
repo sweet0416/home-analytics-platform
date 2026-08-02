@@ -20,3 +20,4 @@ class ErrorCode(StrEnum):
     fund_nav_parse_failed = "FUND_NAV_PARSE_FAILED"
     fund_holdings_source_unavailable = "FUND_HOLDINGS_SOURCE_UNAVAILABLE"
     fund_holdings_parse_failed = "FUND_HOLDINGS_PARSE_FAILED"
+    fund_ai_summary_unavailable = "FUND_AI_SUMMARY_UNAVAILABLE"

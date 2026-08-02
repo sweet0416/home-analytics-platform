@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from app.core.config.settings import Settings, get_settings
 from app.core.database.session import get_db
 from app.core.notification.schemas import NotificationTestResult
+from app.plugins.fund.application.ai_summary import FundDailyAiSummaryService
 from app.plugins.fund.application.notification import FundDailyNotificationService
 from app.plugins.fund.application.services import FundService
 from app.plugins.fund.domain.constants import (
@@ -11,11 +12,14 @@ from app.plugins.fund.domain.constants import (
     FUND_PLUGIN_CODE,
     FUND_PLUGIN_VERSION,
 )
+from app.plugins.fund.infrastructure.ai_summary_webhook import FundAiSummaryWebhookProvider
 from app.plugins.fund.infrastructure.persistence.repositories import FundRepository
 from app.plugins.fund.interfaces.schemas import (
     FundAllocationRead,
     FundCashFlowPerformanceRead,
     FundDailyAiInputRead,
+    FundDailyAiSummaryRead,
+    FundDailyAiSummaryStatusRead,
     FundDailyInsightsRead,
     FundDailyPushRequest,
     FundDailyReportRead,
@@ -70,6 +74,15 @@ def get_fund_service(
     return FundService(FundRepository(db), settings=settings)
 
 
+def get_fund_ai_summary_service(
+    settings: Settings = Depends(get_settings),
+) -> FundDailyAiSummaryService:
+    return FundDailyAiSummaryService(
+        settings=settings,
+        provider=FundAiSummaryWebhookProvider(settings),
+    )
+
+
 @router.get("/status", response_model=ApiResponse[FundStatusRead])
 def get_fund_status() -> ApiResponse[FundStatusRead]:
     return ok(
@@ -82,7 +95,7 @@ def get_fund_status() -> ApiResponse[FundStatusRead]:
             modules=FUND_MODULES,
             data_source_status="configured",
             storage_status="storage_ready",
-            next_step="AI 日报输入契约已就绪；下一步按需接入可配置的模型提供方。",
+            next_step="AI Webhook 适配层已就绪；下一步接入前端配置状态与手动摘要。",
         )
     )
 
@@ -485,6 +498,30 @@ def get_fund_daily_report_ai_input(
     service: FundService = Depends(get_fund_service),
 ) -> ApiResponse[FundDailyAiInputRead]:
     return ok(service.get_daily_report_ai_input())
+
+
+@router.get(
+    "/reports/daily/ai-summary/status",
+    response_model=ApiResponse[FundDailyAiSummaryStatusRead],
+)
+def get_fund_daily_ai_summary_status(
+    ai_service: FundDailyAiSummaryService = Depends(get_fund_ai_summary_service),
+) -> ApiResponse[FundDailyAiSummaryStatusRead]:
+    return ok(ai_service.get_status())
+
+
+@router.post(
+    "/reports/daily/ai-summary",
+    response_model=ApiResponse[FundDailyAiSummaryRead],
+)
+def generate_fund_daily_ai_summary(
+    service: FundService = Depends(get_fund_service),
+    ai_service: FundDailyAiSummaryService = Depends(get_fund_ai_summary_service),
+) -> ApiResponse[FundDailyAiSummaryRead]:
+    return ok(
+        ai_service.generate(service.get_daily_report_ai_input()),
+        message="fund daily AI summary generated",
+    )
 
 
 @router.get(

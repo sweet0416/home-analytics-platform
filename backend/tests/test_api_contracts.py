@@ -302,7 +302,7 @@ def test_fund_status_endpoint_returns_operational_contract(client: TestClient) -
     assert response.status_code == 200
     body = response.json()["data"]
     assert body["plugin"] == "fund"
-    assert body["version"] == "0.10.0"
+    assert body["version"] == "0.11.0"
     assert body["status"] == "operational"
     assert body["data_source_status"] == "configured"
     assert body["storage_status"] == "storage_ready"
@@ -1010,6 +1010,22 @@ def test_fund_daily_report_snapshots_are_idempotent_and_comparable(
     assert ai_input["insights"]["snapshot_count"] == 2
     assert len(ai_input["summarization_rules"]) == 5
     assert ai_input["disclaimers"]
+
+    ai_status_response = client.get("/api/v1/fund/reports/daily/ai-summary/status")
+    assert ai_status_response.status_code == 200
+    ai_status = ai_status_response.json()["data"]
+    assert ai_status == {
+        "provider": "webhook",
+        "enabled": False,
+        "configured": False,
+        "target": "未配置",
+        "input_contract": "fund-daily-ai-input.v1",
+        "note": "仅在手动生成摘要时发送结构化日报输入；默认关闭，不会自动上传持仓数据。",
+    }
+
+    disabled_summary_response = client.post("/api/v1/fund/reports/daily/ai-summary")
+    assert disabled_summary_response.status_code == 503
+    assert disabled_summary_response.json()["code"] == "FUND_AI_SUMMARY_UNAVAILABLE"
 
 
 def test_fund_transactions_track_cash_flows(client: TestClient) -> None:
