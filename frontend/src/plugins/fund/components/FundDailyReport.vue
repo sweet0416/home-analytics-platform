@@ -127,6 +127,42 @@
           <p>当前内容由固定规则生成，为后续 AI 总结提供带样本口径的数据，不直接生成投资结论。</p>
         </div>
 
+        <div v-if="aiSummaryStatus" class="ai-summary">
+          <div class="ai-summary-heading">
+            <div>
+              <strong>AI 日报摘要</strong>
+              <span>{{ aiSummaryStatus.input_contract }}</span>
+            </div>
+            <div class="ai-summary-actions">
+              <span class="ai-status" :class="aiStatusClass">{{ aiStatusLabel }}</span>
+              <el-button
+                :icon="MagicStick"
+                :loading="generatingAiSummary"
+                :disabled="!aiSummaryAvailable"
+                @click="generateAiSummary"
+              >
+                生成 AI 摘要
+              </el-button>
+            </div>
+          </div>
+          <div class="ai-summary-status">
+            <span>提供方：通用 Webhook</span>
+            <span>目标：{{ aiSummaryStatus.target }}</span>
+          </div>
+          <div v-if="aiSummary" class="ai-summary-result">
+            <div>
+              <strong>{{ aiSummary.report_date }}</strong>
+              <span>{{ formatDateTime(aiSummary.generated_at) }}</span>
+            </div>
+            <p>{{ aiSummary.summary }}</p>
+            <small>{{ aiSummary.disclaimer }}</small>
+          </div>
+          <p v-else class="ai-summary-note">{{ aiSummaryStatus.note }}</p>
+          <p v-if="!aiSummaryAvailable" class="ai-summary-help">
+            请在 Portainer 的 HAP Stack 环境变量中启用并配置 AI Webhook，密钥不会保存在网页中。
+          </p>
+        </div>
+
         <div v-if="insights" class="daily-insights">
           <div class="daily-insights-heading">
             <div>
@@ -292,7 +328,7 @@
 </template>
 
 <script setup lang="ts">
-import { Bell, DocumentAdd, InfoFilled, Refresh } from '@element-plus/icons-vue';
+import { Bell, DocumentAdd, InfoFilled, MagicStick, Refresh } from '@element-plus/icons-vue';
 import * as echarts from 'echarts';
 import type { ECharts, EChartsOption } from 'echarts';
 import { ElMessage } from 'element-plus';
@@ -303,10 +339,14 @@ import EmptyState from '@/components/common/EmptyState.vue';
 import RevealContent from '@/components/common/RevealContent.vue';
 import {
   fetchFundDailyReport,
+  fetchFundDailyAiSummaryStatus,
   fetchFundDailyInsights,
   fetchFundDailySnapshots,
+  generateFundDailyAiSummary,
   pushFundDailyReport,
   saveFundDailySnapshot,
+  type FundDailyAiSummary,
+  type FundDailyAiSummaryStatus,
   type FundDailyReport,
   type FundDailyInsights,
   type FundDailySnapshot,
@@ -318,14 +358,32 @@ const props = defineProps<{
 
 const report = ref<FundDailyReport | null>(null);
 const insights = ref<FundDailyInsights | null>(null);
+const aiSummaryStatus = ref<FundDailyAiSummaryStatus | null>(null);
+const aiSummary = ref<FundDailyAiSummary | null>(null);
 const snapshots = ref<FundDailySnapshot[]>([]);
 const loading = ref(false);
 const pushing = ref(false);
 const savingSnapshot = ref(false);
+const generatingAiSummary = ref(false);
 const snapshotChartRef = ref<HTMLDivElement | null>(null);
 let snapshotChart: ECharts | null = null;
 
 const historyRows = computed(() => snapshots.value.slice(0, 10));
+
+const aiSummaryAvailable = computed(
+  () => aiSummaryStatus.value?.enabled === true && aiSummaryStatus.value.configured === true,
+);
+
+const aiStatusLabel = computed(() => {
+  if (aiSummaryAvailable.value) return '可生成';
+  if (aiSummaryStatus.value?.enabled) return '待配置';
+  return '未启用';
+});
+
+const aiStatusClass = computed(() => ({
+  'is-available': aiSummaryAvailable.value,
+  'is-pending': aiSummaryStatus.value?.enabled === true && !aiSummaryStatus.value.configured,
+}));
 
 const latestChangeSummary = computed(() => {
   const latest = snapshots.value[0];
@@ -391,16 +449,19 @@ const deepestDrawdownItem = computed(() => {
 
 async function loadReport(): Promise<void> {
   loading.value = true;
+  aiSummary.value = null;
   try {
-    const [reportResult, historyResult, insightsResult] = await Promise.allSettled([
+    const [reportResult, historyResult, insightsResult, aiStatusResult] = await Promise.allSettled([
       fetchFundDailyReport(),
       fetchFundDailySnapshots(30),
       fetchFundDailyInsights(),
+      fetchFundDailyAiSummaryStatus(),
     ]);
     if (reportResult.status === 'rejected') throw reportResult.reason;
     report.value = reportResult.value;
     snapshots.value = historyResult.status === 'fulfilled' ? historyResult.value.items : [];
     insights.value = insightsResult.status === 'fulfilled' ? insightsResult.value : null;
+    aiSummaryStatus.value = aiStatusResult.status === 'fulfilled' ? aiStatusResult.value : null;
     await nextTick();
     renderSnapshotChart();
   } catch (error) {
@@ -444,6 +505,19 @@ async function pushReport(): Promise<void> {
     ElMessage.error(error instanceof Error ? error.message : '基金日报推送失败');
   } finally {
     pushing.value = false;
+  }
+}
+
+async function generateAiSummary(): Promise<void> {
+  if (!aiSummaryAvailable.value) return;
+  generatingAiSummary.value = true;
+  try {
+    aiSummary.value = await generateFundDailyAiSummary();
+    ElMessage.success('AI 日报摘要已生成');
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : 'AI 日报摘要生成失败');
+  } finally {
+    generatingAiSummary.value = false;
   }
 }
 
@@ -826,6 +900,83 @@ watch(
   margin: 0;
 }
 
+.ai-summary {
+  border-block: 1px solid rgba(148, 163, 184, 0.14);
+  display: grid;
+  gap: 10px;
+  padding-block: 14px;
+}
+
+.ai-summary-heading,
+.ai-summary-heading > div,
+.ai-summary-actions,
+.ai-summary-result > div {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.ai-summary-heading > div,
+.ai-summary-result > div {
+  justify-content: flex-start;
+}
+
+.ai-summary-heading span,
+.ai-summary-status,
+.ai-summary-note,
+.ai-summary-help,
+.ai-summary-result span,
+.ai-summary-result small {
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
+.ai-summary-status {
+  display: flex;
+  gap: 16px;
+}
+
+.ai-status {
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 6px;
+  padding: 4px 8px;
+}
+
+.ai-status.is-available {
+  border-color: rgba(52, 211, 153, 0.3);
+  color: #34d399;
+}
+
+.ai-status.is-pending {
+  border-color: rgba(251, 191, 36, 0.3);
+  color: #fbbf24;
+}
+
+.ai-summary-result {
+  border-left: 2px solid rgba(56, 189, 248, 0.72);
+  display: grid;
+  gap: 8px;
+  padding-left: 10px;
+}
+
+.ai-summary-result p,
+.ai-summary-note,
+.ai-summary-help {
+  line-height: 1.65;
+  margin: 0;
+}
+
+.ai-summary-result p {
+  color: var(--color-text);
+  font-size: 13px;
+  white-space: pre-wrap;
+}
+
+.ai-summary-help {
+  color: #fbbf24;
+}
+
 .daily-insights {
   border-block: 1px solid rgba(148, 163, 184, 0.14);
   display: grid;
@@ -1046,6 +1197,11 @@ watch(
   .report-time,
   .daily-insights-heading,
   .daily-insights-heading > div,
+  .ai-summary-heading,
+  .ai-summary-heading > div,
+  .ai-summary-actions,
+  .ai-summary-status,
+  .ai-summary-result > div,
   .snapshot-history-heading,
   .snapshot-history-heading > div,
   .snapshot-change-summary,

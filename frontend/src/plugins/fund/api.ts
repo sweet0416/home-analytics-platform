@@ -710,6 +710,25 @@ export interface FundDailyInsights {
   disclaimers: string[];
 }
 
+export interface FundDailyAiSummaryStatus {
+  provider: 'webhook';
+  enabled: boolean;
+  configured: boolean;
+  target: string;
+  input_contract: 'fund-daily-ai-input.v1';
+  note: string;
+}
+
+export interface FundDailyAiSummary {
+  contract_version: 'fund-daily-ai-summary.v1';
+  generated_at: string;
+  report_date: string;
+  provider: 'webhook';
+  source_contract: 'fund-daily-ai-input.v1';
+  summary: string;
+  disclaimer: string;
+}
+
 export interface FundDailyPushResult {
   requested_channel: 'all' | 'bark' | 'wecom' | 'whatsapp' | 'custom_webhook';
   results: Array<{
@@ -1000,6 +1019,18 @@ export function fetchFundDailyReport(): Promise<FundDailyReport> {
 
 export function fetchFundDailyInsights(): Promise<FundDailyInsights> {
   return getApiData<FundDailyInsights>('/fund/reports/daily/insights');
+}
+
+export function fetchFundDailyAiSummaryStatus(): Promise<FundDailyAiSummaryStatus> {
+  return getApiData<FundDailyAiSummaryStatus>('/fund/reports/daily/ai-summary/status');
+}
+
+export function generateFundDailyAiSummary(): Promise<FundDailyAiSummary> {
+  return postApiData<FundDailyAiSummary, Record<string, never>>(
+    '/fund/reports/daily/ai-summary',
+    {},
+    { timeout: 120000 },
+  );
 }
 
 export function fetchFundDailySnapshots(limit = 30): Promise<FundDailySnapshotHistory> {
