@@ -723,6 +723,47 @@ class FundDailyReportRead(BaseModel):
     analysis_context: FundDailyAnalysisContextRead
 
 
+class FundDailySnapshotChangeRead(BaseModel):
+    position_count: int
+    current_value: Decimal | None
+    unrealized_profit: Decimal | None
+    unrealized_return_rate: Decimal | None
+    concentration_hhi: Decimal | None
+
+
+class FundDailySnapshotRead(BaseModel):
+    id: int
+    report_date: date
+    generated_at: datetime
+    contract_version: str
+    quality_level: Literal["complete", "partial", "insufficient"]
+    position_count: int
+    fund_count: int
+    total_cost: Decimal
+    current_value: Decimal | None
+    unrealized_profit: Decimal | None
+    unrealized_return_rate: Decimal | None
+    valuation_complete: bool
+    latest_nav_date: date | None
+    nav_age_days: int | None
+    risk_fund_count: int
+    risk_covered_fund_count: int
+    risk_sample_count: int
+    top_holding_weight: Decimal | None
+    concentration_hhi: Decimal | None
+    target_configured_count: int
+    target_configuration_complete: bool
+    target_weight_total: Decimal
+    alert_count: int
+    warning_count: int
+    change_from_previous: FundDailySnapshotChangeRead | None
+
+
+class FundDailySnapshotHistoryRead(BaseModel):
+    count: int
+    items: list[FundDailySnapshotRead]
+
+
 class FundDailyPushRequest(BaseModel):
     channel: NotificationChannel = NotificationChannel.bark
 

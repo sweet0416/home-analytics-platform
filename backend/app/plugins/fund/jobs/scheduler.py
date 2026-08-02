@@ -12,6 +12,7 @@ from app.plugins.fund.application.notification import FundDailyNotificationServi
 from app.plugins.fund.application.services import FundService
 from app.plugins.fund.infrastructure.persistence.models import FundNavSyncRunModel
 from app.plugins.fund.infrastructure.persistence.repositories import FundRepository
+from app.plugins.fund.interfaces.schemas import FundDailyReportRead
 
 TIMEZONE = "Asia/Shanghai"
 JOB_ID = "fund_nav_auto_sync"
@@ -124,14 +125,20 @@ def _run_scheduled_fund_nav_sync() -> None:
         result = service.sync_tracked_navs()
         notification_summary = ""
         history_summary = ""
+        snapshot_summary = ""
         if result.updated > 0:
             _completed_date = now.date()
             history_summary = _sync_holding_history(
                 service=service,
                 settings=settings,
             )
-            notification_summary = _send_daily_report_notification(
+            daily_report = service.get_daily_report()
+            snapshot_summary = _save_daily_report_snapshot(
                 service=service,
+                report=daily_report,
+            )
+            notification_summary = _send_daily_report_notification(
+                report=daily_report,
                 settings=settings,
             )
         status = "succeeded" if result.failed == 0 else "partial"
@@ -143,6 +150,8 @@ def _run_scheduled_fund_nav_sync() -> None:
             message = f"{message} Daily report notification: {notification_summary}."
         if history_summary:
             message = f"{message} Holding history: {history_summary}."
+        if snapshot_summary:
+            message = f"{message} Daily snapshot: {snapshot_summary}."
         logger.info(message)
         _last_run = _save_run(
             repository,
@@ -201,7 +210,7 @@ def _sync_holding_history(
 
 def _send_daily_report_notification(
     *,
-    service: FundService,
+    report: FundDailyReportRead,
     settings: object,
 ) -> str:
     if not getattr(settings, "fund_nav_notify_enabled", False):
@@ -211,7 +220,7 @@ def _send_daily_report_notification(
             str(getattr(settings, "fund_nav_notify_channel", "bark"))
         )
         result = FundDailyNotificationService(settings=settings).send(
-            report=service.get_daily_report(),
+            report=report,
             channel=channel,
         )
         statuses = ", ".join(
@@ -224,6 +233,20 @@ def _send_daily_report_notification(
         return statuses or "no channel result"
     except Exception as exc:  # noqa: BLE001
         logger.exception("Fund daily report notification failed: {}", exc)
+        return "failed"
+
+
+def _save_daily_report_snapshot(
+    *,
+    service: FundService,
+    report: FundDailyReportRead,
+) -> str:
+    try:
+        snapshot = service.save_daily_report_snapshot(report)
+        logger.info("Fund daily report snapshot saved: {}", snapshot.report_date)
+        return str(snapshot.report_date)
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("Fund daily report snapshot failed: {}", exc)
         return "failed"
 
 

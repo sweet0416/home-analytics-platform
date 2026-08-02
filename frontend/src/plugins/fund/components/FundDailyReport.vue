@@ -8,6 +8,9 @@
         </span>
       </div>
       <div class="report-actions">
+        <el-button :icon="DocumentAdd" :loading="savingSnapshot" @click="saveSnapshot">
+          保存今日快照
+        </el-button>
         <el-button :icon="Bell" :loading="pushing" @click="pushReport">
           推送到 Bark
         </el-button>
@@ -124,6 +127,40 @@
           <p>当前内容由固定规则生成，为后续 AI 总结提供带样本口径的数据，不直接生成投资结论。</p>
         </div>
 
+        <div class="snapshot-history">
+          <div class="snapshot-history-heading">
+            <strong>日报历史变化</strong>
+            <span>每天最多一条；同一天再次保存会更新当天快照</span>
+          </div>
+          <div v-if="snapshots.length" class="snapshot-table">
+            <div class="snapshot-row snapshot-header">
+              <span>日期</span>
+              <span>当前估值</span>
+              <span>浮盈亏</span>
+              <span>收益率</span>
+              <span>较前次估值</span>
+              <span>数据状态</span>
+            </div>
+            <div v-for="snapshot in snapshots" :key="snapshot.id" class="snapshot-row">
+              <strong>{{ snapshot.report_date }}</strong>
+              <span>{{ formatMoney(snapshot.current_value) }}</span>
+              <span :class="valueClass(snapshot.unrealized_profit)">
+                {{ formatSignedMoney(snapshot.unrealized_profit) }}
+              </span>
+              <span :class="valueClass(snapshot.unrealized_return_rate)">
+                {{ formatPercent(snapshot.unrealized_return_rate) }}
+              </span>
+              <span :class="valueClass(snapshot.change_from_previous?.current_value ?? null)">
+                {{ formatSignedMoney(snapshot.change_from_previous?.current_value ?? null) }}
+              </span>
+              <span class="snapshot-quality" :class="`is-${snapshot.quality_level}`">
+                {{ qualityText(snapshot.quality_level) }}
+              </span>
+            </div>
+          </div>
+          <p v-else>还没有历史快照。净值自动更新成功后会保存，也可以手动保存今天的数据。</p>
+        </div>
+
         <div v-if="report.holding_risk.fund_count" class="risk-digest">
           <div class="risk-digest-title">
             <strong>风险摘要</strong>
@@ -182,7 +219,7 @@
 </template>
 
 <script setup lang="ts">
-import { Bell, InfoFilled, Refresh } from '@element-plus/icons-vue';
+import { Bell, DocumentAdd, InfoFilled, Refresh } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
 import { computed, onMounted, ref, watch } from 'vue';
 
@@ -190,8 +227,11 @@ import EmptyState from '@/components/common/EmptyState.vue';
 import RevealContent from '@/components/common/RevealContent.vue';
 import {
   fetchFundDailyReport,
+  fetchFundDailySnapshots,
   pushFundDailyReport,
+  saveFundDailySnapshot,
   type FundDailyReport,
+  type FundDailySnapshot,
 } from '@/plugins/fund/api';
 
 const props = defineProps<{
@@ -199,8 +239,10 @@ const props = defineProps<{
 }>();
 
 const report = ref<FundDailyReport | null>(null);
+const snapshots = ref<FundDailySnapshot[]>([]);
 const loading = ref(false);
 const pushing = ref(false);
+const savingSnapshot = ref(false);
 
 const profitClass = computed(() => {
   const value = Number(report.value?.holding_summary.unrealized_profit ?? 0);
@@ -255,11 +297,30 @@ const deepestDrawdownItem = computed(() => {
 async function loadReport(): Promise<void> {
   loading.value = true;
   try {
-    report.value = await fetchFundDailyReport();
+    const [reportResult, historyResult] = await Promise.allSettled([
+      fetchFundDailyReport(),
+      fetchFundDailySnapshots(7),
+    ]);
+    if (reportResult.status === 'rejected') throw reportResult.reason;
+    report.value = reportResult.value;
+    snapshots.value = historyResult.status === 'fulfilled' ? historyResult.value.items : [];
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : '基金日报加载失败');
   } finally {
     loading.value = false;
+  }
+}
+
+async function saveSnapshot(): Promise<void> {
+  savingSnapshot.value = true;
+  try {
+    await saveFundDailySnapshot();
+    snapshots.value = (await fetchFundDailySnapshots(7)).items;
+    ElMessage.success('今日基金日报快照已保存');
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : '日报快照保存失败');
+  } finally {
+    savingSnapshot.value = false;
   }
 }
 
@@ -307,6 +368,21 @@ function formatHhi(value: string | null): string {
   if (value === null) return '--';
   const numeric = Number(value);
   return Number.isFinite(numeric) ? numeric.toFixed(4) : '--';
+}
+
+function valueClass(value: string | null): string {
+  const numeric = Number(value ?? 0);
+  if (numeric > 0) return 'is-profit';
+  if (numeric < 0) return 'is-loss';
+  return '';
+}
+
+function qualityText(level: FundDailySnapshot['quality_level']): string {
+  return {
+    complete: '完整',
+    partial: '部分可用',
+    insufficient: '样本不足',
+  }[level];
 }
 
 function formatDateTime(value: string): string {
@@ -409,6 +485,69 @@ watch(
   display: grid;
   gap: 10px;
   padding-block: 14px;
+}
+
+.snapshot-history {
+  display: grid;
+  gap: 10px;
+}
+
+.snapshot-history-heading {
+  align-items: baseline;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.snapshot-history-heading span,
+.snapshot-history > p {
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
+.snapshot-table {
+  border-block: 1px solid rgba(148, 163, 184, 0.14);
+  overflow-x: auto;
+}
+
+.snapshot-row {
+  align-items: center;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 110px repeat(4, minmax(110px, 1fr)) 90px;
+  min-width: 760px;
+  padding: 9px 4px;
+}
+
+.snapshot-row:last-child {
+  border-bottom: 0;
+}
+
+.snapshot-row span,
+.snapshot-row strong {
+  font-size: 12px;
+}
+
+.snapshot-header span {
+  color: var(--color-muted);
+}
+
+.snapshot-quality {
+  color: #7dd3fc;
+}
+
+.snapshot-quality.is-complete {
+  color: #34d399;
+}
+
+.snapshot-quality.is-insufficient {
+  color: #fbbf24;
+}
+
+.snapshot-history > p {
+  line-height: 1.6;
+  margin: 0;
 }
 
 .analysis-context {
@@ -566,6 +705,7 @@ watch(
   .panel-header,
   .report-actions,
   .report-time,
+  .snapshot-history-heading,
   .risk-digest-title {
     align-items: stretch;
     flex-direction: column;

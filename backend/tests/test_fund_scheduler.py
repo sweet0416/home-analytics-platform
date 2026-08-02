@@ -41,6 +41,16 @@ def test_scheduled_sync_marks_day_complete_after_new_nav(
         def sync_tracked_navs(self) -> SimpleNamespace:
             return SimpleNamespace(total=4, succeeded=4, failed=0, updated=2)
 
+        def get_daily_report(self) -> SimpleNamespace:
+            return SimpleNamespace(report_date="2026-08-02")
+
+        def save_daily_report_snapshot(
+            self,
+            report: SimpleNamespace,
+        ) -> SimpleNamespace:
+            assert report.report_date == "2026-08-02"
+            return SimpleNamespace(report_date="2026-08-02")
+
     fake_db = FakeDb()
     monkeypatch.setattr(scheduler, "_completed_date", None)
     monkeypatch.setattr(scheduler, "SessionLocal", lambda: fake_db)
@@ -56,6 +66,7 @@ def test_scheduled_sync_marks_day_complete_after_new_nav(
     assert scheduler._last_run["status"] == "succeeded"
     assert scheduler._last_run["updated"] == 2
     assert scheduler._last_run["skipped"] is False
+    assert "Daily snapshot: 2026-08-02" in scheduler._last_run["message"]
     assert fake_db.closed is True
 
 
@@ -97,6 +108,13 @@ def test_scheduled_sync_pushes_daily_report_after_new_nav(
             return SimpleNamespace(total=4, succeeded=4, failed=0, updated=1)
 
         def get_daily_report(self) -> SimpleNamespace:
+            return SimpleNamespace(report_date="2026-07-31")
+
+        def save_daily_report_snapshot(
+            self,
+            report: SimpleNamespace,
+        ) -> SimpleNamespace:
+            assert report.report_date == "2026-07-31"
             return SimpleNamespace(report_date="2026-07-31")
 
     class FakeNotificationService:
@@ -161,6 +179,16 @@ def test_scheduled_sync_backfills_holding_history_after_new_nav(
                 failed=0,
                 synced_count=1460,
             )
+
+        def get_daily_report(self) -> SimpleNamespace:
+            return SimpleNamespace(report_date="2026-08-02")
+
+        def save_daily_report_snapshot(
+            self,
+            report: SimpleNamespace,
+        ) -> SimpleNamespace:
+            assert report.report_date == "2026-08-02"
+            return SimpleNamespace(report_date="2026-08-02")
 
     settings = SimpleNamespace(
         fund_nav_history_auto_sync_enabled=True,

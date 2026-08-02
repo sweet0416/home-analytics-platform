@@ -6,13 +6,19 @@ from app.core.database.session import get_db
 from app.core.notification.schemas import NotificationTestResult
 from app.plugins.fund.application.notification import FundDailyNotificationService
 from app.plugins.fund.application.services import FundService
-from app.plugins.fund.domain.constants import FUND_MODULES, FUND_PLUGIN_CODE
+from app.plugins.fund.domain.constants import (
+    FUND_MODULES,
+    FUND_PLUGIN_CODE,
+    FUND_PLUGIN_VERSION,
+)
 from app.plugins.fund.infrastructure.persistence.repositories import FundRepository
 from app.plugins.fund.interfaces.schemas import (
     FundAllocationRead,
     FundCashFlowPerformanceRead,
     FundDailyPushRequest,
     FundDailyReportRead,
+    FundDailySnapshotHistoryRead,
+    FundDailySnapshotRead,
     FundDisclosureSyncRead,
     FundHoldingCorrelationRead,
     FundHoldingHistorySyncRead,
@@ -68,13 +74,13 @@ def get_fund_status() -> ApiResponse[FundStatusRead]:
         FundStatusRead(
             plugin=FUND_PLUGIN_CODE,
             display_name="Fund",
-            version="0.7.0",
+            version=FUND_PLUGIN_VERSION,
             status="operational",
             description="基金插件已支持持仓、净值、组合风险、自动更新和日报推送。",
             modules=FUND_MODULES,
             data_source_status="configured",
             storage_status="storage_ready",
-            next_step="下一步保存日报历史快照并展示变化对比，为后续 AI 总结提供时间序列上下文。",
+            next_step="基金基础分析闭环已完成；下一步设计可选的 AI 日报摘要适配层。",
         )
     )
 
@@ -457,6 +463,30 @@ def get_fund_daily_report(
     service: FundService = Depends(get_fund_service),
 ) -> ApiResponse[FundDailyReportRead]:
     return ok(service.get_daily_report())
+
+
+@router.get(
+    "/reports/daily/snapshots",
+    response_model=ApiResponse[FundDailySnapshotHistoryRead],
+)
+def get_fund_daily_report_snapshots(
+    limit: int = Query(default=30, ge=1, le=365),
+    service: FundService = Depends(get_fund_service),
+) -> ApiResponse[FundDailySnapshotHistoryRead]:
+    return ok(service.get_daily_report_snapshot_history(limit=limit))
+
+
+@router.post(
+    "/reports/daily/snapshots",
+    response_model=ApiResponse[FundDailySnapshotRead],
+)
+def save_fund_daily_report_snapshot(
+    service: FundService = Depends(get_fund_service),
+) -> ApiResponse[FundDailySnapshotRead]:
+    return ok(
+        service.save_daily_report_snapshot(),
+        message="fund daily report snapshot saved",
+    )
 
 
 @router.post(

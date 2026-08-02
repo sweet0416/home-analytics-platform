@@ -33,6 +33,7 @@ from app.plugins.fund.domain.target_links import (
     parse_target_fund_links,
 )
 from app.plugins.fund.infrastructure.persistence.models import (
+    FundDailyReportSnapshotModel,
     FundDisclosureModel,
     FundModel,
     FundNavRecordModel,
@@ -62,6 +63,9 @@ from app.plugins.fund.interfaces.schemas import (
     FundDailyDataQualityRead,
     FundDailyFactRead,
     FundDailyReportRead,
+    FundDailySnapshotChangeRead,
+    FundDailySnapshotHistoryRead,
+    FundDailySnapshotRead,
     FundDisclosureSyncItemRead,
     FundDisclosureSyncRead,
     FundHoldingCorrelationRead,
@@ -2085,6 +2089,132 @@ class FundService:
             alerts=alerts,
             analysis_context=analysis_context,
         )
+
+    def save_daily_report_snapshot(
+        self,
+        report: FundDailyReportRead | None = None,
+    ) -> FundDailySnapshotRead:
+        current_report = report or self.get_daily_report()
+        quality = current_report.analysis_context.data_quality
+        snapshot = self.repository.upsert_daily_report_snapshot(
+            report_date=current_report.report_date,
+            generated_at=current_report.generated_at,
+            contract_version=current_report.analysis_context.contract_version,
+            quality_level=quality.level,
+            position_count=current_report.holding_summary.position_count,
+            fund_count=current_report.holding_summary.fund_count,
+            total_cost=current_report.holding_summary.total_cost,
+            current_value=current_report.holding_summary.current_value,
+            unrealized_profit=current_report.holding_summary.unrealized_profit,
+            unrealized_return_rate=(
+                current_report.holding_summary.unrealized_return_rate
+            ),
+            valuation_complete=current_report.valuation_complete,
+            latest_nav_date=current_report.nav_summary.latest_nav_date,
+            nav_age_days=current_report.nav_age_days,
+            risk_fund_count=quality.risk_fund_count,
+            risk_covered_fund_count=quality.risk_covered_fund_count,
+            risk_sample_count=quality.risk_sample_count,
+            top_holding_weight=current_report.allocation.top_holding_weight,
+            concentration_hhi=current_report.allocation.concentration_hhi,
+            target_configured_count=quality.target_configured_count,
+            target_configuration_complete=quality.target_configuration_complete,
+            target_weight_total=quality.target_weight_total,
+            alert_count=len(current_report.alerts),
+            warning_count=len(
+                [alert for alert in current_report.alerts if alert.level == "warning"]
+            ),
+            context_json=current_report.analysis_context.model_dump_json(),
+        )
+        self.repository.commit()
+        snapshots = self.repository.list_daily_report_snapshots(limit=2)
+        previous = snapshots[1] if len(snapshots) > 1 else None
+        return self._to_daily_snapshot_read(snapshot, previous=previous)
+
+    def get_daily_report_snapshot_history(
+        self,
+        *,
+        limit: int = 30,
+    ) -> FundDailySnapshotHistoryRead:
+        bounded_limit = max(1, min(limit, 365))
+        records = self.repository.list_daily_report_snapshots(
+            limit=bounded_limit + 1
+        )
+        items = [
+            self._to_daily_snapshot_read(
+                record,
+                previous=records[index + 1]
+                if index + 1 < len(records)
+                else None,
+            )
+            for index, record in enumerate(records[:bounded_limit])
+        ]
+        return FundDailySnapshotHistoryRead(count=len(items), items=items)
+
+    @classmethod
+    def _to_daily_snapshot_read(
+        cls,
+        snapshot: FundDailyReportSnapshotModel,
+        *,
+        previous: FundDailyReportSnapshotModel | None,
+    ) -> FundDailySnapshotRead:
+        change = None
+        if previous is not None:
+            change = FundDailySnapshotChangeRead(
+                position_count=snapshot.position_count - previous.position_count,
+                current_value=cls._optional_decimal_change(
+                    snapshot.current_value,
+                    previous.current_value,
+                ),
+                unrealized_profit=cls._optional_decimal_change(
+                    snapshot.unrealized_profit,
+                    previous.unrealized_profit,
+                ),
+                unrealized_return_rate=cls._optional_decimal_change(
+                    snapshot.unrealized_return_rate,
+                    previous.unrealized_return_rate,
+                ),
+                concentration_hhi=cls._optional_decimal_change(
+                    snapshot.concentration_hhi,
+                    previous.concentration_hhi,
+                ),
+            )
+        return FundDailySnapshotRead(
+            id=snapshot.id,
+            report_date=snapshot.report_date,
+            generated_at=snapshot.generated_at,
+            contract_version=snapshot.contract_version,
+            quality_level=snapshot.quality_level,
+            position_count=snapshot.position_count,
+            fund_count=snapshot.fund_count,
+            total_cost=snapshot.total_cost,
+            current_value=snapshot.current_value,
+            unrealized_profit=snapshot.unrealized_profit,
+            unrealized_return_rate=snapshot.unrealized_return_rate,
+            valuation_complete=snapshot.valuation_complete,
+            latest_nav_date=snapshot.latest_nav_date,
+            nav_age_days=snapshot.nav_age_days,
+            risk_fund_count=snapshot.risk_fund_count,
+            risk_covered_fund_count=snapshot.risk_covered_fund_count,
+            risk_sample_count=snapshot.risk_sample_count,
+            top_holding_weight=snapshot.top_holding_weight,
+            concentration_hhi=snapshot.concentration_hhi,
+            target_configured_count=snapshot.target_configured_count,
+            target_configuration_complete=snapshot.target_configuration_complete,
+            target_weight_total=snapshot.target_weight_total,
+            alert_count=snapshot.alert_count,
+            warning_count=snapshot.warning_count,
+            change_from_previous=change,
+        )
+
+    @staticmethod
+    def _optional_decimal_change(
+        current: Decimal | None,
+        previous: Decimal | None,
+    ) -> Decimal | None:
+        if current is None or previous is None:
+            return None
+        return current - previous
 
     @staticmethod
     def _build_daily_analysis_context(

@@ -1,11 +1,12 @@
 from app.core.plugins.contracts import PluginManifest
+from app.plugins.fund.domain.constants import FUND_PLUGIN_VERSION
 from app.plugins.fund.interfaces.router import router
 from app.plugins.fund.jobs.scheduler import start_fund_scheduler, stop_fund_scheduler
 
 fund_plugin = PluginManifest(
     name="fund",
     display_name="Fund",
-    version="0.4.0",
+    version=FUND_PLUGIN_VERSION,
     description="Fund portfolio, NAV, allocation, risk, automation, and report analytics.",
     routes=[router],
     menu_items=[

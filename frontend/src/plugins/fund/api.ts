@@ -641,6 +641,47 @@ export interface FundDailyReport {
   analysis_context: FundDailyAnalysisContext;
 }
 
+export interface FundDailySnapshotChange {
+  position_count: number;
+  current_value: string | null;
+  unrealized_profit: string | null;
+  unrealized_return_rate: string | null;
+  concentration_hhi: string | null;
+}
+
+export interface FundDailySnapshot {
+  id: number;
+  report_date: string;
+  generated_at: string;
+  contract_version: string;
+  quality_level: 'complete' | 'partial' | 'insufficient';
+  position_count: number;
+  fund_count: number;
+  total_cost: string;
+  current_value: string | null;
+  unrealized_profit: string | null;
+  unrealized_return_rate: string | null;
+  valuation_complete: boolean;
+  latest_nav_date: string | null;
+  nav_age_days: number | null;
+  risk_fund_count: number;
+  risk_covered_fund_count: number;
+  risk_sample_count: number;
+  top_holding_weight: string | null;
+  concentration_hhi: string | null;
+  target_configured_count: number;
+  target_configuration_complete: boolean;
+  target_weight_total: string;
+  alert_count: number;
+  warning_count: number;
+  change_from_previous: FundDailySnapshotChange | null;
+}
+
+export interface FundDailySnapshotHistory {
+  count: number;
+  items: FundDailySnapshot[];
+}
+
 export interface FundDailyPushResult {
   requested_channel: 'all' | 'bark' | 'wecom' | 'whatsapp' | 'custom_webhook';
   results: Array<{
@@ -927,6 +968,17 @@ export function fetchFundNavSummary(): Promise<FundNavSummary> {
 
 export function fetchFundDailyReport(): Promise<FundDailyReport> {
   return getApiData<FundDailyReport>('/fund/reports/daily');
+}
+
+export function fetchFundDailySnapshots(limit = 30): Promise<FundDailySnapshotHistory> {
+  return getApiData<FundDailySnapshotHistory>(`/fund/reports/daily/snapshots?limit=${limit}`);
+}
+
+export function saveFundDailySnapshot(): Promise<FundDailySnapshot> {
+  return postApiData<FundDailySnapshot, Record<string, never>>(
+    '/fund/reports/daily/snapshots',
+    {},
+  );
 }
 
 export function pushFundDailyReport(): Promise<FundDailyPushResult> {

@@ -1,9 +1,15 @@
+from datetime import timedelta
 from decimal import Decimal
 
 import pytest
 import requests
 from fastapi.testclient import TestClient
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
+from app.plugins.fund.infrastructure.persistence.models import (
+    FundDailyReportSnapshotModel,
+)
 from app.plugins.fund.infrastructure.sources.eastmoney import EastmoneyFundNavSource, FundLatestNav
 
 
@@ -296,7 +302,7 @@ def test_fund_status_endpoint_returns_operational_contract(client: TestClient) -
     assert response.status_code == 200
     body = response.json()["data"]
     assert body["plugin"] == "fund"
-    assert body["version"] == "0.7.0"
+    assert body["version"] == "0.8.0"
     assert body["status"] == "operational"
     assert body["data_source_status"] == "configured"
     assert body["storage_status"] == "storage_ready"
@@ -917,6 +923,60 @@ def test_fund_daily_report_summarizes_data_quality(client: TestClient) -> None:
         "risk_history_incomplete",
         "watchlist_empty",
     }
+
+
+def test_fund_daily_report_snapshots_are_idempotent_and_comparable(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    empty_history = client.get("/api/v1/fund/reports/daily/snapshots")
+    assert empty_history.status_code == 200
+    assert empty_history.json()["data"] == {"count": 0, "items": []}
+
+    first_response = client.post("/api/v1/fund/reports/daily/snapshots")
+    repeated_response = client.post("/api/v1/fund/reports/daily/snapshots")
+    assert first_response.status_code == 200
+    assert repeated_response.status_code == 200
+    first = first_response.json()["data"]
+    repeated = repeated_response.json()["data"]
+    assert repeated["id"] == first["id"]
+    assert repeated["quality_level"] == "insufficient"
+    assert repeated["change_from_previous"] is None
+
+    stored = db_session.scalar(select(FundDailyReportSnapshotModel))
+    assert stored is not None
+    assert "fund-daily-context.v1" in stored.context_json
+    stored.report_date -= timedelta(days=1)
+    db_session.commit()
+
+    position_response = client.post(
+        "/api/v1/fund/positions",
+        json={
+            "fund_code": "510300",
+            "fund_name": "Core ETF",
+            "fund_type": "ETF",
+            "account_name": "Account A",
+            "shares": "100",
+            "cost_price": "1.0000",
+            "current_nav": "1.1000",
+            "tags": "",
+            "note": "",
+        },
+    )
+    assert position_response.status_code == 200
+    latest_response = client.post("/api/v1/fund/reports/daily/snapshots")
+    assert latest_response.status_code == 200
+
+    history_response = client.get(
+        "/api/v1/fund/reports/daily/snapshots",
+        params={"limit": 7},
+    )
+    assert history_response.status_code == 200
+    history = history_response.json()["data"]
+    assert history["count"] == 2
+    assert history["items"][0]["position_count"] == 1
+    assert history["items"][0]["change_from_previous"]["position_count"] == 1
+    assert history["items"][1]["change_from_previous"] is None
 
 
 def test_fund_transactions_track_cash_flows(client: TestClient) -> None:

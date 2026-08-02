@@ -1,4 +1,5 @@
 FUND_PLUGIN_CODE = "fund"
+FUND_PLUGIN_VERSION = "0.8.0"
 
 FUND_MODULES = [
     {
@@ -28,7 +29,7 @@ FUND_MODULES = [
     {
         "code": "report",
         "name": "基金日报",
-        "description": "已支持数据汇总、结构化分析上下文和 Bark 推送，后续接入 AI 总结。",
-        "status": "in_progress",
+        "description": "支持结构化摘要、每日快照、历史变化比较和 Bark 推送。",
+        "status": "completed",
     },
 ]

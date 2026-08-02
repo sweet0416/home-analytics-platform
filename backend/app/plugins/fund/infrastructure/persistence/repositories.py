@@ -5,6 +5,7 @@ from sqlalchemy import and_, distinct, func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.plugins.fund.infrastructure.persistence.models import (
+    FundDailyReportSnapshotModel,
     FundDisclosureHoldingModel,
     FundDisclosureModel,
     FundModel,
@@ -72,6 +73,42 @@ class FundRepository:
             .order_by(
                 FundNavSyncRunModel.finished_at.desc(),
                 FundNavSyncRunModel.id.desc(),
+            )
+        )
+
+    def upsert_daily_report_snapshot(
+        self,
+        **values: object,
+    ) -> FundDailyReportSnapshotModel:
+        report_date = values["report_date"]
+        snapshot = self.db.scalar(
+            select(FundDailyReportSnapshotModel).where(
+                FundDailyReportSnapshotModel.report_date == report_date
+            )
+        )
+        if snapshot is None:
+            snapshot = FundDailyReportSnapshotModel(**values)
+            self.db.add(snapshot)
+        else:
+            for field, value in values.items():
+                setattr(snapshot, field, value)
+            snapshot.updated_at = datetime.utcnow()
+        self.db.flush()
+        return snapshot
+
+    def list_daily_report_snapshots(
+        self,
+        *,
+        limit: int,
+    ) -> list[FundDailyReportSnapshotModel]:
+        return list(
+            self.db.scalars(
+                select(FundDailyReportSnapshotModel)
+                .order_by(
+                    FundDailyReportSnapshotModel.report_date.desc(),
+                    FundDailyReportSnapshotModel.id.desc(),
+                )
+                .limit(limit)
             )
         )
 

@@ -159,6 +159,60 @@ class FundNavSyncRunModel(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
+class FundDailyReportSnapshotModel(Base):
+    __tablename__ = "fund_daily_report_snapshots"
+    __table_args__ = (
+        Index(
+            "ix_fund_daily_report_snapshots_report_date",
+            "report_date",
+            unique=True,
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    report_date: Mapped[date] = mapped_column(Date)
+    generated_at: Mapped[datetime] = mapped_column(DateTime)
+    contract_version: Mapped[str] = mapped_column(String(64))
+    quality_level: Mapped[str] = mapped_column(String(32))
+    position_count: Mapped[int] = mapped_column(Integer)
+    fund_count: Mapped[int] = mapped_column(Integer)
+    total_cost: Mapped[Decimal] = mapped_column(Numeric(18, 2))
+    current_value: Mapped[Decimal | None] = mapped_column(
+        Numeric(18, 2),
+        nullable=True,
+    )
+    unrealized_profit: Mapped[Decimal | None] = mapped_column(
+        Numeric(18, 2),
+        nullable=True,
+    )
+    unrealized_return_rate: Mapped[Decimal | None] = mapped_column(
+        Numeric(18, 8),
+        nullable=True,
+    )
+    valuation_complete: Mapped[bool] = mapped_column(Boolean)
+    latest_nav_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    nav_age_days: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    risk_fund_count: Mapped[int] = mapped_column(Integer)
+    risk_covered_fund_count: Mapped[int] = mapped_column(Integer)
+    risk_sample_count: Mapped[int] = mapped_column(Integer)
+    top_holding_weight: Mapped[Decimal | None] = mapped_column(
+        Numeric(12, 8),
+        nullable=True,
+    )
+    concentration_hhi: Mapped[Decimal | None] = mapped_column(
+        Numeric(12, 8),
+        nullable=True,
+    )
+    target_configured_count: Mapped[int] = mapped_column(Integer)
+    target_configuration_complete: Mapped[bool] = mapped_column(Boolean)
+    target_weight_total: Mapped[Decimal] = mapped_column(Numeric(12, 8))
+    alert_count: Mapped[int] = mapped_column(Integer)
+    warning_count: Mapped[int] = mapped_column(Integer)
+    context_json: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
 class FundDisclosureModel(Base):
     __tablename__ = "fund_disclosures"
     __table_args__ = (
