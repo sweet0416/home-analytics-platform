@@ -117,6 +117,9 @@ def test_scheduled_sync_pushes_daily_report_after_new_nav(
             assert report.report_date == "2026-07-31"
             return SimpleNamespace(report_date="2026-07-31")
 
+        def get_daily_report_insights(self) -> SimpleNamespace:
+            return SimpleNamespace(contract_version="fund-daily-insights.v1")
+
     class FakeNotificationService:
         def __init__(self, settings: object) -> None:
             self.settings = settings
@@ -127,9 +130,11 @@ def test_scheduled_sync_pushes_daily_report_after_new_nav(
             report: object,
             channel: object,
             snapshot: object | None = None,
+            insights: object | None = None,
         ) -> SimpleNamespace:
             sent_reports.append((report, channel))
             assert snapshot is not None
+            assert insights is not None
             return SimpleNamespace(
                 results=[
                     SimpleNamespace(

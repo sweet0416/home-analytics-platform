@@ -13,6 +13,7 @@ from app.plugins.fund.application.services import FundService
 from app.plugins.fund.infrastructure.persistence.models import FundNavSyncRunModel
 from app.plugins.fund.infrastructure.persistence.repositories import FundRepository
 from app.plugins.fund.interfaces.schemas import (
+    FundDailyInsightsRead,
     FundDailyReportRead,
     FundDailySnapshotRead,
 )
@@ -143,10 +144,16 @@ def _run_scheduled_fund_nav_sync() -> None:
             snapshot_summary = (
                 str(daily_snapshot.report_date) if daily_snapshot is not None else "failed"
             )
+            daily_insights = (
+                service.get_daily_report_insights()
+                if getattr(settings, "fund_nav_notify_enabled", False)
+                else None
+            )
             notification_summary = _send_daily_report_notification(
                 report=daily_report,
                 settings=settings,
                 snapshot=daily_snapshot,
+                insights=daily_insights,
             )
         status = "succeeded" if result.failed == 0 else "partial"
         message = (
@@ -220,6 +227,7 @@ def _send_daily_report_notification(
     report: FundDailyReportRead,
     settings: object,
     snapshot: FundDailySnapshotRead | None = None,
+    insights: FundDailyInsightsRead | None = None,
 ) -> str:
     if not getattr(settings, "fund_nav_notify_enabled", False):
         return "disabled"
@@ -231,6 +239,7 @@ def _send_daily_report_notification(
             report=report,
             channel=channel,
             snapshot=snapshot,
+            insights=insights,
         )
         statuses = ", ".join(
             f"{item.channel.value} {item.status}" for item in result.results

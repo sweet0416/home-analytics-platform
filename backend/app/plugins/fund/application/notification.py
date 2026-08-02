@@ -7,6 +7,7 @@ from app.core.notification.schemas import (
 )
 from app.core.notification.service import NotificationService
 from app.plugins.fund.interfaces.schemas import (
+    FundDailyInsightsRead,
     FundDailyReportRead,
     FundDailySnapshotRead,
 )
@@ -22,11 +23,16 @@ class FundDailyNotificationService:
         report: FundDailyReportRead,
         channel: NotificationChannel,
         snapshot: FundDailySnapshotRead | None = None,
+        insights: FundDailyInsightsRead | None = None,
     ) -> NotificationTestResult:
         return self._notification_service.send_test(
             channel=channel,
             title=f"HAP 基金日报 · {report.report_date}",
-            message=self._build_message(report, snapshot=snapshot),
+            message=self._build_message(
+                report,
+                snapshot=snapshot,
+                insights=insights,
+            ),
             source="fund_daily_report",
         )
 
@@ -36,6 +42,7 @@ class FundDailyNotificationService:
         report: FundDailyReportRead,
         *,
         snapshot: FundDailySnapshotRead | None = None,
+        insights: FundDailyInsightsRead | None = None,
     ) -> str:
         holding = report.holding_summary
         allocation = report.allocation
@@ -105,6 +112,26 @@ class FundDailyNotificationService:
                     f"• 持仓数量 {change.position_count:+d} 条",
                 ]
             )
+        available_comparisons = (
+            [item for item in insights.comparisons if item.change is not None]
+            if insights is not None
+            else []
+        )
+        if available_comparisons:
+            lines.extend(["", "阶段变化："])
+            lines.extend(
+                (
+                    f"• 近 {item.period_days} 日：估值 "
+                    f"{cls._format_money(item.change.current_value, signed=True)}，"
+                    "收益率 "
+                    f"{cls._format_percentage_point_change(item.change.unrealized_return_rate)}"
+                )
+                for item in available_comparisons
+                if item.change is not None
+            )
+        if insights is not None and insights.alerts:
+            lines.extend(["", "变化提醒："])
+            lines.extend(f"• {alert.message}" for alert in insights.alerts)
         if report.alerts:
             lines.extend(["", "数据提醒："])
             lines.extend(f"• {alert.message}" for alert in report.alerts)

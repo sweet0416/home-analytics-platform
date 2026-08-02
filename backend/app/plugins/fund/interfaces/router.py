@@ -15,6 +15,7 @@ from app.plugins.fund.infrastructure.persistence.repositories import FundReposit
 from app.plugins.fund.interfaces.schemas import (
     FundAllocationRead,
     FundCashFlowPerformanceRead,
+    FundDailyAiInputRead,
     FundDailyInsightsRead,
     FundDailyPushRequest,
     FundDailyReportRead,
@@ -81,7 +82,7 @@ def get_fund_status() -> ApiResponse[FundStatusRead]:
             modules=FUND_MODULES,
             data_source_status="configured",
             storage_status="storage_ready",
-            next_step="基金基础分析闭环已完成；下一步设计可选的 AI 日报摘要适配层。",
+            next_step="AI 日报输入契约已就绪；下一步按需接入可配置的模型提供方。",
         )
     )
 
@@ -477,6 +478,16 @@ def get_fund_daily_report_insights(
 
 
 @router.get(
+    "/reports/daily/ai-input",
+    response_model=ApiResponse[FundDailyAiInputRead],
+)
+def get_fund_daily_report_ai_input(
+    service: FundService = Depends(get_fund_service),
+) -> ApiResponse[FundDailyAiInputRead]:
+    return ok(service.get_daily_report_ai_input())
+
+
+@router.get(
     "/reports/daily/snapshots",
     response_model=ApiResponse[FundDailySnapshotHistoryRead],
 )
@@ -511,9 +522,11 @@ def push_fund_daily_report(
 ) -> ApiResponse[NotificationTestResult]:
     report = service.get_daily_report()
     snapshot = service.save_daily_report_snapshot(report)
+    insights = service.get_daily_report_insights()
     result = FundDailyNotificationService(settings=settings).send(
         report=report,
         channel=payload.channel,
         snapshot=snapshot,
+        insights=insights,
     )
     return ok(result, message="fund daily report push finished")

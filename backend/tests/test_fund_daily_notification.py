@@ -41,10 +41,24 @@ def test_daily_notification_includes_snapshot_change_summary() -> None:
             position_count=0,
         )
     )
+    insights = SimpleNamespace(
+        comparisons=[
+            SimpleNamespace(
+                period_days=7,
+                change=SimpleNamespace(
+                    current_value=Decimal("35.00"),
+                    unrealized_return_rate=Decimal("0.0075"),
+                ),
+            ),
+            SimpleNamespace(period_days=30, change=None),
+        ],
+        alerts=[SimpleNamespace(message="数据完整度较前次快照下降。")],
+    )
 
     message = FundDailyNotificationService._build_message(
         report,
         snapshot=snapshot,
+        insights=insights,
     )
 
     assert "较前次快照：" in message
@@ -52,6 +66,10 @@ def test_daily_notification_includes_snapshot_change_summary() -> None:
     assert "浮盈亏 +¥23.50" in message
     assert "收益率 +0.56 个百分点" in message
     assert "持仓数量 +0 条" in message
+    assert "阶段变化：" in message
+    assert "近 7 日：估值 +¥35.00，收益率 +0.75 个百分点" in message
+    assert "变化提醒：" in message
+    assert "数据完整度较前次快照下降。" in message
 
 
 def test_daily_notification_omits_change_section_without_previous_snapshot() -> None:

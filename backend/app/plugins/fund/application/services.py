@@ -62,6 +62,7 @@ from app.plugins.fund.interfaces.schemas import (
     FundCashFlowPerformanceRead,
     FundCorrelationMemberRead,
     FundCorrelationPairRead,
+    FundDailyAiInputRead,
     FundDailyAlertRead,
     FundDailyAnalysisContextRead,
     FundDailyDataQualityRead,
@@ -2219,6 +2220,37 @@ class FundService:
                 "估值变化可能同时包含市场波动、申赎和持仓编辑影响。",
                 "异常提醒用于数据核对和风险观察，不构成投资建议。",
             ],
+        )
+
+    def get_daily_report_ai_input(self) -> FundDailyAiInputRead:
+        report = self.get_daily_report()
+        insights = self.get_daily_report_insights()
+        return FundDailyAiInputRead(
+            contract_version="fund-daily-ai-input.v1",
+            generated_at=datetime.now(ZoneInfo("Asia/Shanghai")),
+            report_date=report.report_date,
+            source_contracts=[
+                report.analysis_context.contract_version,
+                insights.contract_version,
+            ],
+            data_quality=report.analysis_context.data_quality,
+            facts=report.analysis_context.facts,
+            insights=insights,
+            summarization_rules=[
+                "只总结输入中已经提供的事实和变化，不补造实时行情。",
+                "所有趋势结论必须同时说明比较区间和样本数量。",
+                "样本不足时明确说明不足，不推断未来表现。",
+                "区分市场波动、申赎和持仓编辑可能造成的估值变化。",
+                "不使用保证收益、推荐买卖或提高收益率等表述。",
+            ],
+            disclaimers=list(
+                dict.fromkeys(
+                    [
+                        *report.analysis_context.disclaimers,
+                        *insights.disclaimers,
+                    ]
+                )
+            ),
         )
 
     @classmethod

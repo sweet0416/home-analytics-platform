@@ -302,7 +302,7 @@ def test_fund_status_endpoint_returns_operational_contract(client: TestClient) -
     assert response.status_code == 200
     body = response.json()["data"]
     assert body["plugin"] == "fund"
-    assert body["version"] == "0.9.0"
+    assert body["version"] == "0.10.0"
     assert body["status"] == "operational"
     assert body["data_source_status"] == "configured"
     assert body["storage_status"] == "storage_ready"
@@ -998,6 +998,18 @@ def test_fund_daily_report_snapshots_are_idempotent_and_comparable(
     assert "position_count_changed" in {
         alert["code"] for alert in insight["alerts"]
     }
+
+    ai_input_response = client.get("/api/v1/fund/reports/daily/ai-input")
+    assert ai_input_response.status_code == 200
+    ai_input = ai_input_response.json()["data"]
+    assert ai_input["contract_version"] == "fund-daily-ai-input.v1"
+    assert ai_input["source_contracts"] == [
+        "fund-daily-context.v1",
+        "fund-daily-insights.v1",
+    ]
+    assert ai_input["insights"]["snapshot_count"] == 2
+    assert len(ai_input["summarization_rules"]) == 5
+    assert ai_input["disclaimers"]
 
 
 def test_fund_transactions_track_cash_flows(client: TestClient) -> None:

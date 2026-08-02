@@ -792,6 +792,18 @@ class FundDailyInsightsRead(BaseModel):
     disclaimers: list[str]
 
 
+class FundDailyAiInputRead(BaseModel):
+    contract_version: Literal["fund-daily-ai-input.v1"]
+    generated_at: datetime
+    report_date: date
+    source_contracts: list[str]
+    data_quality: FundDailyDataQualityRead
+    facts: list[FundDailyFactRead]
+    insights: FundDailyInsightsRead
+    summarization_rules: list[str]
+    disclaimers: list[str]
+
+
 class FundDailyPushRequest(BaseModel):
     channel: NotificationChannel = NotificationChannel.bark
 
