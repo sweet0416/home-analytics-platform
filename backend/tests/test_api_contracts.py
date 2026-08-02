@@ -302,7 +302,7 @@ def test_fund_status_endpoint_returns_operational_contract(client: TestClient) -
     assert response.status_code == 200
     body = response.json()["data"]
     assert body["plugin"] == "fund"
-    assert body["version"] == "0.8.0"
+    assert body["version"] == "0.9.0"
     assert body["status"] == "operational"
     assert body["data_source_status"] == "configured"
     assert body["storage_status"] == "storage_ready"
@@ -943,10 +943,20 @@ def test_fund_daily_report_snapshots_are_idempotent_and_comparable(
     assert repeated["quality_level"] == "insufficient"
     assert repeated["change_from_previous"] is None
 
+    initial_insights = client.get("/api/v1/fund/reports/daily/insights")
+    assert initial_insights.status_code == 200
+    initial_insight_data = initial_insights.json()["data"]
+    assert initial_insight_data["contract_version"] == "fund-daily-insights.v1"
+    assert initial_insight_data["snapshot_count"] == 1
+    assert all(
+        item["status"] == "insufficient"
+        for item in initial_insight_data["comparisons"]
+    )
+
     stored = db_session.scalar(select(FundDailyReportSnapshotModel))
     assert stored is not None
     assert "fund-daily-context.v1" in stored.context_json
-    stored.report_date -= timedelta(days=1)
+    stored.report_date -= timedelta(days=31)
     db_session.commit()
 
     position_response = client.post(
@@ -977,6 +987,17 @@ def test_fund_daily_report_snapshots_are_idempotent_and_comparable(
     assert history["items"][0]["position_count"] == 1
     assert history["items"][0]["change_from_previous"]["position_count"] == 1
     assert history["items"][1]["change_from_previous"] is None
+
+    insight_response = client.get("/api/v1/fund/reports/daily/insights")
+    assert insight_response.status_code == 200
+    insight = insight_response.json()["data"]
+    assert insight["snapshot_count"] == 2
+    assert {item["period_days"] for item in insight["comparisons"]} == {7, 30}
+    assert all(item["status"] == "available" for item in insight["comparisons"])
+    assert all(item["change"]["position_count"] == 1 for item in insight["comparisons"])
+    assert "position_count_changed" in {
+        alert["code"] for alert in insight["alerts"]
+    }
 
 
 def test_fund_transactions_track_cash_flows(client: TestClient) -> None:

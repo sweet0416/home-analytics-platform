@@ -764,6 +764,34 @@ class FundDailySnapshotHistoryRead(BaseModel):
     items: list[FundDailySnapshotRead]
 
 
+class FundDailyPeriodComparisonRead(BaseModel):
+    period_days: Literal[7, 30]
+    status: Literal["available", "insufficient"]
+    latest_date: date | None
+    baseline_date: date | None
+    sample_count: int
+    observed_span_days: int
+    change: FundDailySnapshotChangeRead | None
+    explanation: str
+
+
+class FundDailyInsightAlertRead(BaseModel):
+    code: str
+    level: Literal["info", "warning"]
+    message: str
+    sample_scope: str
+
+
+class FundDailyInsightsRead(BaseModel):
+    contract_version: Literal["fund-daily-insights.v1"]
+    generated_at: datetime
+    snapshot_count: int
+    latest_date: date | None
+    comparisons: list[FundDailyPeriodComparisonRead]
+    alerts: list[FundDailyInsightAlertRead]
+    disclaimers: list[str]
+
+
 class FundDailyPushRequest(BaseModel):
     channel: NotificationChannel = NotificationChannel.bark
 

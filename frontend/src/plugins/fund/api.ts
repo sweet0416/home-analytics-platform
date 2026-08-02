@@ -682,6 +682,34 @@ export interface FundDailySnapshotHistory {
   items: FundDailySnapshot[];
 }
 
+export interface FundDailyPeriodComparison {
+  period_days: 7 | 30;
+  status: 'available' | 'insufficient';
+  latest_date: string | null;
+  baseline_date: string | null;
+  sample_count: number;
+  observed_span_days: number;
+  change: FundDailySnapshotChange | null;
+  explanation: string;
+}
+
+export interface FundDailyInsightAlert {
+  code: string;
+  level: 'info' | 'warning';
+  message: string;
+  sample_scope: string;
+}
+
+export interface FundDailyInsights {
+  contract_version: 'fund-daily-insights.v1';
+  generated_at: string;
+  snapshot_count: number;
+  latest_date: string | null;
+  comparisons: FundDailyPeriodComparison[];
+  alerts: FundDailyInsightAlert[];
+  disclaimers: string[];
+}
+
 export interface FundDailyPushResult {
   requested_channel: 'all' | 'bark' | 'wecom' | 'whatsapp' | 'custom_webhook';
   results: Array<{
@@ -968,6 +996,10 @@ export function fetchFundNavSummary(): Promise<FundNavSummary> {
 
 export function fetchFundDailyReport(): Promise<FundDailyReport> {
   return getApiData<FundDailyReport>('/fund/reports/daily');
+}
+
+export function fetchFundDailyInsights(): Promise<FundDailyInsights> {
+  return getApiData<FundDailyInsights>('/fund/reports/daily/insights');
 }
 
 export function fetchFundDailySnapshots(limit = 30): Promise<FundDailySnapshotHistory> {

@@ -15,6 +15,7 @@ from app.plugins.fund.infrastructure.persistence.repositories import FundReposit
 from app.plugins.fund.interfaces.schemas import (
     FundAllocationRead,
     FundCashFlowPerformanceRead,
+    FundDailyInsightsRead,
     FundDailyPushRequest,
     FundDailyReportRead,
     FundDailySnapshotHistoryRead,
@@ -463,6 +464,16 @@ def get_fund_daily_report(
     service: FundService = Depends(get_fund_service),
 ) -> ApiResponse[FundDailyReportRead]:
     return ok(service.get_daily_report())
+
+
+@router.get(
+    "/reports/daily/insights",
+    response_model=ApiResponse[FundDailyInsightsRead],
+)
+def get_fund_daily_report_insights(
+    service: FundService = Depends(get_fund_service),
+) -> ApiResponse[FundDailyInsightsRead]:
+    return ok(service.get_daily_report_insights())
 
 
 @router.get(

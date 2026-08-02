@@ -6,6 +6,10 @@ from zoneinfo import ZoneInfo
 from loguru import logger
 
 from app.core.config.settings import Settings
+from app.plugins.fund.domain.daily_insights import (
+    DailyInsightSnapshot,
+    calculate_daily_insights,
+)
 from app.plugins.fund.domain.holding_correlation import (
     FundCorrelationSeries,
     calculate_holding_correlations,
@@ -62,6 +66,9 @@ from app.plugins.fund.interfaces.schemas import (
     FundDailyAnalysisContextRead,
     FundDailyDataQualityRead,
     FundDailyFactRead,
+    FundDailyInsightAlertRead,
+    FundDailyInsightsRead,
+    FundDailyPeriodComparisonRead,
     FundDailyReportRead,
     FundDailySnapshotChangeRead,
     FundDailySnapshotHistoryRead,
@@ -2150,6 +2157,69 @@ class FundService:
             for index, record in enumerate(records[:bounded_limit])
         ]
         return FundDailySnapshotHistoryRead(count=len(items), items=items)
+
+    def get_daily_report_insights(self) -> FundDailyInsightsRead:
+        records = self.repository.list_daily_report_snapshots(limit=366)
+        calculated = calculate_daily_insights(
+            [
+                DailyInsightSnapshot(
+                    report_date=record.report_date,
+                    position_count=record.position_count,
+                    current_value=record.current_value,
+                    unrealized_profit=record.unrealized_profit,
+                    unrealized_return_rate=record.unrealized_return_rate,
+                    concentration_hhi=record.concentration_hhi,
+                    quality_level=record.quality_level,
+                    nav_age_days=record.nav_age_days,
+                )
+                for record in records
+            ]
+        )
+        return FundDailyInsightsRead(
+            contract_version="fund-daily-insights.v1",
+            generated_at=datetime.now(ZoneInfo("Asia/Shanghai")),
+            snapshot_count=calculated.snapshot_count,
+            latest_date=calculated.latest_date,
+            comparisons=[
+                FundDailyPeriodComparisonRead(
+                    period_days=comparison.period_days,
+                    status=comparison.status,
+                    latest_date=comparison.latest_date,
+                    baseline_date=comparison.baseline_date,
+                    sample_count=comparison.sample_count,
+                    observed_span_days=comparison.observed_span_days,
+                    change=(
+                        FundDailySnapshotChangeRead(
+                            position_count=comparison.position_count_change or 0,
+                            current_value=comparison.current_value_change,
+                            unrealized_profit=comparison.unrealized_profit_change,
+                            unrealized_return_rate=(
+                                comparison.unrealized_return_rate_change
+                            ),
+                            concentration_hhi=comparison.concentration_hhi_change,
+                        )
+                        if comparison.status == "available"
+                        else None
+                    ),
+                    explanation=comparison.explanation,
+                )
+                for comparison in calculated.comparisons
+            ],
+            alerts=[
+                FundDailyInsightAlertRead(
+                    code=alert.code,
+                    level=alert.level,
+                    message=alert.message,
+                    sample_scope=alert.sample_scope,
+                )
+                for alert in calculated.alerts
+            ],
+            disclaimers=[
+                "变化基于已保存日报快照，不等同于连续实时行情。",
+                "估值变化可能同时包含市场波动、申赎和持仓编辑影响。",
+                "异常提醒用于数据核对和风险观察，不构成投资建议。",
+            ],
+        )
 
     @classmethod
     def _to_daily_snapshot_read(

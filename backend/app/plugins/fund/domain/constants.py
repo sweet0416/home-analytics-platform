@@ -1,5 +1,5 @@
 FUND_PLUGIN_CODE = "fund"
-FUND_PLUGIN_VERSION = "0.8.1"
+FUND_PLUGIN_VERSION = "0.9.0"
 
 FUND_MODULES = [
     {
@@ -29,7 +29,7 @@ FUND_MODULES = [
     {
         "code": "report",
         "name": "基金日报",
-        "description": "支持结构化摘要、每日快照、历史变化比较和 Bark 推送。",
+        "description": "支持结构化摘要、每日快照、7/30 日变化洞察、异常提醒和 Bark 推送。",
         "status": "completed",
     },
 ]

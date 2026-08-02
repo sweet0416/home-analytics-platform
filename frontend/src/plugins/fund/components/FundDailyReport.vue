@@ -127,6 +127,71 @@
           <p>当前内容由固定规则生成，为后续 AI 总结提供带样本口径的数据，不直接生成投资结论。</p>
         </div>
 
+        <div v-if="insights" class="daily-insights">
+          <div class="daily-insights-heading">
+            <div>
+              <strong>变化洞察</strong>
+              <span>{{ insights.contract_version }}</span>
+            </div>
+            <span>共 {{ insights.snapshot_count }} 条日报快照</span>
+          </div>
+          <div class="period-comparisons">
+            <div
+              v-for="comparison in insights.comparisons"
+              :key="comparison.period_days"
+              class="period-comparison"
+            >
+              <div class="period-comparison-heading">
+                <strong>近 {{ comparison.period_days }} 日</strong>
+                <span :class="`is-${comparison.status}`">
+                  {{ comparison.status === 'available' ? '可比较' : '样本积累中' }}
+                </span>
+              </div>
+              <div v-if="comparison.change" class="period-change-grid">
+                <div>
+                  <span>估值变化</span>
+                  <strong :class="valueClass(comparison.change.current_value)">
+                    {{ formatSignedMoney(comparison.change.current_value) }}
+                  </strong>
+                </div>
+                <div>
+                  <span>浮盈亏变化</span>
+                  <strong :class="valueClass(comparison.change.unrealized_profit)">
+                    {{ formatSignedMoney(comparison.change.unrealized_profit) }}
+                  </strong>
+                </div>
+                <div>
+                  <span>收益率变化</span>
+                  <strong :class="valueClass(comparison.change.unrealized_return_rate)">
+                    {{ formatPercentagePointChange(comparison.change.unrealized_return_rate) }}
+                  </strong>
+                </div>
+                <div>
+                  <span>持仓变化</span>
+                  <strong>{{ formatSignedCount(comparison.change.position_count) }}</strong>
+                </div>
+              </div>
+              <p>{{ comparison.explanation }}</p>
+            </div>
+          </div>
+          <div v-if="insights.alerts.length" class="insight-alerts">
+            <div
+              v-for="alert in insights.alerts"
+              :key="alert.code"
+              class="insight-alert"
+              :class="`is-${alert.level}`"
+            >
+              <InfoFilled />
+              <div>
+                <span>{{ alert.message }}</span>
+                <small>{{ alert.sample_scope }}</small>
+              </div>
+            </div>
+          </div>
+          <p v-else class="insight-clear">当前快照中没有触发需要核对的异常变化。</p>
+          <p class="insight-disclaimer">{{ insights.disclaimers.join(' ') }}</p>
+        </div>
+
         <div class="snapshot-history">
           <div class="snapshot-history-heading">
             <div>
@@ -238,10 +303,12 @@ import EmptyState from '@/components/common/EmptyState.vue';
 import RevealContent from '@/components/common/RevealContent.vue';
 import {
   fetchFundDailyReport,
+  fetchFundDailyInsights,
   fetchFundDailySnapshots,
   pushFundDailyReport,
   saveFundDailySnapshot,
   type FundDailyReport,
+  type FundDailyInsights,
   type FundDailySnapshot,
 } from '@/plugins/fund/api';
 
@@ -250,6 +317,7 @@ const props = defineProps<{
 }>();
 
 const report = ref<FundDailyReport | null>(null);
+const insights = ref<FundDailyInsights | null>(null);
 const snapshots = ref<FundDailySnapshot[]>([]);
 const loading = ref(false);
 const pushing = ref(false);
@@ -324,13 +392,15 @@ const deepestDrawdownItem = computed(() => {
 async function loadReport(): Promise<void> {
   loading.value = true;
   try {
-    const [reportResult, historyResult] = await Promise.allSettled([
+    const [reportResult, historyResult, insightsResult] = await Promise.allSettled([
       fetchFundDailyReport(),
       fetchFundDailySnapshots(30),
+      fetchFundDailyInsights(),
     ]);
     if (reportResult.status === 'rejected') throw reportResult.reason;
     report.value = reportResult.value;
     snapshots.value = historyResult.status === 'fulfilled' ? historyResult.value.items : [];
+    insights.value = insightsResult.status === 'fulfilled' ? insightsResult.value : null;
     await nextTick();
     renderSnapshotChart();
   } catch (error) {
@@ -344,7 +414,12 @@ async function saveSnapshot(): Promise<void> {
   savingSnapshot.value = true;
   try {
     await saveFundDailySnapshot();
-    snapshots.value = (await fetchFundDailySnapshots(30)).items;
+    const [history, insightResult] = await Promise.all([
+      fetchFundDailySnapshots(30),
+      fetchFundDailyInsights(),
+    ]);
+    snapshots.value = history.items;
+    insights.value = insightResult;
     await nextTick();
     renderSnapshotChart();
     ElMessage.success('今日基金日报快照已保存');
@@ -751,6 +826,116 @@ watch(
   margin: 0;
 }
 
+.daily-insights {
+  border-block: 1px solid rgba(148, 163, 184, 0.14);
+  display: grid;
+  gap: 12px;
+  padding-block: 14px;
+}
+
+.daily-insights-heading,
+.daily-insights-heading > div,
+.period-comparison-heading {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.daily-insights-heading > div {
+  justify-content: flex-start;
+}
+
+.daily-insights-heading span,
+.period-comparison p,
+.insight-disclaimer {
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
+.period-comparisons {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.period-comparison {
+  display: grid;
+  gap: 10px;
+  padding: 4px 16px 4px 0;
+}
+
+.period-comparison + .period-comparison {
+  border-left: 1px solid rgba(148, 163, 184, 0.14);
+  padding: 4px 0 4px 16px;
+}
+
+.period-comparison-heading > span {
+  color: #fbbf24;
+  font-size: 12px;
+}
+
+.period-comparison-heading > span.is-available {
+  color: #34d399;
+}
+
+.period-change-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.period-change-grid > div {
+  display: grid;
+  gap: 4px;
+}
+
+.period-change-grid span,
+.insight-alert small {
+  color: var(--color-muted);
+  font-size: 11px;
+}
+
+.period-change-grid strong {
+  color: var(--color-text);
+  font-size: 13px;
+}
+
+.period-comparison p,
+.insight-disclaimer {
+  line-height: 1.6;
+  margin: 0;
+}
+
+.insight-alerts {
+  border-top: 1px solid rgba(148, 163, 184, 0.12);
+  display: grid;
+  gap: 8px;
+  padding-top: 10px;
+}
+
+.insight-alert {
+  align-items: flex-start;
+  color: #7dd3fc;
+  display: flex;
+  font-size: 13px;
+  gap: 8px;
+}
+
+.insight-alert.is-warning {
+  color: #fbbf24;
+}
+
+.insight-alert > div {
+  display: grid;
+  gap: 2px;
+}
+
+.insight-clear {
+  color: #34d399;
+  font-size: 13px;
+  margin: 0;
+}
+
 .quality-badge {
   border: 1px solid rgba(56, 189, 248, 0.28);
   border-radius: 6px;
@@ -859,6 +1044,8 @@ watch(
   .panel-header,
   .report-actions,
   .report-time,
+  .daily-insights-heading,
+  .daily-insights-heading > div,
   .snapshot-history-heading,
   .snapshot-history-heading > div,
   .snapshot-change-summary,
@@ -874,8 +1061,24 @@ watch(
   .report-metrics,
   .report-status,
   .analysis-context-metrics,
+  .period-change-grid,
   .risk-digest-metrics {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .period-comparisons {
+    grid-template-columns: 1fr;
+  }
+
+  .period-comparison,
+  .period-comparison + .period-comparison {
+    border-left: 0;
+    padding: 4px 0;
+  }
+
+  .period-comparison + .period-comparison {
+    border-top: 1px solid rgba(148, 163, 184, 0.14);
+    padding-top: 12px;
   }
 }
 </style>
