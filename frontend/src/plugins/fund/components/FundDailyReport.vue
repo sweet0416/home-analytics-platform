@@ -129,9 +129,17 @@
 
         <div class="snapshot-history">
           <div class="snapshot-history-heading">
-            <strong>日报历史变化</strong>
-            <span>每天最多一条；同一天再次保存会更新当天快照</span>
+            <div>
+              <strong>日报历史变化</strong>
+              <span>最近 30 个快照 · 每天最多一条</span>
+            </div>
+            <span>同一天再次保存会更新当天快照</span>
           </div>
+          <div v-if="snapshots.length" class="snapshot-change-summary">
+            <span>{{ latestChangeSummary }}</span>
+            <small>变化均与上一个已保存快照比较，不等同于单日市场涨跌。</small>
+          </div>
+          <div v-if="snapshots.length" ref="snapshotChartRef" class="snapshot-chart"></div>
           <div v-if="snapshots.length" class="snapshot-table">
             <div class="snapshot-row snapshot-header">
               <span>日期</span>
@@ -141,7 +149,7 @@
               <span>较前次估值</span>
               <span>数据状态</span>
             </div>
-            <div v-for="snapshot in snapshots" :key="snapshot.id" class="snapshot-row">
+            <div v-for="snapshot in historyRows" :key="snapshot.id" class="snapshot-row">
               <strong>{{ snapshot.report_date }}</strong>
               <span>{{ formatMoney(snapshot.current_value) }}</span>
               <span :class="valueClass(snapshot.unrealized_profit)">
@@ -220,9 +228,12 @@
 
 <script setup lang="ts">
 import { Bell, DocumentAdd, InfoFilled, Refresh } from '@element-plus/icons-vue';
+import * as echarts from 'echarts';
+import type { ECharts, EChartsOption } from 'echarts';
 import { ElMessage } from 'element-plus';
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
+import { chartTheme } from '@/charts/useChartTheme';
 import EmptyState from '@/components/common/EmptyState.vue';
 import RevealContent from '@/components/common/RevealContent.vue';
 import {
@@ -243,6 +254,22 @@ const snapshots = ref<FundDailySnapshot[]>([]);
 const loading = ref(false);
 const pushing = ref(false);
 const savingSnapshot = ref(false);
+const snapshotChartRef = ref<HTMLDivElement | null>(null);
+let snapshotChart: ECharts | null = null;
+
+const historyRows = computed(() => snapshots.value.slice(0, 10));
+
+const latestChangeSummary = computed(() => {
+  const latest = snapshots.value[0];
+  const change = latest?.change_from_previous;
+  if (!latest || !change) return '当前快照将作为后续变化比较的基准。';
+  return [
+    `估值 ${formatSignedMoney(change.current_value)}`,
+    `浮盈亏 ${formatSignedMoney(change.unrealized_profit)}`,
+    `收益率 ${formatPercentagePointChange(change.unrealized_return_rate)}`,
+    `持仓 ${formatSignedCount(change.position_count)}`,
+  ].join(' · ');
+});
 
 const profitClass = computed(() => {
   const value = Number(report.value?.holding_summary.unrealized_profit ?? 0);
@@ -299,11 +326,13 @@ async function loadReport(): Promise<void> {
   try {
     const [reportResult, historyResult] = await Promise.allSettled([
       fetchFundDailyReport(),
-      fetchFundDailySnapshots(7),
+      fetchFundDailySnapshots(30),
     ]);
     if (reportResult.status === 'rejected') throw reportResult.reason;
     report.value = reportResult.value;
     snapshots.value = historyResult.status === 'fulfilled' ? historyResult.value.items : [];
+    await nextTick();
+    renderSnapshotChart();
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : '基金日报加载失败');
   } finally {
@@ -315,7 +344,9 @@ async function saveSnapshot(): Promise<void> {
   savingSnapshot.value = true;
   try {
     await saveFundDailySnapshot();
-    snapshots.value = (await fetchFundDailySnapshots(7)).items;
+    snapshots.value = (await fetchFundDailySnapshots(30)).items;
+    await nextTick();
+    renderSnapshotChart();
     ElMessage.success('今日基金日报快照已保存');
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : '日报快照保存失败');
@@ -364,6 +395,18 @@ function formatPercent(value: string | null): string {
   return `${prefix}${(numeric * 100).toFixed(2)}%`;
 }
 
+function formatPercentagePointChange(value: string | null): string {
+  if (value === null) return '--';
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return '--';
+  const prefix = numeric > 0 ? '+' : '';
+  return `${prefix}${(numeric * 100).toFixed(2)} 个百分点`;
+}
+
+function formatSignedCount(value: number): string {
+  return `${value > 0 ? '+' : ''}${value} 条`;
+}
+
 function formatHhi(value: string | null): string {
   if (value === null) return '--';
   const numeric = Number(value);
@@ -392,8 +435,89 @@ function formatDateTime(value: string): string {
     : date.toLocaleString('zh-CN', { hour12: false });
 }
 
+function renderSnapshotChart(): void {
+  if (!snapshotChartRef.value || snapshots.value.length === 0) {
+    snapshotChart?.clear();
+    return;
+  }
+  snapshotChart ??= echarts.init(snapshotChartRef.value);
+  const points = [...snapshots.value].reverse();
+  const option: EChartsOption = {
+    ...chartTheme,
+    color: ['#38bdf8', '#f59e0b'],
+    tooltip: {
+      trigger: 'axis',
+      formatter: (params) => {
+        const items = Array.isArray(params) ? params : [params];
+        const date = String(items[0]?.name ?? '');
+        const lines = items.map((item) => {
+          const value = Number(item.value);
+          const display = item.seriesName === '收益率'
+            ? `${value.toFixed(2)}%`
+            : formatMoney(value);
+          return `${item.marker ?? ''}${item.seriesName}: ${display}`;
+        });
+        return [date, ...lines].join('<br>');
+      },
+    },
+    legend: {
+      data: ['当前估值', '收益率'],
+      textStyle: { color: '#94a3b8' },
+    },
+    grid: { left: 62, right: 58, top: 44, bottom: 42 },
+    xAxis: {
+      type: 'category',
+      boundaryGap: false,
+      data: points.map((point) => point.report_date),
+      axisLabel: { color: '#94a3b8', hideOverlap: true },
+    },
+    yAxis: [
+      {
+        type: 'value',
+        axisLabel: { color: '#94a3b8', formatter: (value: number) => `¥${value}` },
+        splitLine: { lineStyle: { color: 'rgba(148, 163, 184, 0.12)' } },
+      },
+      {
+        type: 'value',
+        axisLabel: { color: '#94a3b8', formatter: '{value}%' },
+        splitLine: { show: false },
+      },
+    ],
+    series: [
+      {
+        name: '当前估值',
+        type: 'line',
+        showSymbol: points.length < 8,
+        smooth: 0.16,
+        data: points.map((point) => point.current_value === null ? null : Number(point.current_value)),
+      },
+      {
+        name: '收益率',
+        type: 'line',
+        yAxisIndex: 1,
+        showSymbol: points.length < 8,
+        smooth: 0.16,
+        data: points.map((point) => point.unrealized_return_rate === null
+          ? null
+          : Number((Number(point.unrealized_return_rate) * 100).toFixed(2))),
+      },
+    ],
+  };
+  snapshotChart.setOption(option, true);
+}
+
+function resizeSnapshotChart(): void {
+  snapshotChart?.resize();
+}
+
 onMounted(() => {
+  window.addEventListener('resize', resizeSnapshotChart);
   void loadReport();
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', resizeSnapshotChart);
+  snapshotChart?.dispose();
 });
 
 watch(
@@ -499,10 +623,40 @@ watch(
   justify-content: space-between;
 }
 
+.snapshot-history-heading > div {
+  align-items: baseline;
+  display: flex;
+  gap: 10px;
+}
+
 .snapshot-history-heading span,
 .snapshot-history > p {
   color: var(--color-muted);
   font-size: 12px;
+}
+
+.snapshot-change-summary {
+  align-items: baseline;
+  border-left: 2px solid rgba(56, 189, 248, 0.72);
+  display: flex;
+  gap: 12px;
+  padding: 2px 0 2px 10px;
+}
+
+.snapshot-change-summary span {
+  color: var(--color-text);
+  font-size: 13px;
+}
+
+.snapshot-change-summary small {
+  color: var(--color-muted);
+  font-size: 11px;
+}
+
+.snapshot-chart {
+  height: 250px;
+  min-width: 0;
+  width: 100%;
 }
 
 .snapshot-table {
@@ -706,9 +860,15 @@ watch(
   .report-actions,
   .report-time,
   .snapshot-history-heading,
+  .snapshot-history-heading > div,
+  .snapshot-change-summary,
   .risk-digest-title {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .snapshot-chart {
+    height: 220px;
   }
 
   .report-metrics,

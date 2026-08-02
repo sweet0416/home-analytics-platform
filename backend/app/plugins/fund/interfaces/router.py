@@ -498,8 +498,11 @@ def push_fund_daily_report(
     service: FundService = Depends(get_fund_service),
     settings: Settings = Depends(get_settings),
 ) -> ApiResponse[NotificationTestResult]:
+    report = service.get_daily_report()
+    snapshot = service.save_daily_report_snapshot(report)
     result = FundDailyNotificationService(settings=settings).send(
-        report=service.get_daily_report(),
+        report=report,
         channel=payload.channel,
+        snapshot=snapshot,
     )
     return ok(result, message="fund daily report push finished")

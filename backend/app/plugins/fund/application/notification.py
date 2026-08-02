@@ -6,7 +6,10 @@ from app.core.notification.schemas import (
     NotificationTestResult,
 )
 from app.core.notification.service import NotificationService
-from app.plugins.fund.interfaces.schemas import FundDailyReportRead
+from app.plugins.fund.interfaces.schemas import (
+    FundDailyReportRead,
+    FundDailySnapshotRead,
+)
 
 
 class FundDailyNotificationService:
@@ -18,16 +21,22 @@ class FundDailyNotificationService:
         *,
         report: FundDailyReportRead,
         channel: NotificationChannel,
+        snapshot: FundDailySnapshotRead | None = None,
     ) -> NotificationTestResult:
         return self._notification_service.send_test(
             channel=channel,
             title=f"HAP 基金日报 · {report.report_date}",
-            message=self._build_message(report),
+            message=self._build_message(report, snapshot=snapshot),
             source="fund_daily_report",
         )
 
     @classmethod
-    def _build_message(cls, report: FundDailyReportRead) -> str:
+    def _build_message(
+        cls,
+        report: FundDailyReportRead,
+        *,
+        snapshot: FundDailySnapshotRead | None = None,
+    ) -> str:
         holding = report.holding_summary
         allocation = report.allocation
         holding_risk = report.holding_risk
@@ -81,6 +90,21 @@ class FundDailyNotificationService:
                     ),
                 ]
             )
+        if snapshot is not None and snapshot.change_from_previous is not None:
+            change = snapshot.change_from_previous
+            lines.extend(
+                [
+                    "",
+                    "较前次快照：",
+                    f"• 当前估值 {cls._format_money(change.current_value, signed=True)}",
+                    f"• 浮盈亏 {cls._format_money(change.unrealized_profit, signed=True)}",
+                    (
+                        "• 收益率 "
+                        f"{cls._format_percentage_point_change(change.unrealized_return_rate)}"
+                    ),
+                    f"• 持仓数量 {change.position_count:+d} 条",
+                ]
+            )
         if report.alerts:
             lines.extend(["", "数据提醒："])
             lines.extend(f"• {alert.message}" for alert in report.alerts)
@@ -106,3 +130,10 @@ class FundDailyNotificationService:
             return "--"
         prefix = "+" if signed and value > 0 else ""
         return f"{prefix}{value * 100:.2f}%"
+
+    @staticmethod
+    def _format_percentage_point_change(value: Decimal | None) -> str:
+        if value is None:
+            return "--"
+        prefix = "+" if value > 0 else ""
+        return f"{prefix}{value * 100:.2f} 个百分点"

@@ -121,8 +121,15 @@ def test_scheduled_sync_pushes_daily_report_after_new_nav(
         def __init__(self, settings: object) -> None:
             self.settings = settings
 
-        def send(self, *, report: object, channel: object) -> SimpleNamespace:
+        def send(
+            self,
+            *,
+            report: object,
+            channel: object,
+            snapshot: object | None = None,
+        ) -> SimpleNamespace:
             sent_reports.append((report, channel))
+            assert snapshot is not None
             return SimpleNamespace(
                 results=[
                     SimpleNamespace(

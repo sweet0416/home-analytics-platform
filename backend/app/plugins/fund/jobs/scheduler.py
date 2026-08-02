@@ -12,7 +12,10 @@ from app.plugins.fund.application.notification import FundDailyNotificationServi
 from app.plugins.fund.application.services import FundService
 from app.plugins.fund.infrastructure.persistence.models import FundNavSyncRunModel
 from app.plugins.fund.infrastructure.persistence.repositories import FundRepository
-from app.plugins.fund.interfaces.schemas import FundDailyReportRead
+from app.plugins.fund.interfaces.schemas import (
+    FundDailyReportRead,
+    FundDailySnapshotRead,
+)
 
 TIMEZONE = "Asia/Shanghai"
 JOB_ID = "fund_nav_auto_sync"
@@ -133,13 +136,17 @@ def _run_scheduled_fund_nav_sync() -> None:
                 settings=settings,
             )
             daily_report = service.get_daily_report()
-            snapshot_summary = _save_daily_report_snapshot(
+            daily_snapshot = _save_daily_report_snapshot(
                 service=service,
                 report=daily_report,
+            )
+            snapshot_summary = (
+                str(daily_snapshot.report_date) if daily_snapshot is not None else "failed"
             )
             notification_summary = _send_daily_report_notification(
                 report=daily_report,
                 settings=settings,
+                snapshot=daily_snapshot,
             )
         status = "succeeded" if result.failed == 0 else "partial"
         message = (
@@ -212,6 +219,7 @@ def _send_daily_report_notification(
     *,
     report: FundDailyReportRead,
     settings: object,
+    snapshot: FundDailySnapshotRead | None = None,
 ) -> str:
     if not getattr(settings, "fund_nav_notify_enabled", False):
         return "disabled"
@@ -222,6 +230,7 @@ def _send_daily_report_notification(
         result = FundDailyNotificationService(settings=settings).send(
             report=report,
             channel=channel,
+            snapshot=snapshot,
         )
         statuses = ", ".join(
             f"{item.channel.value} {item.status}" for item in result.results
@@ -240,14 +249,14 @@ def _save_daily_report_snapshot(
     *,
     service: FundService,
     report: FundDailyReportRead,
-) -> str:
+) -> FundDailySnapshotRead | None:
     try:
         snapshot = service.save_daily_report_snapshot(report)
         logger.info("Fund daily report snapshot saved: {}", snapshot.report_date)
-        return str(snapshot.report_date)
+        return snapshot
     except Exception as exc:  # noqa: BLE001
         logger.exception("Fund daily report snapshot failed: {}", exc)
-        return "failed"
+        return None
 
 
 def _save_run(
