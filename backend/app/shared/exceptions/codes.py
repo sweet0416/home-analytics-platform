@@ -21,3 +21,6 @@ class ErrorCode(StrEnum):
     fund_holdings_source_unavailable = "FUND_HOLDINGS_SOURCE_UNAVAILABLE"
     fund_holdings_parse_failed = "FUND_HOLDINGS_PARSE_FAILED"
     fund_ai_summary_unavailable = "FUND_AI_SUMMARY_UNAVAILABLE"
+    fund_ttskill_sync_disabled = "FUND_TTSKILL_SYNC_DISABLED"
+    fund_ttskill_unauthorized = "FUND_TTSKILL_UNAUTHORIZED"
+    fund_ttskill_parse_failed = "FUND_TTSKILL_PARSE_FAILED"

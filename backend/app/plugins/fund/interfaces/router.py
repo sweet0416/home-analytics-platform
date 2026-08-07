@@ -1,4 +1,7 @@
-from fastapi import APIRouter, Depends, Query
+from hmac import compare_digest
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, Header, Query
 from sqlalchemy.orm import Session
 
 from app.core.config.settings import Settings, get_settings
@@ -62,6 +65,8 @@ from app.plugins.fund.interfaces.schemas import (
     FundWatchlistUpdate,
 )
 from app.plugins.fund.jobs.scheduler import get_fund_scheduler_status
+from app.shared.exceptions.base import AppError
+from app.shared.exceptions.codes import ErrorCode
 from app.shared.responses.schemas import ApiResponse, ok
 
 router = APIRouter(prefix="/fund")
@@ -81,6 +86,31 @@ def get_fund_ai_summary_service(
         settings=settings,
         provider=FundAiSummaryWebhookProvider(settings),
     )
+
+
+def require_ttskill_sync_token(
+    x_hap_sync_token: Annotated[
+        str | None,
+        Header(alias="X-HAP-Sync-Token"),
+    ] = None,
+    settings: Settings = Depends(get_settings),
+) -> None:
+    configured_token = settings.fund_ttskill_sync_token.strip()
+    if not settings.fund_ttskill_sync_enabled or not configured_token:
+        raise AppError(
+            code=ErrorCode.fund_ttskill_sync_disabled,
+            message="Tiantian Skills synchronization is disabled.",
+            status_code=503,
+        )
+    if not x_hap_sync_token or not compare_digest(
+        x_hap_sync_token,
+        configured_token,
+    ):
+        raise AppError(
+            code=ErrorCode.fund_ttskill_unauthorized,
+            message="Tiantian Skills synchronization token is invalid.",
+            status_code=401,
+        )
 
 
 @router.get("/status", response_model=ApiResponse[FundStatusRead])
@@ -140,6 +170,21 @@ def sync_held_fund_profiles(
     service: FundService = Depends(get_fund_service),
 ) -> ApiResponse[FundProfileSyncRead]:
     return ok(service.sync_held_fund_profiles())
+
+
+@router.post(
+    "/integrations/ttskill/base-infos",
+    response_model=ApiResponse[FundNavRecordRead],
+    dependencies=[Depends(require_ttskill_sync_token)],
+)
+def import_ttskill_base_infos(
+    payload: dict[str, object],
+    service: FundService = Depends(get_fund_service),
+) -> ApiResponse[FundNavRecordRead]:
+    return ok(
+        service.import_ttskill_base_infos(payload),
+        message="Tiantian Skills fund snapshot imported.",
+    )
 
 
 @router.get("/transactions", response_model=ApiResponse[list[FundTransactionRead]])

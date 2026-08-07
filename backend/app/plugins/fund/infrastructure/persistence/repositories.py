@@ -173,17 +173,31 @@ class FundRepository:
         link.updated_at = datetime.utcnow()
         self.db.flush()
 
-    def upsert_fund(self, *, code: str, name: str, fund_type: str) -> FundModel:
+    def upsert_fund(
+        self,
+        *,
+        code: str,
+        name: str,
+        fund_type: str,
+        source: str | None = None,
+    ) -> FundModel:
         fund = self.get_fund_by_code(code)
         now = datetime.utcnow()
         if fund is not None:
             fund.name = name
             fund.fund_type = fund_type
+            if source:
+                fund.source = source
             fund.updated_at = now
             self.db.flush()
             return fund
 
-        fund = FundModel(code=code, name=name, fund_type=fund_type)
+        fund = FundModel(
+            code=code,
+            name=name,
+            fund_type=fund_type,
+            source=source or "manual",
+        )
         self.db.add(fund)
         self.db.flush()
         return fund

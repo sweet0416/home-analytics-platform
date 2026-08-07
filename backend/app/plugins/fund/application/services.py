@@ -55,6 +55,7 @@ from app.plugins.fund.infrastructure.sources.eastmoney_holdings import (
     EastmoneyFundHoldingsSource,
     FundHoldingsDisclosure,
 )
+from app.plugins.fund.infrastructure.sources.ttskill import TtSkillBaseInfoSource
 from app.plugins.fund.interfaces.schemas import (
     FundAllocationGroupRead,
     FundAllocationHoldingRead,
@@ -518,6 +519,13 @@ class FundService:
         latest = self._fetch_latest_nav(payload.fund_code, payload.fund_type)
         return self._persist_latest_nav(latest)
 
+    def import_ttskill_base_infos(
+        self,
+        payload: dict[str, object],
+    ) -> FundNavRecordRead:
+        latest = TtSkillBaseInfoSource().parse(payload)
+        return self._persist_latest_nav(latest)
+
     def sync_nav_history(self, payload: FundNavHistorySyncRequest) -> FundNavHistorySyncRead:
         history = self._fetch_nav_history(
             fund_code=payload.fund_code,
@@ -628,6 +636,7 @@ class FundService:
             code=latest.fund_code,
             name=latest.fund_name,
             fund_type=latest.fund_type,
+            source=latest.source,
         )
         self.repository.upsert_nav_records(
             fund=fund,
@@ -766,6 +775,7 @@ class FundService:
             code=latest.fund_code,
             name=latest.fund_name,
             fund_type=latest.fund_type,
+            source=latest.source,
         )
         record = self.repository.upsert_nav_record(
             fund=fund,

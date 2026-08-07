@@ -66,6 +66,8 @@ class Settings(BaseSettings):
         default="bark",
         pattern=r"^(all|bark|wecom|whatsapp|custom_webhook)$",
     )
+    fund_ttskill_sync_enabled: bool = False
+    fund_ttskill_sync_token: str = Field(default="", min_length=0)
     fund_eastmoney_pingzhongdata_url: str = (
         "https://fund.eastmoney.com/pingzhongdata/{fund_code}.js"
     )
