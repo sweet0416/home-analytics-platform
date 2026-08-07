@@ -109,6 +109,24 @@ services:
       retries: 3
       start_period: 5s
 
+  # Bootstrap-only sidecar for the official Tiantian Fund Skills CLI.
+  # It is opt-in so normal HAP deployments remain unchanged.
+  ttskill-agent:
+    profiles: [ttskill]
+    build:
+      context: ./deploy/ttskill-agent
+      dockerfile: Dockerfile
+    container_name: hap-ttskill-agent
+    restart: "no"
+    environment:
+      TTSKILL_HOME: /var/lib/ttskill
+    volumes:
+      - ttskill_data:/var/lib/ttskill
+    ports:
+      - "127.0.0.1:${TTSKILL_LOGIN_PORT:-8765}:8765"
+    networks:
+      - hap_internal
+
 networks:
   hap_internal:
     name: hap_internal
@@ -122,3 +140,5 @@ volumes:
     name: hap_backups
   hap_logs:
     name: hap_logs
+  ttskill_data:
+    name: ttskill_data
