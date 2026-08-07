@@ -52,15 +52,33 @@ try {
     $apiBody = $skillPayload | ConvertTo-Json -Depth 100 -Compress
     $endpoint = '{0}/api/v1/fund/integrations/ttskill/base-infos' -f `
         $HapBaseUrl.TrimEnd('/')
-    $headers = @{ 'X-HAP-Sync-Token' = $SyncToken }
-    $response = Invoke-RestMethod `
-        -Method Post `
-        -Uri $endpoint `
-        -Headers $headers `
-        -ContentType 'application/json; charset=utf-8' `
-        -Body ([System.Text.Encoding]::UTF8.GetBytes($apiBody))
 
-    $response.data
+    Add-Type -AssemblyName System.Net.Http
+    $httpClient = New-Object System.Net.Http.HttpClient
+    $httpClient.DefaultRequestHeaders.Add('X-HAP-Sync-Token', $SyncToken)
+    $content = New-Object System.Net.Http.ByteArrayContent(
+        , [System.Text.Encoding]::UTF8.GetBytes($apiBody)
+    )
+    $content.Headers.ContentType = New-Object System.Net.Http.Headers.MediaTypeHeaderValue(
+        'application/json'
+    )
+    $content.Headers.ContentType.CharSet = 'utf-8'
+
+    try {
+        $httpResponse = $httpClient.PostAsync($endpoint, $content).GetAwaiter().GetResult()
+        $responseBytes = $httpResponse.Content.ReadAsByteArrayAsync().GetAwaiter().GetResult()
+        $responseText = [System.Text.Encoding]::UTF8.GetString($responseBytes)
+        if (-not $httpResponse.IsSuccessStatusCode) {
+            throw "HAP synchronization failed with HTTP $([int]$httpResponse.StatusCode): $responseText"
+        }
+
+        $response = $responseText | ConvertFrom-Json
+        $response.data
+    }
+    finally {
+        $content.Dispose()
+        $httpClient.Dispose()
+    }
 }
 finally {
     if (Test-Path -LiteralPath $requestPath) {
