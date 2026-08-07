@@ -1,10 +1,7 @@
 # ttskill-agent bootstrap container
 
-Copy the verified official package into this directory before building:
-
-```text
-ttskill-base-linux-x64-0.1.2.zip
-```
+The Docker build downloads the pinned official package and verifies its SHA256
+before installing it. The package is intentionally not committed to Git.
 
 Build and inspect:
 

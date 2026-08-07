@@ -1,6 +1,7 @@
 FROM debian:bookworm-slim
 
-ARG TTSKILL_PACKAGE=ttskill-base-linux-x64-0.1.2.zip
+ARG TTSKILL_PACKAGE_URL=https://skills.tiantianfunds.com/ttskill/packages/base/0.1.2/linux/x64/ttskill-base-linux-x64-0.1.2.zip
+ARG TTSKILL_PACKAGE_SHA256=a2a1203ea6e84c7d8af42bd943c2e8b5f8144aa72a75f64e04c44c4e5b44eb12
 
 ENV DEBIAN_FRONTEND=noninteractive \
     TTSKILL_HOME=/var/lib/ttskill \
@@ -9,6 +10,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         ca-certificates \
+        curl \
         dbus \
         dbus-x11 \
         gnome-keyring \
@@ -19,8 +21,11 @@ RUN apt-get update \
     && mkdir -p /var/lib/ttskill /opt/ttskill \
     && chown -R ttskill:ttskill /var/lib/ttskill /home/ttskill
 
-COPY ${TTSKILL_PACKAGE} /tmp/ttskill-base.zip
-RUN unzip -q /tmp/ttskill-base.zip -d /tmp/ttskill-base \
+RUN curl --fail --location --retry 5 --retry-all-errors \
+        --connect-timeout 20 --max-time 300 \
+        --output /tmp/ttskill-base.zip "$TTSKILL_PACKAGE_URL" \
+    && echo "$TTSKILL_PACKAGE_SHA256  /tmp/ttskill-base.zip" | sha256sum -c - \
+    && unzip -q /tmp/ttskill-base.zip -d /tmp/ttskill-base \
     && package_dir="$(find /tmp/ttskill-base -mindepth 1 -maxdepth 1 -type d -print -quit)" \
     && cp -a "$package_dir"/. /opt/ttskill/ \
     && chmod +x /opt/ttskill/bin/ttskill \
