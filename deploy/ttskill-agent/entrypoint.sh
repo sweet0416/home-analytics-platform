@@ -11,8 +11,12 @@ SESSION_ENV="$TTSKILL_HOME/session.env"
 if [ "${1:-}" = "daemon" ]; then
   exec dbus-run-session -- sh -c '
     set -eu
-    # Create the persistent login collection before starting Secret Service.
-    printf "\\n" | gnome-keyring-daemon --login --components=secrets >/dev/null 2>&1 || true
+    if [ ! -s "$TTSKILL_HOME/keyring-password" ]; then
+      umask 077
+      head -c 32 /dev/urandom | base64 | tr -d "\\n" > "$TTSKILL_HOME/keyring-password"
+    fi
+    KEYRING_PASSWORD=$(cat "$TTSKILL_HOME/keyring-password")
+    printf "%s\\n" "$KEYRING_PASSWORD" | gnome-keyring-daemon --login --components=secrets >/dev/null 2>&1 || true
     eval "$(gnome-keyring-daemon --start --components=secrets)"
     printf "export DBUS_SESSION_BUS_ADDRESS=%s\\n" "$DBUS_SESSION_BUS_ADDRESS" > "$TTSKILL_HOME/session.env"
     printf "export GNOME_KEYRING_CONTROL=%s\\n" "${GNOME_KEYRING_CONTROL:-}" >> "$TTSKILL_HOME/session.env"
@@ -29,7 +33,12 @@ fi
 
 exec dbus-run-session -- sh -c '
   set -eu
-  printf "\\n" | gnome-keyring-daemon --login --components=secrets >/dev/null 2>&1 || true
+  if [ ! -s "$TTSKILL_HOME/keyring-password" ]; then
+    umask 077
+    head -c 32 /dev/urandom | base64 | tr -d "\\n" > "$TTSKILL_HOME/keyring-password"
+  fi
+  KEYRING_PASSWORD=$(cat "$TTSKILL_HOME/keyring-password")
+  printf "%s\\n" "$KEYRING_PASSWORD" | gnome-keyring-daemon --login --components=secrets >/dev/null 2>&1 || true
   eval "$(gnome-keyring-daemon --start --components=secrets)"
   exec "$TTSKILL_BIN" "$@"
 ' sh "$@"
