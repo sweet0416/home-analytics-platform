@@ -117,7 +117,8 @@ services:
       context: ./deploy/ttskill-agent
       dockerfile: Dockerfile
     container_name: hap-ttskill-agent
-    restart: "no"
+    command: ["daemon"]
+    restart: unless-stopped
     environment:
       TTSKILL_HOME: /var/lib/ttskill
     volumes:
