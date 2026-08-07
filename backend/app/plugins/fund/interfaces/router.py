@@ -18,6 +18,7 @@ from app.plugins.fund.domain.constants import (
 from app.plugins.fund.infrastructure.ai_summary_webhook import FundAiSummaryWebhookProvider
 from app.plugins.fund.infrastructure.persistence.repositories import FundRepository
 from app.plugins.fund.interfaces.schemas import (
+    FundAccountSnapshotRead,
     FundAllocationRead,
     FundCashFlowPerformanceRead,
     FundDailyAiInputRead,
@@ -185,6 +186,31 @@ def import_ttskill_base_infos(
         service.import_ttskill_base_infos(payload),
         message="Tiantian Skills fund snapshot imported.",
     )
+
+
+@router.post(
+    "/integrations/ttskill/holdings",
+    response_model=ApiResponse[FundAccountSnapshotRead],
+    dependencies=[Depends(require_ttskill_sync_token)],
+)
+def import_ttskill_account_holdings(
+    payload: dict[str, object],
+    service: FundService = Depends(get_fund_service),
+) -> ApiResponse[FundAccountSnapshotRead]:
+    return ok(
+        service.import_ttskill_account_holdings(payload),
+        message="Tiantian Skills account holdings imported.",
+    )
+
+
+@router.get(
+    "/integrations/ttskill/holdings/latest",
+    response_model=ApiResponse[FundAccountSnapshotRead | None],
+)
+def get_latest_ttskill_account_holdings(
+    service: FundService = Depends(get_fund_service),
+) -> ApiResponse[FundAccountSnapshotRead | None]:
+    return ok(service.get_latest_ttskill_account_holdings())
 
 
 @router.get("/transactions", response_model=ApiResponse[list[FundTransactionRead]])

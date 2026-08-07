@@ -405,6 +405,8 @@
       </div>
     </RevealContent>
 
+    <FundAccountHoldings />
+
     <FundNavFreshness
       :refresh-key="holdingRiskRefreshKey"
       @profiles-synced="loadOverview"
@@ -463,6 +465,7 @@ import { computed, onMounted, ref } from 'vue';
 import EmptyState from '@/components/common/EmptyState.vue';
 import RevealContent from '@/components/common/RevealContent.vue';
 import MetricCard from '@/components/metric/MetricCard.vue';
+import FundAccountHoldings from '@/plugins/fund/components/FundAccountHoldings.vue';
 import FundAllocation from '@/plugins/fund/components/FundAllocation.vue';
 import FundCashFlowPerformance from '@/plugins/fund/components/FundCashFlowPerformance.vue';
 import FundDailyReport from '@/plugins/fund/components/FundDailyReport.vue';

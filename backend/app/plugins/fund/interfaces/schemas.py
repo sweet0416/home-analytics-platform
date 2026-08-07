@@ -266,6 +266,47 @@ class FundPositionRead(BaseModel):
     updated_at: datetime
 
 
+class FundAccountHoldingRead(BaseModel):
+    id: int
+    asset_code: str
+    asset_name: str
+    asset_type: str
+    asset_value: Decimal
+    daily_profit: Decimal | None
+    hold_profit: Decimal | None
+    hold_profit_rate: Decimal | None
+    constant_profit: Decimal | None
+    constant_profit_rate: Decimal | None
+    manual_position_count: int
+    manual_current_value: Decimal | None
+    value_difference: Decimal | None
+    comparison_status: Literal["matched", "official_only", "manual_incomplete"]
+
+
+class FundAccountManualOnlyRead(BaseModel):
+    fund_code: str
+    fund_name: str
+    position_count: int
+    current_value: Decimal | None
+
+
+class FundAccountSnapshotRead(BaseModel):
+    id: int
+    source: str
+    account_label: str
+    contract_version: Literal["fund-account-holdings.v1"]
+    captured_at: datetime
+    holding_count: int
+    total_asset_value: Decimal
+    manual_position_count: int
+    manual_current_value: Decimal | None
+    matched_count: int
+    official_only_count: int
+    manual_incomplete_count: int
+    items: list[FundAccountHoldingRead]
+    manual_only: list[FundAccountManualOnlyRead]
+
+
 class FundTransactionCreate(BaseModel):
     fund_code: str = Field(min_length=1, max_length=16)
     fund_name: str = Field(min_length=1, max_length=128)

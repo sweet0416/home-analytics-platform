@@ -30,9 +30,21 @@ Synchronize one fund:
 .\scripts\sync-ttskill-fund.ps1 -FundCode 009777
 ```
 
-The script invokes `TTFUND_BASE_INFOS` locally, captures UTF-8 output without
-PowerShell's legacy native-command decoding, reads the HAP response as UTF-8
-bytes, and sends only the selected fund snapshot to HAP. It never copies the
+Synchronize the signed-in Tiantian account holdings:
+
+```powershell
+.\scripts\sync-ttskill-holdings.ps1
+```
+
+The account script invokes `ACCOUNT_HOLDING` with the `holding_list` action.
+HAP stores each result as a new read-only snapshot and compares fund asset
+values with manually maintained positions. It does not create shares, infer a
+cost basis, or overwrite manual positions. The database stores only the fields
+needed for the comparison; raw responses and account identifiers are not kept.
+
+The scripts invoke the official skills locally, capture UTF-8 output without
+PowerShell's legacy native-command decoding, read the HAP response as UTF-8
+bytes, and send only the required snapshots to HAP. They never copy the
 Tiantian login token into Docker.
 
 After synchronization, remove the temporary HAP token and overwrite any

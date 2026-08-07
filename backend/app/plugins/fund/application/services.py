@@ -37,6 +37,7 @@ from app.plugins.fund.domain.target_links import (
     parse_target_fund_links,
 )
 from app.plugins.fund.infrastructure.persistence.models import (
+    FundAccountSnapshotModel,
     FundDailyReportSnapshotModel,
     FundDisclosureModel,
     FundModel,
@@ -55,8 +56,14 @@ from app.plugins.fund.infrastructure.sources.eastmoney_holdings import (
     EastmoneyFundHoldingsSource,
     FundHoldingsDisclosure,
 )
-from app.plugins.fund.infrastructure.sources.ttskill import TtSkillBaseInfoSource
+from app.plugins.fund.infrastructure.sources.ttskill import (
+    TtSkillAccountHoldingSource,
+    TtSkillBaseInfoSource,
+)
 from app.plugins.fund.interfaces.schemas import (
+    FundAccountHoldingRead,
+    FundAccountManualOnlyRead,
+    FundAccountSnapshotRead,
     FundAllocationGroupRead,
     FundAllocationHoldingRead,
     FundAllocationRead,
@@ -525,6 +532,45 @@ class FundService:
     ) -> FundNavRecordRead:
         latest = TtSkillBaseInfoSource().parse(payload)
         return self._persist_latest_nav(latest)
+
+    def import_ttskill_account_holdings(
+        self,
+        payload: dict[str, object],
+    ) -> FundAccountSnapshotRead:
+        source = TtSkillAccountHoldingSource()
+        holdings = source.parse(payload)
+        snapshot = self.repository.create_account_snapshot(
+            source=source.source,
+            account_label=source.account_label,
+            contract_version=source.contract_version,
+            captured_at=datetime.utcnow(),
+            holdings=[
+                (
+                    holding.asset_code,
+                    holding.asset_name,
+                    holding.asset_type,
+                    holding.asset_value,
+                    holding.daily_profit,
+                    holding.hold_profit,
+                    holding.hold_profit_rate,
+                    holding.constant_profit,
+                    holding.constant_profit_rate,
+                )
+                for holding in holdings
+            ],
+        )
+        self.repository.commit()
+        return self._to_account_snapshot_read(snapshot)
+
+    def get_latest_ttskill_account_holdings(
+        self,
+    ) -> FundAccountSnapshotRead | None:
+        snapshot = self.repository.get_latest_account_snapshot()
+        return (
+            self._to_account_snapshot_read(snapshot)
+            if snapshot is not None
+            else None
+        )
 
     def sync_nav_history(self, payload: FundNavHistorySyncRequest) -> FundNavHistorySyncRead:
         history = self._fetch_nav_history(
@@ -2594,6 +2640,102 @@ class FundService:
             note=position.note,
             created_at=position.created_at,
             updated_at=position.updated_at,
+        )
+
+    def _to_account_snapshot_read(
+        self,
+        snapshot: FundAccountSnapshotModel,
+    ) -> FundAccountSnapshotRead:
+        positions = self.repository.list_positions()
+        positions_by_code: dict[str, list[FundPositionModel]] = {}
+        for position in positions:
+            positions_by_code.setdefault(position.fund.code, []).append(position)
+
+        official_codes = {
+            holding.asset_code
+            for holding in snapshot.holdings
+            if holding.asset_type == "fund"
+        }
+        items: list[FundAccountHoldingRead] = []
+        matched_count = 0
+        official_only_count = 0
+        manual_incomplete_count = 0
+        for holding in snapshot.holdings:
+            manual_positions = positions_by_code.get(holding.asset_code, [])
+            manual_value = self._manual_positions_current_value(manual_positions)
+            if not manual_positions:
+                comparison_status = "official_only"
+                official_only_count += 1
+            elif manual_value is None:
+                comparison_status = "manual_incomplete"
+                manual_incomplete_count += 1
+            else:
+                comparison_status = "matched"
+                matched_count += 1
+            items.append(
+                FundAccountHoldingRead(
+                    id=holding.id,
+                    asset_code=holding.asset_code,
+                    asset_name=holding.asset_name,
+                    asset_type=holding.asset_type,
+                    asset_value=holding.asset_value,
+                    daily_profit=holding.daily_profit,
+                    hold_profit=holding.hold_profit,
+                    hold_profit_rate=holding.hold_profit_rate,
+                    constant_profit=holding.constant_profit,
+                    constant_profit_rate=holding.constant_profit_rate,
+                    manual_position_count=len(manual_positions),
+                    manual_current_value=manual_value,
+                    value_difference=(
+                        holding.asset_value - manual_value
+                        if manual_value is not None
+                        else None
+                    ),
+                    comparison_status=comparison_status,
+                )
+            )
+
+        manual_only = [
+            FundAccountManualOnlyRead(
+                fund_code=fund_code,
+                fund_name=fund_positions[0].fund.name,
+                position_count=len(fund_positions),
+                current_value=self._manual_positions_current_value(fund_positions),
+            )
+            for fund_code, fund_positions in sorted(positions_by_code.items())
+            if fund_code not in official_codes
+        ]
+        manual_current_value = self._manual_positions_current_value(positions)
+        return FundAccountSnapshotRead(
+            id=snapshot.id,
+            source=snapshot.source,
+            account_label=snapshot.account_label,
+            contract_version="fund-account-holdings.v1",
+            captured_at=snapshot.captured_at,
+            holding_count=snapshot.holding_count,
+            total_asset_value=snapshot.total_asset_value,
+            manual_position_count=len(positions),
+            manual_current_value=manual_current_value,
+            matched_count=matched_count,
+            official_only_count=official_only_count,
+            manual_incomplete_count=manual_incomplete_count,
+            items=items,
+            manual_only=manual_only,
+        )
+
+    @staticmethod
+    def _manual_positions_current_value(
+        positions: list[FundPositionModel],
+    ) -> Decimal | None:
+        if not positions or any(position.current_nav is None for position in positions):
+            return None
+        return sum(
+            (
+                position.shares * position.current_nav
+                for position in positions
+                if position.current_nav is not None
+            ),
+            start=Decimal("0"),
         )
 
     def _to_transaction_read(

@@ -39,6 +39,69 @@ class TtSkillBaseInfoSource:
         )
 
 
+@dataclass(frozen=True)
+class TtSkillAccountHolding:
+    asset_code: str
+    asset_name: str
+    asset_type: str
+    asset_value: Decimal
+    daily_profit: Decimal | None
+    hold_profit: Decimal | None
+    hold_profit_rate: Decimal | None
+    constant_profit: Decimal | None
+    constant_profit_rate: Decimal | None
+
+
+@dataclass(frozen=True)
+class TtSkillAccountHoldingSource:
+    source: str = "ttfund_skills"
+    account_label: str = "天天基金"
+    contract_version: str = "fund-account-holdings.v1"
+
+    def parse(self, payload: dict[str, Any]) -> list[TtSkillAccountHolding]:
+        data = _mapping(payload.get("data"), "data")
+        if payload.get("code") != 0 or data.get("skill_id") != "ACCOUNT_HOLDING":
+            _raise_parse_error("Unexpected Tiantian Skills response envelope.")
+
+        raw_result = _mapping(data.get("raw_result"), "data.raw_result")
+        body = _mapping(raw_result.get("body"), "data.raw_result.body")
+        rows = body.get("holding_list_result")
+        if (
+            raw_result.get("status_code") != 200
+            or body.get("success") is not True
+            or body.get("action") != "holding_list"
+        ):
+            _raise_parse_error("Tiantian Skills account request was not successful.")
+        if not isinstance(rows, list):
+            _raise_parse_error("Tiantian Skills response is missing holding_list_result.")
+
+        holdings: list[TtSkillAccountHolding] = []
+        for index, value in enumerate(rows):
+            if not isinstance(value, dict):
+                _raise_parse_error(
+                    f"Tiantian Skills holding_list_result[{index}] is invalid."
+                )
+            holdings.append(
+                TtSkillAccountHolding(
+                    asset_code=_required_text(value.get("fundCode"), "fundCode"),
+                    asset_name=_required_text(value.get("fundName"), "fundName"),
+                    asset_type=_required_text(value.get("pType"), "pType"),
+                    asset_value=_required_non_negative_decimal(
+                        value.get("assetValue"),
+                        "assetValue",
+                    ),
+                    daily_profit=_account_decimal(value.get("dailyProfit")),
+                    hold_profit=_account_decimal(value.get("holdProfit")),
+                    hold_profit_rate=_account_rate(value.get("holdProfitRate")),
+                    constant_profit=_account_decimal(value.get("constantProfit")),
+                    constant_profit_rate=_account_rate(
+                        value.get("constantProfitRate")
+                    ),
+                )
+            )
+        return holdings
+
+
 def _mapping(value: object, field: str) -> dict[str, Any]:
     if not isinstance(value, dict):
         _raise_parse_error(f"Tiantian Skills response is missing {field}.")
@@ -80,6 +143,39 @@ def _required_decimal(value: object, field: str) -> Decimal:
     parsed = _decimal(value)
     if parsed is None or parsed <= 0:
         _raise_parse_error(f"Tiantian Skills field {field} is not a positive number.")
+    return parsed
+
+
+def _account_decimal(value: object) -> Decimal | None:
+    text = _text(value)
+    if text is None or text in {"--", "-"}:
+        return None
+    normalized = text.replace(",", "").replace("￥", "").strip()
+    try:
+        return Decimal(normalized)
+    except (InvalidOperation, ValueError):
+        return None
+
+
+def _account_rate(value: object) -> Decimal | None:
+    text = _text(value)
+    if text is None or text in {"--", "-"}:
+        return None
+    is_percent = text.endswith("%")
+    parsed = _account_decimal(text.removesuffix("%"))
+    if parsed is None:
+        return None
+    if is_percent or abs(parsed) > 1:
+        return parsed / Decimal("100")
+    return parsed
+
+
+def _required_non_negative_decimal(value: object, field: str) -> Decimal:
+    parsed = _account_decimal(value)
+    if parsed is None or parsed < 0:
+        _raise_parse_error(
+            f"Tiantian Skills field {field} is not a non-negative number."
+        )
     return parsed
 
 

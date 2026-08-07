@@ -5,6 +5,8 @@ from sqlalchemy import and_, distinct, func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.plugins.fund.infrastructure.persistence.models import (
+    FundAccountHoldingSnapshotModel,
+    FundAccountSnapshotModel,
     FundDailyReportSnapshotModel,
     FundDisclosureHoldingModel,
     FundDisclosureModel,
@@ -27,6 +29,76 @@ class FundRepository:
 
     def rollback(self) -> None:
         self.db.rollback()
+
+    def create_account_snapshot(
+        self,
+        *,
+        source: str,
+        account_label: str,
+        contract_version: str,
+        captured_at: datetime,
+        holdings: list[
+            tuple[
+                str,
+                str,
+                str,
+                Decimal,
+                Decimal | None,
+                Decimal | None,
+                Decimal | None,
+                Decimal | None,
+                Decimal | None,
+            ]
+        ],
+    ) -> FundAccountSnapshotModel:
+        snapshot = FundAccountSnapshotModel(
+            source=source,
+            account_label=account_label,
+            contract_version=contract_version,
+            captured_at=captured_at,
+            holding_count=len(holdings),
+            total_asset_value=sum(
+                (holding[3] for holding in holdings),
+                start=Decimal("0"),
+            ),
+        )
+        snapshot.holdings = [
+            FundAccountHoldingSnapshotModel(
+                asset_code=asset_code,
+                asset_name=asset_name,
+                asset_type=asset_type,
+                asset_value=asset_value,
+                daily_profit=daily_profit,
+                hold_profit=hold_profit,
+                hold_profit_rate=hold_profit_rate,
+                constant_profit=constant_profit,
+                constant_profit_rate=constant_profit_rate,
+            )
+            for (
+                asset_code,
+                asset_name,
+                asset_type,
+                asset_value,
+                daily_profit,
+                hold_profit,
+                hold_profit_rate,
+                constant_profit,
+                constant_profit_rate,
+            ) in holdings
+        ]
+        self.db.add(snapshot)
+        self.db.flush()
+        return snapshot
+
+    def get_latest_account_snapshot(self) -> FundAccountSnapshotModel | None:
+        return self.db.scalar(
+            select(FundAccountSnapshotModel)
+            .options(selectinload(FundAccountSnapshotModel.holdings))
+            .order_by(
+                FundAccountSnapshotModel.captured_at.desc(),
+                FundAccountSnapshotModel.id.desc(),
+            )
+        )
 
     def create_nav_sync_run(
         self,

@@ -64,6 +64,52 @@ export interface FundPosition {
   updated_at: string;
 }
 
+export type FundAccountComparisonStatus =
+  | 'matched'
+  | 'official_only'
+  | 'manual_incomplete';
+
+export interface FundAccountHolding {
+  id: number;
+  asset_code: string;
+  asset_name: string;
+  asset_type: string;
+  asset_value: string;
+  daily_profit: string | null;
+  hold_profit: string | null;
+  hold_profit_rate: string | null;
+  constant_profit: string | null;
+  constant_profit_rate: string | null;
+  manual_position_count: number;
+  manual_current_value: string | null;
+  value_difference: string | null;
+  comparison_status: FundAccountComparisonStatus;
+}
+
+export interface FundAccountManualOnly {
+  fund_code: string;
+  fund_name: string;
+  position_count: number;
+  current_value: string | null;
+}
+
+export interface FundAccountSnapshot {
+  id: number;
+  source: string;
+  account_label: string;
+  contract_version: 'fund-account-holdings.v1';
+  captured_at: string;
+  holding_count: number;
+  total_asset_value: string;
+  manual_position_count: number;
+  manual_current_value: string | null;
+  matched_count: number;
+  official_only_count: number;
+  manual_incomplete_count: number;
+  items: FundAccountHolding[];
+  manual_only: FundAccountManualOnly[];
+}
+
 export interface FundWatchlistItem {
   id: number;
   fund_id: number;
@@ -750,6 +796,12 @@ export function fetchFundNavSchedulerStatus(): Promise<FundNavSchedulerStatus> {
 
 export function fetchFundPositions(): Promise<FundPosition[]> {
   return getApiData<FundPosition[]>('/fund/positions');
+}
+
+export function fetchLatestFundAccountSnapshot(): Promise<FundAccountSnapshot | null> {
+  return getApiData<FundAccountSnapshot | null>(
+    '/fund/integrations/ttskill/holdings/latest',
+  );
 }
 
 export function fetchFundNavFreshness(

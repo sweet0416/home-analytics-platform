@@ -114,6 +114,69 @@ class FundPositionModel(Base):
     fund: Mapped[FundModel] = relationship(back_populates="positions")
 
 
+class FundAccountSnapshotModel(Base):
+    __tablename__ = "fund_account_snapshots"
+    __table_args__ = (
+        Index("ix_fund_account_snapshots_captured", "captured_at"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    source: Mapped[str] = mapped_column(String(64))
+    account_label: Mapped[str] = mapped_column(String(64))
+    contract_version: Mapped[str] = mapped_column(String(64))
+    captured_at: Mapped[datetime] = mapped_column(DateTime)
+    holding_count: Mapped[int] = mapped_column(Integer)
+    total_asset_value: Mapped[Decimal] = mapped_column(Numeric(18, 2))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    holdings: Mapped[list["FundAccountHoldingSnapshotModel"]] = relationship(
+        back_populates="snapshot",
+        cascade="all, delete-orphan",
+        order_by="FundAccountHoldingSnapshotModel.id",
+    )
+
+
+class FundAccountHoldingSnapshotModel(Base):
+    __tablename__ = "fund_account_holding_snapshots"
+    __table_args__ = (
+        Index(
+            "ix_fund_account_holding_snapshot_asset",
+            "snapshot_id",
+            "asset_type",
+            "asset_code",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    snapshot_id: Mapped[int] = mapped_column(
+        ForeignKey("fund_account_snapshots.id", ondelete="CASCADE"),
+        index=True,
+    )
+    asset_code: Mapped[str] = mapped_column(String(32))
+    asset_name: Mapped[str] = mapped_column(String(128))
+    asset_type: Mapped[str] = mapped_column(String(32))
+    asset_value: Mapped[Decimal] = mapped_column(Numeric(18, 2))
+    daily_profit: Mapped[Decimal | None] = mapped_column(Numeric(18, 2), nullable=True)
+    hold_profit: Mapped[Decimal | None] = mapped_column(Numeric(18, 2), nullable=True)
+    hold_profit_rate: Mapped[Decimal | None] = mapped_column(
+        Numeric(18, 8),
+        nullable=True,
+    )
+    constant_profit: Mapped[Decimal | None] = mapped_column(
+        Numeric(18, 2),
+        nullable=True,
+    )
+    constant_profit_rate: Mapped[Decimal | None] = mapped_column(
+        Numeric(18, 8),
+        nullable=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    snapshot: Mapped[FundAccountSnapshotModel] = relationship(
+        back_populates="holdings"
+    )
+
+
 class FundTransactionModel(Base):
     __tablename__ = "fund_transactions"
     __table_args__ = (
