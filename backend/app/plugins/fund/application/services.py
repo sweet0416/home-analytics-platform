@@ -554,7 +554,7 @@ class FundService:
         payload: dict[str, object],
     ) -> FundNavRecordRead:
         latest = TtSkillNavInfoSource().parse(payload)
-        return self._persist_latest_nav(latest)
+        return self._persist_latest_nav(latest, detect_update=True)
 
     def import_ttskill_account_holdings(
         self,
@@ -839,12 +839,25 @@ class FundService:
         )
         return source.fetch_latest(fund_code=fund_code, fund_type=resolved_type)
 
-    def _persist_latest_nav(self, latest: FundLatestNav) -> FundNavRecordRead:
+    def _persist_latest_nav(
+        self,
+        latest: FundLatestNav,
+        *,
+        detect_update: bool = False,
+    ) -> FundNavRecordRead:
         fund = self.repository.upsert_fund(
             code=latest.fund_code,
             name=latest.fund_name,
             fund_type=latest.fund_type,
             source=latest.source,
+        )
+        previous = (
+            self.repository.get_nav_record_by_fund_date(
+                fund_id=fund.id,
+                nav_date=latest.nav_date,
+            )
+            if detect_update
+            else None
         )
         record = self.repository.upsert_nav_record(
             fund=fund,
@@ -854,9 +867,14 @@ class FundService:
             source=latest.source,
             note=f"source_url={latest.source_url}",
         )
+        changed = previous is None or (
+            previous.unit_nav != latest.unit_nav
+            or previous.accumulated_nav != latest.accumulated_nav
+            or previous.source != latest.source
+        )
         self.repository.update_position_navs(fund_id=fund.id, current_nav=latest.unit_nav)
         self.repository.commit()
-        return self._to_nav_record_read(record)
+        return self._to_nav_record_read(record, updated=changed if detect_update else False)
 
     def lookup_latest_nav(self, payload: FundNavSyncLatestRequest) -> FundLatestNavRead:
         latest = self._fetch_latest_nav(payload.fund_code, payload.fund_type)
@@ -2814,7 +2832,12 @@ class FundService:
             ],
         )
 
-    def _to_nav_record_read(self, record: FundNavRecordModel) -> FundNavRecordRead:
+    def _to_nav_record_read(
+        self,
+        record: FundNavRecordModel,
+        *,
+        updated: bool = False,
+    ) -> FundNavRecordRead:
         fund: FundModel = record.fund
         return FundNavRecordRead(
             id=record.id,
@@ -2829,6 +2852,7 @@ class FundService:
             note=record.note,
             created_at=record.created_at,
             updated_at=record.updated_at,
+            updated=updated,
         )
 
     @staticmethod

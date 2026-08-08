@@ -1,4 +1,5 @@
 from datetime import date, datetime
+from types import SimpleNamespace
 from zoneinfo import ZoneInfo
 
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -374,6 +375,8 @@ def _push_automatic_ai_summary(
         run.push_error_message = "AI summary archive was not found."
         repository.commit()
         return "success, push failed"
+
+
     try:
         result = FundDailyNotificationService(settings=settings).send(
             report=report,
@@ -396,6 +399,55 @@ def _push_automatic_ai_summary(
         run.push_error_message = str(exc)
         repository.commit()
         return "success, push failed"
+
+
+def run_fund_ai_automation_after_external_nav_sync() -> dict[str, object]:
+    """Run the daily AI flow after an external NAV importer reports changes."""
+    settings = get_settings()
+    if not getattr(settings, "fund_ai_summary_enabled", False):
+        return {"status": "disabled", "message": "AI summary is disabled."}
+    if not getattr(settings, "fund_ai_auto_summary_enabled", False):
+        return {"status": "disabled", "message": "Automatic AI summary is disabled."}
+
+    db = SessionLocal()
+    repository = FundRepository(db)
+    try:
+        service = FundService(repository, settings=settings)
+        report = service.get_daily_report()
+        snapshot = _save_daily_report_snapshot(service=service, report=report)
+        if snapshot is None:
+            return {"status": "failed", "message": "Daily snapshot unavailable."}
+
+        positions = repository.list_positions()
+        latest_records = repository.list_latest_nav_records_for_fund_ids(
+            sorted({position.fund_id for position in positions})
+        )
+        result = SimpleNamespace(
+            items=[
+                SimpleNamespace(
+                    status="succeeded",
+                    fund_code=record.fund.code,
+                    nav_date=record.nav_date,
+                    unit_nav=record.unit_nav,
+                )
+                for record in latest_records
+            ]
+        )
+        message = _generate_automatic_ai_summary(
+            repository=repository,
+            service=service,
+            settings=settings,
+            result=result,
+            snapshot=snapshot,
+            report=report,
+        )
+        return {"status": "completed", "message": message}
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("External NAV AI automation failed: {}", exc)
+        repository.rollback()
+        return {"status": "failed", "message": str(exc)}
+    finally:
+        db.close()
 
 
 def _save_daily_report_snapshot(

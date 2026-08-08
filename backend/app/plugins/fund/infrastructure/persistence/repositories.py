@@ -654,6 +654,19 @@ class FundRepository:
         self.db.flush()
         return record
 
+    def get_nav_record_by_fund_date(
+        self,
+        *,
+        fund_id: int,
+        nav_date: date,
+    ) -> FundNavRecordModel | None:
+        return self.db.scalar(
+            select(FundNavRecordModel).where(
+                FundNavRecordModel.fund_id == fund_id,
+                FundNavRecordModel.nav_date == nav_date,
+            )
+        )
+
     def upsert_nav_records(
         self,
         *,

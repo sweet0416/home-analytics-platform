@@ -191,6 +191,7 @@ class FundNavRecordRead(BaseModel):
     note: str
     created_at: datetime
     updated_at: datetime
+    updated: bool = False
 
 
 class FundNavRiskRead(BaseModel):

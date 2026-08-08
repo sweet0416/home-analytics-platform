@@ -73,7 +73,10 @@ from app.plugins.fund.interfaces.schemas import (
     FundWatchlistSummaryRead,
     FundWatchlistUpdate,
 )
-from app.plugins.fund.jobs.scheduler import get_fund_scheduler_status
+from app.plugins.fund.jobs.scheduler import (
+    get_fund_scheduler_status,
+    run_fund_ai_automation_after_external_nav_sync,
+)
 from app.shared.exceptions.base import AppError
 from app.shared.exceptions.codes import ErrorCode
 from app.shared.responses.schemas import ApiResponse, ok
@@ -214,6 +217,14 @@ def import_ttskill_nav_info(
         service.import_ttskill_nav_info(payload),
         message="Tiantian Skills NAV info imported.",
     )
+
+
+@router.post(
+    "/integrations/ttskill/nav-sync-complete",
+    dependencies=[Depends(require_ttskill_sync_token)],
+)
+def complete_ttskill_nav_sync() -> ApiResponse[dict[str, object]]:
+    return ok(run_fund_ai_automation_after_external_nav_sync())
 
 
 @router.post(

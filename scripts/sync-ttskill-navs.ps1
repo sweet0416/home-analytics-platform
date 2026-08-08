@@ -58,9 +58,12 @@ function Invoke-TtSkillJson {
     }
 }
 
-function Import-HapNav {
-    param([object]$Payload)
-    $uri = '{0}/api/v1/fund/integrations/ttskill/nav-info' -f $HapBaseUrl.TrimEnd('/')
+function Invoke-HapJson {
+    param(
+        [string]$Path,
+        [object]$Payload
+    )
+    $uri = '{0}{1}' -f $HapBaseUrl.TrimEnd('/'), $Path
     Add-Type -AssemblyName System.Net.Http
     $client = New-Object System.Net.Http.HttpClient
     $client.DefaultRequestHeaders.Add('X-HAP-Sync-Token', $SyncToken)
@@ -81,6 +84,15 @@ function Import-HapNav {
         $content.Dispose()
         $client.Dispose()
     }
+}
+
+function Import-HapNav {
+    param([object]$Payload)
+    return Invoke-HapJson -Path '/api/v1/fund/integrations/ttskill/nav-info' -Payload $Payload
+}
+
+function Complete-HapNavSync {
+    return Invoke-HapJson -Path '/api/v1/fund/integrations/ttskill/nav-sync-complete' -Payload @{}
 }
 
 function Find-FundHoldings {
@@ -115,6 +127,7 @@ if ($holdings.Count -eq 0) {
     throw 'ACCOUNT_HOLDING returned no six-digit fund holdings. Check the ttskill login or response format.'
 }
 $successCount = 0
+$updatedCount = 0
 foreach ($holding in $holdings) {
     try {
         $fundCode = if ($holding.PSObject.Properties.Name -contains 'fundCode') { $holding.fundCode } else { $holding.fund_code }
@@ -123,7 +136,10 @@ foreach ($holding in $holdings) {
             fund_id = [string]$fundCode
             range = $Range
         }
-        $null = Import-HapNav -Payload $payload
+        $importResult = Import-HapNav -Payload $payload
+        if ($importResult.data.updated -eq $true) {
+            $updatedCount++
+        }
         $successCount++
         Write-Output ("Synced {0} {1}" -f $fundCode, $fundName)
     } catch {
@@ -131,3 +147,9 @@ foreach ($holding in $holdings) {
     }
 }
 Write-Output ("NAV sync finished: {0}/{1} funds processed." -f $successCount, $holdings.Count)
+if ($updatedCount -gt 0) {
+    $automationResult = Complete-HapNavSync
+    Write-Output ("AI automation: {0} - {1}" -f $automationResult.data.status, $automationResult.data.message)
+} else {
+    Write-Output 'AI automation skipped: no new NAV data was imported.'
+}
