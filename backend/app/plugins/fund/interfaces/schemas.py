@@ -850,7 +850,7 @@ class FundDailyAiInputRead(BaseModel):
 
 
 class FundDailyAiSummaryStatusRead(BaseModel):
-    provider: Literal["webhook"]
+    provider: Literal["webhook", "openai_compatible"]
     enabled: bool
     configured: bool
     target: str
@@ -862,7 +862,7 @@ class FundDailyAiSummaryRead(BaseModel):
     contract_version: Literal["fund-daily-ai-summary.v1"]
     generated_at: datetime
     report_date: date
-    provider: Literal["webhook"]
+    provider: Literal["webhook", "openai_compatible"]
     source_contract: Literal["fund-daily-ai-input.v1"]
     summary: str
     disclaimer: str

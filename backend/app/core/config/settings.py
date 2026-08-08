@@ -79,10 +79,13 @@ class Settings(BaseSettings):
     fund_ai_summary_enabled: bool = False
     fund_ai_summary_provider: str = Field(
         default="webhook",
-        pattern=r"^webhook$",
+        pattern=r"^(webhook|openai_compatible)$",
     )
     fund_ai_summary_webhook_url: str = ""
     fund_ai_summary_bearer_token: str = ""
+    fund_ai_summary_api_url: str = ""
+    fund_ai_summary_api_key: str = ""
+    fund_ai_summary_model: str = ""
     fund_ai_summary_timeout_seconds: int = Field(default=30, ge=5, le=120)
     cors_origins: list[str] = Field(
         default_factory=lambda: [

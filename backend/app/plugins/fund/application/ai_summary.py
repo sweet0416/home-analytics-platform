@@ -28,12 +28,25 @@ class FundDailyAiSummaryService:
         self._provider = provider
 
     def get_status(self) -> FundDailyAiSummaryStatusRead:
-        webhook_url = self._settings.fund_ai_summary_webhook_url.strip()
+        provider = self._settings.fund_ai_summary_provider
+        if provider == "openai_compatible":
+            configured = all(
+                value.strip()
+                for value in (
+                    self._settings.fund_ai_summary_api_url,
+                    self._settings.fund_ai_summary_api_key,
+                    self._settings.fund_ai_summary_model,
+                )
+            )
+            target = self._mask_url(self._settings.fund_ai_summary_api_url)
+        else:
+            configured = bool(self._settings.fund_ai_summary_webhook_url.strip())
+            target = self._mask_url(self._settings.fund_ai_summary_webhook_url)
         return FundDailyAiSummaryStatusRead(
-            provider="webhook",
+            provider=provider,
             enabled=self._settings.fund_ai_summary_enabled,
-            configured=bool(webhook_url),
-            target=self._mask_url(webhook_url),
+            configured=configured,
+            target=target,
             input_contract="fund-daily-ai-input.v1",
             note=(
                 "仅在手动生成摘要时发送结构化日报输入；默认关闭，"
@@ -52,7 +65,7 @@ class FundDailyAiSummaryService:
         if not status.configured:
             raise AppError(
                 ErrorCode.fund_ai_summary_unavailable,
-                "Fund AI summary webhook is not configured.",
+                "Fund AI summary provider is not configured.",
                 status_code=503,
             )
 
@@ -77,7 +90,7 @@ class FundDailyAiSummaryService:
             contract_version="fund-daily-ai-summary.v1",
             generated_at=datetime.now(ZoneInfo("Asia/Shanghai")),
             report_date=payload.report_date,
-            provider="webhook",
+            provider=self._settings.fund_ai_summary_provider,
             source_contract="fund-daily-ai-input.v1",
             summary=summary,
             disclaimer="AI 摘要仅整理已提供的数据事实，不构成投资建议。",

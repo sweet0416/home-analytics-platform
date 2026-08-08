@@ -761,7 +761,7 @@ export interface FundDailyInsights {
 }
 
 export interface FundDailyAiSummaryStatus {
-  provider: 'webhook';
+  provider: 'webhook' | 'openai_compatible';
   enabled: boolean;
   configured: boolean;
   target: string;
@@ -773,7 +773,7 @@ export interface FundDailyAiSummary {
   contract_version: 'fund-daily-ai-summary.v1';
   generated_at: string;
   report_date: string;
-  provider: 'webhook';
+  provider: 'webhook' | 'openai_compatible';
   source_contract: 'fund-daily-ai-input.v1';
   summary: string;
   disclaimer: string;

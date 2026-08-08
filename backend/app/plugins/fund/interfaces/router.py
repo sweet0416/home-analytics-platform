@@ -16,6 +16,7 @@ from app.plugins.fund.domain.constants import (
     FUND_PLUGIN_CODE,
     FUND_PLUGIN_VERSION,
 )
+from app.plugins.fund.infrastructure.ai_summary_openai import FundAiSummaryOpenAIProvider
 from app.plugins.fund.infrastructure.ai_summary_webhook import FundAiSummaryWebhookProvider
 from app.plugins.fund.infrastructure.persistence.repositories import FundRepository
 from app.plugins.fund.interfaces.schemas import (
@@ -86,9 +87,14 @@ def get_fund_service(
 def get_fund_ai_summary_service(
     settings: Settings = Depends(get_settings),
 ) -> FundDailyAiSummaryService:
+    provider = (
+        FundAiSummaryOpenAIProvider(settings)
+        if settings.fund_ai_summary_provider == "openai_compatible"
+        else FundAiSummaryWebhookProvider(settings)
+    )
     return FundDailyAiSummaryService(
         settings=settings,
-        provider=FundAiSummaryWebhookProvider(settings),
+        provider=provider,
     )
 
 

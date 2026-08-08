@@ -146,7 +146,7 @@
             </div>
           </div>
           <div class="ai-summary-status">
-            <span>提供方：通用 Webhook</span>
+            <span>提供方：{{ aiProviderLabel }}</span>
             <span>目标：{{ aiSummaryStatus.target }}</span>
           </div>
           <div v-if="aiSummary" class="ai-summary-result">
@@ -159,7 +159,7 @@
           </div>
           <p v-else class="ai-summary-note">{{ aiSummaryStatus.note }}</p>
           <p v-if="!aiSummaryAvailable" class="ai-summary-help">
-            请在 Portainer 的 HAP Stack 环境变量中启用并配置 AI Webhook，密钥不会保存在网页中。
+            请在 Portainer 的 HAP Stack 环境变量中启用并配置 AI API 或 Webhook，密钥不会保存在网页中。
           </p>
         </div>
 
@@ -476,6 +476,12 @@ const aiStatusLabel = computed(() => {
   if (aiSummaryAvailable.value) return '可生成';
   if (aiSummaryStatus.value?.enabled) return '待配置';
   return '未启用';
+});
+
+const aiProviderLabel = computed(() => {
+  return aiSummaryStatus.value?.provider === 'openai_compatible'
+    ? 'OpenAI 兼容 API'
+    : '通用 Webhook';
 });
 
 const aiStatusClass = computed(() => ({
