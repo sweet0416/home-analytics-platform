@@ -232,9 +232,17 @@
           <div class="snapshot-history-heading">
             <div>
               <strong>日报历史变化</strong>
-              <span>最近 30 个快照 · 每天最多一条</span>
+              <span>每天最多一条 · 仅保存或更新，不提供删除</span>
             </div>
-            <span>同一天再次保存会更新当天快照</span>
+            <div class="snapshot-history-controls">
+              <span>显示最近</span>
+              <el-select v-model="snapshotLimit" size="small" aria-label="日报历史范围">
+                <el-option :value="30" label="30 天" />
+                <el-option :value="90" label="90 天" />
+                <el-option :value="365" label="365 天" />
+              </el-select>
+              <span>同日再次保存会更新当天快照</span>
+            </div>
           </div>
           <div v-if="snapshots.length" class="snapshot-change-summary">
             <span>{{ latestChangeSummary }}</span>
@@ -361,6 +369,7 @@ const insights = ref<FundDailyInsights | null>(null);
 const aiSummaryStatus = ref<FundDailyAiSummaryStatus | null>(null);
 const aiSummary = ref<FundDailyAiSummary | null>(null);
 const snapshots = ref<FundDailySnapshot[]>([]);
+const snapshotLimit = ref(30);
 const loading = ref(false);
 const pushing = ref(false);
 const savingSnapshot = ref(false);
@@ -368,7 +377,7 @@ const generatingAiSummary = ref(false);
 const snapshotChartRef = ref<HTMLDivElement | null>(null);
 let snapshotChart: ECharts | null = null;
 
-const historyRows = computed(() => snapshots.value.slice(0, 10));
+const historyRows = computed(() => snapshots.value.slice(0, snapshotLimit.value));
 
 const aiSummaryAvailable = computed(
   () => aiSummaryStatus.value?.enabled === true && aiSummaryStatus.value.configured === true,
@@ -453,7 +462,7 @@ async function loadReport(): Promise<void> {
   try {
     const [reportResult, historyResult, insightsResult, aiStatusResult] = await Promise.allSettled([
       fetchFundDailyReport(),
-      fetchFundDailySnapshots(30),
+      fetchFundDailySnapshots(snapshotLimit.value),
       fetchFundDailyInsights(),
       fetchFundDailyAiSummaryStatus(),
     ]);
@@ -476,7 +485,7 @@ async function saveSnapshot(): Promise<void> {
   try {
     await saveFundDailySnapshot();
     const [history, insightResult] = await Promise.all([
-      fetchFundDailySnapshots(30),
+      fetchFundDailySnapshots(snapshotLimit.value),
       fetchFundDailyInsights(),
     ]);
     snapshots.value = history.items;
@@ -675,6 +684,17 @@ watch(
     void loadReport();
   },
 );
+
+watch(snapshotLimit, async () => {
+  try {
+    const history = await fetchFundDailySnapshots(snapshotLimit.value);
+    snapshots.value = history.items;
+    await nextTick();
+    renderSnapshotChart();
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : '日报历史加载失败');
+  }
+});
 </script>
 
 <style scoped>
@@ -776,6 +796,10 @@ watch(
   align-items: baseline;
   display: flex;
   gap: 10px;
+}
+
+.snapshot-history-controls {
+  flex-wrap: wrap;
 }
 
 .snapshot-history-heading span,
