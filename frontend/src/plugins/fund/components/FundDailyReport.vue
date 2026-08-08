@@ -392,6 +392,9 @@
             <strong>口径说明</strong>
             <p>{{ selectedSnapshotDetail.analysis_context.disclaimers.join(' ') }}</p>
           </div>
+          <p class="snapshot-ai-note">
+            AI 摘要目前只对当前日报手动生成，不回填历史快照；历史详情以当日保存的固定规则事实为准。
+          </p>
         </div>
       </el-dialog>
       </div>
@@ -1036,6 +1039,15 @@ watch(snapshotLimit, async () => {
   display: grid;
   gap: 5px;
   padding-left: 18px;
+}
+
+.snapshot-ai-note {
+  border-left: 2px solid rgba(251, 191, 36, 0.72);
+  color: #fbbf24;
+  font-size: 12px;
+  line-height: 1.6;
+  margin: 0;
+  padding-left: 10px;
 }
 
 .analysis-context {
