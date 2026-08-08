@@ -60,24 +60,26 @@ function Invoke-TtSkillJson {
 
 function Import-HapNav {
     param([object]$Payload)
-    $headers = @{ 'X-HAP-Sync-Token' = $SyncToken }
     $uri = '{0}/api/v1/fund/integrations/ttskill/nav-info' -f $HapBaseUrl.TrimEnd('/')
+    Add-Type -AssemblyName System.Net.Http
+    $client = New-Object System.Net.Http.HttpClient
+    $client.DefaultRequestHeaders.Add('X-HAP-Sync-Token', $SyncToken)
+    $json = $Payload | ConvertTo-Json -Depth 100 -Compress
+    $content = New-Object System.Net.Http.StringContent(
+        $json,
+        [System.Text.Encoding]::UTF8,
+        'application/json'
+    )
     try {
-        return Invoke-RestMethod -Method Post -Uri $uri -Headers $headers `
-            -ContentType 'application/json; charset=utf-8' `
-            -Body ($Payload | ConvertTo-Json -Depth 100 -Compress)
-    } catch {
-        $detail = $_.Exception.Message
-        $response = $_.Exception.Response
-        if ($null -ne $response) {
-            try {
-                $reader = New-Object System.IO.StreamReader($response.GetResponseStream())
-                $body = $reader.ReadToEnd()
-                $reader.Dispose()
-                if (-not [string]::IsNullOrWhiteSpace($body)) { $detail = "$detail $body" }
-            } catch { }
+        $response = $client.PostAsync($uri, $content).GetAwaiter().GetResult()
+        $responseText = $response.Content.ReadAsStringAsync().GetAwaiter().GetResult()
+        if (-not $response.IsSuccessStatusCode) {
+            throw "HAP returned HTTP $([int]$response.StatusCode): $responseText"
         }
-        throw $detail
+        return $responseText | ConvertFrom-Json
+    } finally {
+        $content.Dispose()
+        $client.Dispose()
     }
 }
 
