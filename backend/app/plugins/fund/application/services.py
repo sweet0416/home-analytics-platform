@@ -2262,6 +2262,11 @@ class FundService:
             source_contract=summary.source_contract,
             summary=summary.summary,
             disclaimer=summary.disclaimer,
+            model_name=summary.model_name,
+            prompt_version=summary.prompt_version,
+            input_tokens=summary.input_tokens,
+            output_tokens=summary.output_tokens,
+            cost=summary.cost,
         )
         self.repository.commit()
         return FundDailyAiSummaryArchiveRead(
@@ -2273,6 +2278,11 @@ class FundService:
             source_contract=record.source_contract,
             summary=record.summary,
             disclaimer=record.disclaimer,
+            model_name=record.model_name,
+            prompt_version=record.prompt_version,
+            input_tokens=record.input_tokens,
+            output_tokens=record.output_tokens,
+            cost=record.cost,
         )
 
     def get_daily_ai_summary(

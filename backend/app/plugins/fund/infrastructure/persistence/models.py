@@ -300,6 +300,49 @@ class FundDailyAiSummaryModel(Base):
     source_contract: Mapped[str] = mapped_column(String(64))
     summary: Mapped[str] = mapped_column(Text)
     disclaimer: Mapped[str] = mapped_column(Text)
+    model_name: Mapped[str] = mapped_column(String(128), default="")
+    prompt_version: Mapped[str] = mapped_column(String(64), default="fund-daily-prompt.v1")
+    input_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    output_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    cost: Mapped[Decimal | None] = mapped_column(Numeric(18, 8), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
+class FundAiAutomationRunModel(Base):
+    __tablename__ = "fund_ai_automation_runs"
+    __table_args__ = (
+        Index(
+            "ix_fund_ai_automation_runs_scope_date",
+            "scope_key",
+            "report_date",
+            unique=True,
+        ),
+        Index("ix_fund_ai_automation_runs_report_date", "report_date"),
+        Index("ix_fund_ai_automation_runs_ai_status", "ai_status"),
+        Index("ix_fund_ai_automation_runs_push_status", "push_status"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    scope_key: Mapped[str] = mapped_column(String(64), default="portfolio")
+    report_date: Mapped[date] = mapped_column(Date)
+    latest_nav_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    nav_fingerprint: Mapped[str] = mapped_column(String(128))
+    summary_id: Mapped[int | None] = mapped_column(
+        ForeignKey("fund_daily_ai_summaries.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    summary_version: Mapped[str] = mapped_column(String(64))
+    model_name: Mapped[str] = mapped_column(String(128), default="")
+    prompt_version: Mapped[str] = mapped_column(String(64))
+    input_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    output_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    cost: Mapped[Decimal | None] = mapped_column(Numeric(18, 8), nullable=True)
+    ai_status: Mapped[str] = mapped_column(String(32), default="PENDING")
+    push_status: Mapped[str] = mapped_column(String(32), default="NOT_REQUESTED")
+    ai_error_message: Mapped[str] = mapped_column(Text, default="")
+    push_error_message: Mapped[str] = mapped_column(Text, default="")
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 

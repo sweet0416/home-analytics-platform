@@ -866,6 +866,11 @@ class FundDailyAiSummaryRead(BaseModel):
     source_contract: Literal["fund-daily-ai-input.v1"]
     summary: str
     disclaimer: str
+    model_name: str = ""
+    prompt_version: str = "fund-daily-prompt.v1"
+    input_tokens: int | None = None
+    output_tokens: int | None = None
+    cost: Decimal | None = None
 
 
 class FundDailyAiSummaryArchiveRead(FundDailyAiSummaryRead):

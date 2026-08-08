@@ -2,12 +2,14 @@ from datetime import date, datetime
 from decimal import Decimal
 
 from sqlalchemy import and_, distinct, func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.time import utcnow
 from app.plugins.fund.infrastructure.persistence.models import (
     FundAccountHoldingSnapshotModel,
     FundAccountSnapshotModel,
+    FundAiAutomationRunModel,
     FundDailyAiSummaryModel,
     FundDailyReportSnapshotModel,
     FundDisclosureHoldingModel,
@@ -31,6 +33,42 @@ class FundRepository:
 
     def rollback(self) -> None:
         self.db.rollback()
+
+    def claim_ai_automation_run(
+        self,
+        *,
+        report_date: date,
+        latest_nav_date: date | None,
+        nav_fingerprint: str,
+        summary_version: str,
+        model_name: str,
+        prompt_version: str,
+        scope_key: str = "portfolio",
+    ) -> FundAiAutomationRunModel | None:
+        """Atomically reserve the daily automatic-summary slot.
+
+        A unique database index is the source of truth, so concurrent workers
+        cannot both reserve the same daily slot.
+        """
+        run = FundAiAutomationRunModel(
+            scope_key=scope_key,
+            report_date=report_date,
+            latest_nav_date=latest_nav_date,
+            nav_fingerprint=nav_fingerprint,
+            summary_version=summary_version,
+            model_name=model_name,
+            prompt_version=prompt_version,
+            ai_status="PENDING",
+            push_status="NOT_REQUESTED",
+            attempts=0,
+        )
+        try:
+            with self.db.begin_nested():
+                self.db.add(run)
+                self.db.flush()
+        except IntegrityError:
+            return None
+        return run
 
     def create_account_snapshot(
         self,
@@ -207,6 +245,11 @@ class FundRepository:
         source_contract: str,
         summary: str,
         disclaimer: str,
+        model_name: str = "",
+        prompt_version: str = "fund-daily-prompt.v1",
+        input_tokens: int | None = None,
+        output_tokens: int | None = None,
+        cost: Decimal | None = None,
     ) -> FundDailyAiSummaryModel:
         record = self.db.scalar(
             select(FundDailyAiSummaryModel).where(
@@ -223,6 +266,11 @@ class FundRepository:
             "source_contract": source_contract,
             "summary": summary,
             "disclaimer": disclaimer,
+            "model_name": model_name,
+            "prompt_version": prompt_version,
+            "input_tokens": input_tokens,
+            "output_tokens": output_tokens,
+            "cost": cost,
         }
         if record is None:
             record = FundDailyAiSummaryModel(**values)

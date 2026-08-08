@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Protocol
 from zoneinfo import ZoneInfo
@@ -18,8 +19,18 @@ class FundAiSummaryProviderError(RuntimeError):
     """Raised when the configured AI provider cannot return a valid summary."""
 
 
+@dataclass(frozen=True)
+class FundAiSummaryUsage:
+    input_tokens: int | None = None
+    output_tokens: int | None = None
+    cost: float | None = None
+
+
 class FundAiSummaryProvider(Protocol):
     def summarize(self, payload: FundDailyAiInputRead) -> str: ...
+
+    @property
+    def usage(self) -> FundAiSummaryUsage: ...
 
 
 class FundDailyAiSummaryService:
@@ -86,6 +97,14 @@ class FundDailyAiSummaryService:
                 "Fund AI summary provider returned an empty summary.",
                 status_code=502,
             )
+        usage = getattr(self._provider, "usage", FundAiSummaryUsage())
+        if not isinstance(usage, FundAiSummaryUsage):
+            usage = FundAiSummaryUsage()
+        model_name = (
+            self._settings.fund_ai_summary_model.strip()
+            if self._settings.fund_ai_summary_provider == "openai_compatible"
+            else "webhook"
+        )
         return FundDailyAiSummaryRead(
             contract_version="fund-daily-ai-summary.v1",
             generated_at=datetime.now(ZoneInfo("Asia/Shanghai")),
@@ -93,6 +112,11 @@ class FundDailyAiSummaryService:
             provider=self._settings.fund_ai_summary_provider,
             source_contract="fund-daily-ai-input.v1",
             summary=summary,
+            model_name=model_name,
+            prompt_version="fund-daily-prompt.v1",
+            input_tokens=usage.input_tokens,
+            output_tokens=usage.output_tokens,
+            cost=usage.cost,
             disclaimer="AI 摘要仅整理已提供的数据事实，不构成投资建议。",
         )
 
