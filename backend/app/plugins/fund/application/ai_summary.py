@@ -60,7 +60,10 @@ class FundDailyAiSummaryService:
             target=target,
             input_contract="fund-daily-ai-input.v1",
             note=(
-                "仅在手动生成摘要时发送结构化日报输入；默认关闭，"
+                "净值同步成功后按每日限额自动生成并保存摘要；"
+                "不会自动上传持仓数据。"
+                if self._settings.fund_ai_auto_summary_enabled
+                else "仅在手动生成摘要时发送结构化日报输入；默认关闭，"
                 "不会自动上传持仓数据。"
             ),
         )
