@@ -1,10 +1,11 @@
 import json
-from datetime import date, datetime
+from datetime import date
 from decimal import Decimal
 
 from sqlalchemy import Select, func, select
 from sqlalchemy.orm import Session, selectinload
 
+from app.core.time import utcnow
 from app.plugins.lottery.domain.constants import DLT_GAME_CODE
 from app.plugins.lottery.domain.sync import DrawRecord
 from app.plugins.lottery.infrastructure.persistence.models import (
@@ -247,7 +248,7 @@ class LotteryRepository:
             back_numbers_json=back_numbers_json,
             game_code=game_code,
         )
-        now = datetime.utcnow()
+        now = utcnow()
         if existing is not None:
             existing.label = label
             existing.source = source
@@ -287,7 +288,7 @@ class LotteryRepository:
             combination.favorite = favorite
         if note is not None:
             combination.note = note
-        combination.updated_at = datetime.utcnow()
+        combination.updated_at = utcnow()
         self.db.flush()
         return combination
 
@@ -542,7 +543,7 @@ class LotteryRepository:
         source: str | None = None,
         source_url: str | None = None,
     ) -> LotterySyncRunModel:
-        finished_at = datetime.utcnow()
+        finished_at = utcnow()
         run.status = status
         run.finished_at = finished_at
         run.duration_ms = int((finished_at - run.started_at).total_seconds() * 1000)
@@ -648,7 +649,7 @@ class LotteryRepository:
             existing.rule_version_id = rule_version_id
         existing.source_url = record.source_url
         existing.raw_data_json = raw_data_json
-        existing.updated_at = datetime.utcnow()
+        existing.updated_at = utcnow()
         return "updated"
 
     def bind_unassigned_draws_to_rule(
@@ -665,7 +666,7 @@ class LotteryRepository:
                 )
             )
         )
-        now = datetime.utcnow()
+        now = utcnow()
         for draw in draws:
             draw.rule_version_id = rule_version_id
             draw.updated_at = now
@@ -678,7 +679,7 @@ class LotteryRepository:
         game_code: str = DLT_GAME_CODE,
     ) -> int:
         draws = self.list_all_draws(game_code=game_code)
-        now = datetime.utcnow()
+        now = utcnow()
         changed_count = 0
         for draw in draws:
             rule = self.get_rule_for_issue_no(draw.issue_no)
@@ -704,7 +705,7 @@ class LotteryRepository:
         else:
             game.name = "超级大乐透"
             game.official_source = "sporttery"
-            game.updated_at = datetime.utcnow()
+            game.updated_at = utcnow()
 
         self._ensure_dlt_rule_version(
             rule_code="dlt-before-2019-official",
@@ -761,7 +762,7 @@ class LotteryRepository:
             rule.rule_name = "超级大乐透当前官方有效规则"
             rule.description = "根据中国体育彩票官方规则页录入；规则数据版本化保存。"
             rule.official_url = "https://www.sporttery.cn/bzzx/20210207/3002858.html?gid=5"
-            rule.updated_at = datetime.utcnow()
+            rule.updated_at = utcnow()
             rule.prize_tiers.clear()
 
         rule.prize_tiers = _build_current_dlt_prize_tiers()
@@ -805,7 +806,7 @@ class LotteryRepository:
             rule.effective_to = effective_to
             rule.official_url = official_url
             rule.description = description
-            rule.updated_at = datetime.utcnow()
+            rule.updated_at = utcnow()
             if reset_prize_tiers:
                 rule.prize_tiers.clear()
 

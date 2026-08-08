@@ -6,6 +6,7 @@ from zoneinfo import ZoneInfo
 from loguru import logger
 
 from app.core.config.settings import Settings
+from app.core.time import utcnow
 from app.plugins.fund.domain.daily_insights import (
     DailyInsightSnapshot,
     calculate_daily_insights,
@@ -543,7 +544,7 @@ class FundService:
             source=source.source,
             account_label=source.account_label,
             contract_version=source.contract_version,
-            captured_at=datetime.utcnow(),
+            captured_at=utcnow(),
             holdings=[
                 (
                     holding.asset_code,

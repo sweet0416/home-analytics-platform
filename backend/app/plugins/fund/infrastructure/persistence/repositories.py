@@ -4,6 +4,7 @@ from decimal import Decimal
 from sqlalchemy import and_, distinct, func, select
 from sqlalchemy.orm import Session, selectinload
 
+from app.core.time import utcnow
 from app.plugins.fund.infrastructure.persistence.models import (
     FundAccountHoldingSnapshotModel,
     FundAccountSnapshotModel,
@@ -164,7 +165,7 @@ class FundRepository:
         else:
             for field, value in values.items():
                 setattr(snapshot, field, value)
-            snapshot.updated_at = datetime.utcnow()
+            snapshot.updated_at = utcnow()
         self.db.flush()
         return snapshot
 
@@ -217,7 +218,7 @@ class FundRepository:
         source_url: str,
     ) -> FundTargetLinkModel:
         link = self.get_target_link(parent_fund_code)
-        now = datetime.utcnow()
+        now = utcnow()
         if link is None:
             link = FundTargetLinkModel(
                 parent_fund_code=parent_fund_code,
@@ -242,7 +243,7 @@ class FundRepository:
 
     def disable_target_link(self, link: FundTargetLinkModel) -> None:
         link.enabled = False
-        link.updated_at = datetime.utcnow()
+        link.updated_at = utcnow()
         self.db.flush()
 
     def upsert_fund(
@@ -254,7 +255,7 @@ class FundRepository:
         source: str | None = None,
     ) -> FundModel:
         fund = self.get_fund_by_code(code)
-        now = datetime.utcnow()
+        now = utcnow()
         if fund is not None:
             fund.name = name
             fund.fund_type = fund_type
@@ -336,7 +337,7 @@ class FundRepository:
         position.opened_at = opened_at
         position.tags = tags
         position.note = note
-        position.updated_at = datetime.utcnow()
+        position.updated_at = utcnow()
         self.db.flush()
         return position
 
@@ -457,7 +458,7 @@ class FundRepository:
         item.target_position = target_position
         item.tags = tags
         item.note = note
-        item.updated_at = datetime.utcnow()
+        item.updated_at = utcnow()
         self.db.flush()
         return item
 
@@ -483,7 +484,7 @@ class FundRepository:
                 FundNavRecordModel.nav_date == nav_date,
             )
         )
-        now = datetime.utcnow()
+        now = utcnow()
         if record is not None:
             record.unit_nav = unit_nav
             record.accumulated_nav = accumulated_nav
@@ -519,7 +520,7 @@ class FundRepository:
             )
         )
         existing_by_date = {record.nav_date: record for record in existing_records}
-        now = datetime.utcnow()
+        now = utcnow()
         saved: list[FundNavRecordModel] = []
         for nav_date, unit_nav, accumulated_nav, source, note in records:
             record = existing_by_date.get(nav_date)
@@ -558,7 +559,7 @@ class FundRepository:
         positions = self.db.scalars(
             select(FundPositionModel).where(FundPositionModel.fund_id == fund_id)
         )
-        now = datetime.utcnow()
+        now = utcnow()
         for position in positions:
             position.current_nav = current_nav
             position.updated_at = now
@@ -654,7 +655,7 @@ class FundRepository:
                 FundDisclosureModel.asset_type == asset_type,
             )
         )
-        now = datetime.utcnow()
+        now = utcnow()
         if disclosure is None:
             disclosure = FundDisclosureModel(
                 fund=fund,

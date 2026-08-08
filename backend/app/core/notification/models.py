@@ -4,6 +4,7 @@ from sqlalchemy import DateTime, Index, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database.base import Base
+from app.core.time import utcnow
 
 
 class NotificationDeliveryRunModel(Base):
@@ -23,4 +24,4 @@ class NotificationDeliveryRunModel(Base):
     result_message: Mapped[str] = mapped_column(Text, default="")
     provider_message_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     sent_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)

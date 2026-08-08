@@ -16,6 +16,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database.base import Base
+from app.core.time import utcnow
 
 
 class LotteryGameModel(Base):
@@ -27,8 +28,8 @@ class LotteryGameModel(Base):
     region: Mapped[str] = mapped_column(String(32), default="CN")
     official_source: Mapped[str] = mapped_column(String(128))
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
 class LotteryRuleVersionModel(Base):
@@ -51,8 +52,8 @@ class LotteryRuleVersionModel(Base):
     addon_supported: Mapped[bool] = mapped_column(Boolean, default=True)
     official_url: Mapped[str] = mapped_column(String(512))
     description: Mapped[str] = mapped_column(Text, default="")
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
     prize_tiers: Mapped[list["LotteryPrizeTierModel"]] = relationship(
         back_populates="rule_version",
@@ -75,8 +76,8 @@ class LotteryPrizeTierModel(Base):
     addon_multiplier: Mapped[Decimal | None] = mapped_column(Numeric(6, 2), nullable=True)
     description: Mapped[str] = mapped_column(Text, default="")
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
     rule_version: Mapped[LotteryRuleVersionModel] = relationship(back_populates="prize_tiers")
 
@@ -99,8 +100,8 @@ class LotteryDrawModel(Base):
     )
     source_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
     raw_data_json: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
 class LotteryDrawPrizeResultModel(Base):
@@ -113,8 +114,8 @@ class LotteryDrawPrizeResultModel(Base):
     base_prize_amount: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
     addon_winner_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
     addon_prize_amount: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
 class LotterySyncRunModel(Base):
@@ -128,7 +129,7 @@ class LotterySyncRunModel(Base):
     source: Mapped[str] = mapped_column(String(64), default="sporttery")
     sync_type: Mapped[str] = mapped_column(String(32), default="manual")
     status: Mapped[str] = mapped_column(String(32), index=True)
-    started_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+    started_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, index=True)
     finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     duration_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
     requested_page: Mapped[int | None] = mapped_column(Integer, nullable=True)
@@ -143,8 +144,8 @@ class LotterySyncRunModel(Base):
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     source_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
     raw_metadata_json: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
 class LotterySavedCombinationModel(Base):
@@ -167,8 +168,8 @@ class LotterySavedCombinationModel(Base):
     back_numbers_json: Mapped[str] = mapped_column(Text)
     favorite: Mapped[bool] = mapped_column(Boolean, default=False)
     note: Mapped[str] = mapped_column(Text, default="")
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
 class LotteryReplayRunModel(Base):
@@ -191,8 +192,8 @@ class LotteryReplayRunModel(Base):
     status: Mapped[str] = mapped_column(String(32), index=True)
     warnings_json: Mapped[str] = mapped_column(Text, default="[]")
     result_summary_json: Mapped[str] = mapped_column(Text, default="{}")
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
     generated_sets: Mapped[list["LotteryReplayGeneratedSetModel"]] = relationship(
         back_populates="replay_run",
@@ -220,8 +221,8 @@ class LotteryRandomTicketRunModel(Base):
     recommendations_json: Mapped[str] = mapped_column(Text)
     methodology_json: Mapped[str] = mapped_column(Text, default="[]")
     notes_json: Mapped[str] = mapped_column(Text, default="[]")
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
 class LotteryReplayGeneratedSetModel(Base):
@@ -241,6 +242,6 @@ class LotteryReplayGeneratedSetModel(Base):
     back_match_count: Mapped[int] = mapped_column(Integer)
     prize_tier: Mapped[int | None] = mapped_column(Integer, nullable=True)
     baseline_percentile: Mapped[Decimal | None] = mapped_column(Numeric(8, 4), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
     replay_run: Mapped[LotteryReplayRunModel] = relationship(back_populates="generated_sets")

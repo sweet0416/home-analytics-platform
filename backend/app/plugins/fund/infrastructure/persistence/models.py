@@ -5,6 +5,7 @@ from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Index, Integer, Nume
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database.base import Base
+from app.core.time import utcnow
 
 
 class FundModel(Base):
@@ -15,8 +16,8 @@ class FundModel(Base):
     name: Mapped[str] = mapped_column(String(128))
     fund_type: Mapped[str] = mapped_column(String(64), default="unknown")
     source: Mapped[str] = mapped_column(String(64), default="manual")
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
     positions: Mapped[list["FundPositionModel"]] = relationship(back_populates="fund")
     transactions: Mapped[list["FundTransactionModel"]] = relationship(back_populates="fund")
@@ -41,8 +42,8 @@ class FundTargetLinkModel(Base):
     report_date: Mapped[date] = mapped_column(Date)
     source_url: Mapped[str] = mapped_column(String(512))
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
 class FundWatchlistItemModel(Base):
@@ -61,8 +62,8 @@ class FundWatchlistItemModel(Base):
     target_position: Mapped[str] = mapped_column(String(64), default="")
     tags: Mapped[str] = mapped_column(String(256), default="")
     note: Mapped[str] = mapped_column(Text, default="")
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
     fund: Mapped[FundModel] = relationship(back_populates="watchlist_items")
 
@@ -81,8 +82,8 @@ class FundNavRecordModel(Base):
     accumulated_nav: Mapped[Decimal | None] = mapped_column(Numeric(18, 4), nullable=True)
     source: Mapped[str] = mapped_column(String(64), default="manual")
     note: Mapped[str] = mapped_column(Text, default="")
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
     fund: Mapped[FundModel] = relationship(back_populates="nav_records")
 
@@ -108,8 +109,8 @@ class FundPositionModel(Base):
     opened_at: Mapped[date | None] = mapped_column(Date, nullable=True)
     tags: Mapped[str] = mapped_column(String(256), default="")
     note: Mapped[str] = mapped_column(Text, default="")
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
     fund: Mapped[FundModel] = relationship(back_populates="positions")
 
@@ -127,7 +128,7 @@ class FundAccountSnapshotModel(Base):
     captured_at: Mapped[datetime] = mapped_column(DateTime)
     holding_count: Mapped[int] = mapped_column(Integer)
     total_asset_value: Mapped[Decimal] = mapped_column(Numeric(18, 2))
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
     holdings: Mapped[list["FundAccountHoldingSnapshotModel"]] = relationship(
         back_populates="snapshot",
@@ -170,7 +171,7 @@ class FundAccountHoldingSnapshotModel(Base):
         Numeric(18, 8),
         nullable=True,
     )
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
     snapshot: Mapped[FundAccountSnapshotModel] = relationship(
         back_populates="holdings"
@@ -195,8 +196,8 @@ class FundTransactionModel(Base):
     amount: Mapped[Decimal] = mapped_column(Numeric(18, 2))
     fee: Mapped[Decimal] = mapped_column(Numeric(18, 2), default=Decimal("0"))
     note: Mapped[str] = mapped_column(Text, default="")
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
     fund: Mapped[FundModel] = relationship(back_populates="transactions")
 
@@ -219,7 +220,7 @@ class FundNavSyncRunModel(Base):
     updated: Mapped[int] = mapped_column(Integer, default=0)
     skipped: Mapped[bool] = mapped_column(Boolean, default=False)
     message: Mapped[str] = mapped_column(Text, default="")
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
 class FundDailyReportSnapshotModel(Base):
@@ -272,8 +273,8 @@ class FundDailyReportSnapshotModel(Base):
     alert_count: Mapped[int] = mapped_column(Integer)
     warning_count: Mapped[int] = mapped_column(Integer)
     context_json: Mapped[str] = mapped_column(Text)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
 class FundDisclosureModel(Base):
@@ -296,8 +297,8 @@ class FundDisclosureModel(Base):
     asset_type: Mapped[str] = mapped_column(String(32), default="stock")
     source: Mapped[str] = mapped_column(String(64))
     source_url: Mapped[str] = mapped_column(String(512))
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
     fund: Mapped[FundModel] = relationship(back_populates="disclosures")
     holdings: Mapped[list["FundDisclosureHoldingModel"]] = relationship(
@@ -341,7 +342,7 @@ class FundDisclosureHoldingModel(Base):
         Numeric(24, 4),
         nullable=True,
     )
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
     disclosure: Mapped[FundDisclosureModel] = relationship(
         back_populates="holdings"

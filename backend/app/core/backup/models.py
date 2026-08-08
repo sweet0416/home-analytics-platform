@@ -4,6 +4,7 @@ from sqlalchemy import Boolean, DateTime, Index, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database.base import Base
+from app.core.time import utcnow
 
 
 class DatabaseBackupRunModel(Base):
@@ -24,8 +25,8 @@ class DatabaseBackupRunModel(Base):
     remote_message: Mapped[str] = mapped_column(Text, default="")
     remote_asset_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     remote_uploaded_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
 class DatabaseRestoreRunModel(Base):
@@ -41,7 +42,7 @@ class DatabaseRestoreRunModel(Base):
     confirmation: Mapped[str] = mapped_column(String(64))
     status: Mapped[str] = mapped_column(String(32), default="success")
     message: Mapped[str] = mapped_column(Text, default="")
-    started_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    started_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
