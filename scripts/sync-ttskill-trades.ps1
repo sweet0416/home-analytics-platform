@@ -11,7 +11,7 @@ param(
 $ErrorActionPreference = 'Stop'
 
 if ([string]::IsNullOrWhiteSpace($SyncToken)) { throw 'Set HAP_TTSKILL_SYNC_TOKEN or pass -SyncToken before synchronizing.' }
-if ($Months -lt 1 -or $Months -gt 12) { throw 'Months must be between 1 and 12.' }
+if ($Months -notin @(1, 3, 6, 12)) { throw 'Months must be one of 1, 3, 6, or 12.' }
 
 $ttskillCommand = Get-Command ttskill -ErrorAction Stop
 $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
@@ -73,9 +73,16 @@ function Find-TradeRows {
     return @()
 }
 
+$dateType = switch ($Months) {
+    1 { '1' }
+    3 { '6' }
+    6 { '2' }
+    12 { '3' }
+}
+
 $listPayload = Invoke-TtSkillJson -Action 'trade_list' -Body @{
     tradeType = 'fund'
-    dateType = if ($Months -eq 1) { '1' } elseif ($Months -eq 3) { '6' } elseif ($Months -eq 6) { '2' } else { '3' }
+    dateType = $dateType
     busType = '0'
     statu = '0'
     pageSize = 500
@@ -99,7 +106,7 @@ foreach ($row in $rows) {
         fundCode = [string]$fundCode
         tradeId = [string]$tradeId
         tradeType = 'fund'
-        dateType = '1'
+        dateType = $dateType
         busType = '0'
         statu = '0'
         pageSize = 500
