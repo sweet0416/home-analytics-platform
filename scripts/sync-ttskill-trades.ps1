@@ -22,9 +22,21 @@ function Invoke-TtSkillJson {
     try {
         $request = @{ body = $Body } | ConvertTo-Json -Depth 20 -Compress
         [System.IO.File]::WriteAllText($requestPath, $request, $utf8NoBom)
-        $output = & $ttskillCommand.Source invoke TRADE_QUERY --action $Action --body $requestPath
+        $output = & $ttskillCommand.Source invoke TRADE_QUERY --action $Action --body $requestPath --summary
         if ($LASTEXITCODE -ne 0) { throw "ttskill $Action failed with exit code $LASTEXITCODE." }
-        return (($output -join "`n") | ConvertFrom-Json)
+        $rawText = ($output | ForEach-Object { [string]$_ }) -join "`n"
+        $jsonStart = $rawText.IndexOf('{')
+        $jsonEnd = $rawText.LastIndexOf('}')
+        if ($jsonStart -lt 0 -or $jsonEnd -le $jsonStart) { throw "ttskill $Action did not return a JSON object." }
+        $jsonText = $rawText.Substring($jsonStart, $jsonEnd - $jsonStart + 1)
+        try {
+            return ($jsonText | ConvertFrom-Json)
+        } catch {
+            $logDirectory = Join-Path $env:LOCALAPPDATA 'HAP\logs'
+            New-Item -ItemType Directory -Path $logDirectory -Force | Out-Null
+            $rawText | Set-Content -LiteralPath (Join-Path $logDirectory "ttskill-$Action-response.txt") -Encoding UTF8
+            throw "ttskill $Action returned invalid JSON. Raw response saved to $logDirectory."
+        }
     } finally {
         if (Test-Path -LiteralPath $requestPath) { Remove-Item -LiteralPath $requestPath -Force }
     }
