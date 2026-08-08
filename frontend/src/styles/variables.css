@@ -1,17 +1,25 @@
 :root {
-  --color-bg: #0f172a;
-  --color-surface: #111827;
-  --color-card: #1f2937;
-  --color-border: #334155;
-  --color-text: #e5e7eb;
-  --color-muted: #94a3b8;
-  --color-primary: #38bdf8;
-  --color-success: #22c55e;
-  --color-warning: #f59e0b;
-  --color-danger: #ef4444;
-  --color-accent: #a78bfa;
-  --radius-card: 8px;
-  --sidebar-width: 248px;
-  --topbar-height: 68px;
+  --color-bg: #0b0d12;
+  --color-surface: #10131a;
+  --color-surface-raised: #151922;
+  --color-card: #191e29;
+  --color-card-hover: #1d2431;
+  --color-border: #2b3443;
+  --color-border-soft: rgba(148, 163, 184, 0.14);
+  --color-text: #f3f6fb;
+  --color-text-soft: #c9d2df;
+  --color-muted: #8d99aa;
+  --color-primary: #69b9ff;
+  --color-primary-strong: #3d9ff6;
+  --color-success: #43d49b;
+  --color-warning: #f4b860;
+  --color-danger: #ff727b;
+  --color-accent: #69b9ff;
+  --shadow-panel: 0 18px 44px rgba(0, 0, 0, 0.22);
+  --shadow-panel-hover: 0 22px 54px rgba(0, 0, 0, 0.3);
+  --radius-card: 12px;
+  --radius-control: 8px;
+  --sidebar-width: 240px;
+  --topbar-height: 64px;
+  --content-max-width: 1600px;
 }
-

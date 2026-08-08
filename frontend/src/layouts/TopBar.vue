@@ -4,7 +4,7 @@
       <div class="topbar-title shiny-text">Home Analytics Platform</div>
       <div class="topbar-subtitle">PVE Docker target: 192.168.100.249</div>
     </div>
-    <div class="topbar-status">
+    <div class="topbar-status" role="status" aria-live="polite">
       <span class="status-dot" :class="{ online: system.health?.status === 'ok' }" />
       <span>{{ statusText }}</span>
       <span class="topbar-version">v{{ system.health?.version ?? '1.0.0' }}</span>

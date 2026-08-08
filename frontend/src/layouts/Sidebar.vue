@@ -25,6 +25,7 @@
     </div>
 
     <nav
+      aria-label="Primary navigation"
       class="nav-list"
       :style="{ '--active-index': String(activeIndex) }"
     >
