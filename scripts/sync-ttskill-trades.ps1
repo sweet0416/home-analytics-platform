@@ -22,7 +22,8 @@ function Invoke-TtSkillJson {
     try {
         $request = @{ body = $Body } | ConvertTo-Json -Depth 20 -Compress
         [System.IO.File]::WriteAllText($requestPath, $request, $utf8NoBom)
-        $output = & $ttskillCommand.Source invoke TRADE_QUERY --action $Action --body $requestPath --summary
+        # Trade import needs the complete raw result, not the CLI summary envelope.
+        $output = & $ttskillCommand.Source invoke TRADE_QUERY --action $Action --body $requestPath
         if ($LASTEXITCODE -ne 0) { throw "ttskill $Action failed with exit code $LASTEXITCODE." }
         $rawText = ($output | ForEach-Object { [string]$_ }) -join "`n"
         $jsonStart = $rawText.IndexOf('{')
