@@ -8,6 +8,7 @@ from app.core.time import utcnow
 from app.plugins.fund.infrastructure.persistence.models import (
     FundAccountHoldingSnapshotModel,
     FundAccountSnapshotModel,
+    FundDailyAiSummaryModel,
     FundDailyReportSnapshotModel,
     FundDisclosureHoldingModel,
     FundDisclosureModel,
@@ -192,6 +193,51 @@ class FundRepository:
         return self.db.scalar(
             select(FundDailyReportSnapshotModel).where(
                 FundDailyReportSnapshotModel.id == snapshot_id
+            )
+        )
+
+    def upsert_daily_ai_summary(
+        self,
+        *,
+        snapshot_id: int,
+        report_date: date,
+        generated_at: datetime,
+        contract_version: str,
+        provider: str,
+        source_contract: str,
+        summary: str,
+        disclaimer: str,
+    ) -> FundDailyAiSummaryModel:
+        record = self.db.scalar(
+            select(FundDailyAiSummaryModel).where(
+                FundDailyAiSummaryModel.snapshot_id == snapshot_id,
+                FundDailyAiSummaryModel.provider == provider,
+            )
+        )
+        values = {
+            "snapshot_id": snapshot_id,
+            "report_date": report_date,
+            "generated_at": generated_at,
+            "contract_version": contract_version,
+            "provider": provider,
+            "source_contract": source_contract,
+            "summary": summary,
+            "disclaimer": disclaimer,
+        }
+        if record is None:
+            record = FundDailyAiSummaryModel(**values)
+            self.db.add(record)
+        else:
+            for field, value in values.items():
+                setattr(record, field, value)
+            record.updated_at = utcnow()
+        self.db.flush()
+        return record
+
+    def get_daily_ai_summary(self, snapshot_id: int) -> FundDailyAiSummaryModel | None:
+        return self.db.scalar(
+            select(FundDailyAiSummaryModel).where(
+                FundDailyAiSummaryModel.snapshot_id == snapshot_id
             )
         )
 

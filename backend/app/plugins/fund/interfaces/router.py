@@ -23,6 +23,7 @@ from app.plugins.fund.interfaces.schemas import (
     FundAllocationRead,
     FundCashFlowPerformanceRead,
     FundDailyAiInputRead,
+    FundDailyAiSummaryArchiveRead,
     FundDailyAiSummaryRead,
     FundDailyAiSummaryStatusRead,
     FundDailyInsightsRead,
@@ -591,10 +592,11 @@ def generate_fund_daily_ai_summary(
     service: FundService = Depends(get_fund_service),
     ai_service: FundDailyAiSummaryService = Depends(get_fund_ai_summary_service),
 ) -> ApiResponse[FundDailyAiSummaryRead]:
-    return ok(
-        ai_service.generate(service.get_daily_report_ai_input()),
-        message="fund daily AI summary generated",
-    )
+    report = service.get_daily_report()
+    summary = ai_service.generate(service.get_daily_report_ai_input())
+    snapshot = service.save_daily_report_snapshot(report)
+    service.save_daily_ai_summary(snapshot.id, summary)
+    return ok(summary, message="fund daily AI summary generated")
 
 
 @router.get(
@@ -631,6 +633,24 @@ def get_fund_daily_report_snapshot_detail(
     service: FundService = Depends(get_fund_service),
 ) -> ApiResponse[FundDailySnapshotDetailRead]:
     return ok(service.get_daily_report_snapshot_detail(snapshot_id))
+
+
+@router.get(
+    "/reports/daily/snapshots/{snapshot_id}/ai-summary",
+    response_model=ApiResponse[FundDailyAiSummaryArchiveRead],
+)
+def get_fund_daily_report_snapshot_ai_summary(
+    snapshot_id: int,
+    service: FundService = Depends(get_fund_service),
+) -> ApiResponse[FundDailyAiSummaryArchiveRead]:
+    summary = service.get_daily_ai_summary(snapshot_id)
+    if summary is None:
+        raise AppError(
+            code=ErrorCode.not_found,
+            message="Fund daily AI summary was not found.",
+            status_code=404,
+        )
+    return ok(summary)
 
 
 @router.post(

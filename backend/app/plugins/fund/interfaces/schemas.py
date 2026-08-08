@@ -868,6 +868,10 @@ class FundDailyAiSummaryRead(BaseModel):
     disclaimer: str
 
 
+class FundDailyAiSummaryArchiveRead(FundDailyAiSummaryRead):
+    snapshot_id: int
+
+
 class FundDailyPushRequest(BaseModel):
     channel: NotificationChannel = NotificationChannel.bark
 

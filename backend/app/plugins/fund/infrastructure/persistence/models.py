@@ -277,6 +277,33 @@ class FundDailyReportSnapshotModel(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
+class FundDailyAiSummaryModel(Base):
+    __tablename__ = "fund_daily_ai_summaries"
+    __table_args__ = (
+        Index(
+            "ix_fund_daily_ai_summaries_snapshot_provider",
+            "snapshot_id",
+            "provider",
+            unique=True,
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    snapshot_id: Mapped[int] = mapped_column(
+        ForeignKey("fund_daily_report_snapshots.id", ondelete="CASCADE"),
+        index=True,
+    )
+    report_date: Mapped[date] = mapped_column(Date)
+    generated_at: Mapped[datetime] = mapped_column(DateTime)
+    contract_version: Mapped[str] = mapped_column(String(64))
+    provider: Mapped[str] = mapped_column(String(32))
+    source_contract: Mapped[str] = mapped_column(String(64))
+    summary: Mapped[str] = mapped_column(Text)
+    disclaimer: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
 class FundDisclosureModel(Base):
     __tablename__ = "fund_disclosures"
     __table_args__ = (

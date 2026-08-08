@@ -779,6 +779,10 @@ export interface FundDailyAiSummary {
   disclaimer: string;
 }
 
+export interface FundDailyAiSummaryArchive extends FundDailyAiSummary {
+  snapshot_id: number;
+}
+
 export interface FundDailyPushResult {
   requested_channel: 'all' | 'bark' | 'wecom' | 'whatsapp' | 'custom_webhook';
   results: Array<{
@@ -1095,6 +1099,14 @@ export function fetchFundDailySnapshots(limit = 30): Promise<FundDailySnapshotHi
 
 export function fetchFundDailySnapshotDetail(id: number): Promise<FundDailySnapshotDetail> {
   return getApiData<FundDailySnapshotDetail>(`/fund/reports/daily/snapshots/${id}`);
+}
+
+export function fetchFundDailySnapshotAiSummary(
+  id: number,
+): Promise<FundDailyAiSummaryArchive> {
+  return getApiData<FundDailyAiSummaryArchive>(
+    `/fund/reports/daily/snapshots/${id}/ai-summary`,
+  );
 }
 
 export function getFundDailySnapshotsExportUrl(limit = 365): string {

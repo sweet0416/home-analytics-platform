@@ -74,6 +74,8 @@ from app.plugins.fund.interfaces.schemas import (
     FundCorrelationMemberRead,
     FundCorrelationPairRead,
     FundDailyAiInputRead,
+    FundDailyAiSummaryArchiveRead,
+    FundDailyAiSummaryRead,
     FundDailyAlertRead,
     FundDailyAnalysisContextRead,
     FundDailyDataQualityRead,
@@ -2244,6 +2246,51 @@ class FundService:
             analysis_context=FundDailyAnalysisContextRead.model_validate_json(
                 record.context_json
             ),
+        )
+
+    def save_daily_ai_summary(
+        self,
+        snapshot_id: int,
+        summary: FundDailyAiSummaryRead,
+    ) -> FundDailyAiSummaryArchiveRead:
+        record = self.repository.upsert_daily_ai_summary(
+            snapshot_id=snapshot_id,
+            report_date=summary.report_date,
+            generated_at=summary.generated_at,
+            contract_version=summary.contract_version,
+            provider=summary.provider,
+            source_contract=summary.source_contract,
+            summary=summary.summary,
+            disclaimer=summary.disclaimer,
+        )
+        self.repository.commit()
+        return FundDailyAiSummaryArchiveRead(
+            snapshot_id=record.snapshot_id,
+            contract_version=record.contract_version,
+            generated_at=record.generated_at,
+            report_date=record.report_date,
+            provider=record.provider,
+            source_contract=record.source_contract,
+            summary=record.summary,
+            disclaimer=record.disclaimer,
+        )
+
+    def get_daily_ai_summary(
+        self,
+        snapshot_id: int,
+    ) -> FundDailyAiSummaryArchiveRead | None:
+        record = self.repository.get_daily_ai_summary(snapshot_id)
+        if record is None:
+            return None
+        return FundDailyAiSummaryArchiveRead(
+            snapshot_id=record.snapshot_id,
+            contract_version=record.contract_version,
+            generated_at=record.generated_at,
+            report_date=record.report_date,
+            provider=record.provider,
+            source_contract=record.source_contract,
+            summary=record.summary,
+            disclaimer=record.disclaimer,
         )
 
     def export_daily_report_snapshots_csv(self, *, limit: int = 365) -> str:

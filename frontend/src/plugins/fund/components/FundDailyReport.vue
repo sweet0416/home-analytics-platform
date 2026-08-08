@@ -389,11 +389,19 @@
             </ul>
           </div>
           <div class="snapshot-detail-section">
+            <strong>AI 日报摘要</strong>
+            <div v-if="selectedSnapshotAiSummary" class="snapshot-ai-result">
+              <p>{{ selectedSnapshotAiSummary.summary }}</p>
+              <small>{{ selectedSnapshotAiSummary.disclaimer }}</small>
+            </div>
+            <p v-else class="snapshot-detail-muted">该快照尚未生成 AI 摘要。</p>
+          </div>
+          <div class="snapshot-detail-section">
             <strong>口径说明</strong>
             <p>{{ selectedSnapshotDetail.analysis_context.disclaimers.join(' ') }}</p>
           </div>
           <p class="snapshot-ai-note">
-            AI 摘要目前只对当前日报手动生成，不回填历史快照；历史详情以当日保存的固定规则事实为准。
+            AI 摘要在生成时绑定当前快照；历史详情不会使用其他日期的摘要。
           </p>
         </div>
       </el-dialog>
@@ -422,12 +430,14 @@ import {
   fetchFundDailyReport,
   fetchFundDailyAiSummaryStatus,
   fetchFundDailyInsights,
+  fetchFundDailySnapshotAiSummary,
   fetchFundDailySnapshotDetail,
   fetchFundDailySnapshots,
   generateFundDailyAiSummary,
   pushFundDailyReport,
   saveFundDailySnapshot,
   type FundDailyAiSummary,
+  type FundDailyAiSummaryArchive,
   type FundDailyAiSummaryStatus,
   type FundDailyReport,
   type FundDailyInsights,
@@ -446,6 +456,7 @@ const aiSummary = ref<FundDailyAiSummary | null>(null);
 const snapshots = ref<FundDailySnapshot[]>([]);
 const snapshotLimit = ref(30);
 const selectedSnapshotDetail = ref<FundDailySnapshotDetail | null>(null);
+const selectedSnapshotAiSummary = ref<FundDailyAiSummaryArchive | null>(null);
 const snapshotDetailVisible = ref(false);
 const snapshotDetailLoading = ref(false);
 const loading = ref(false);
@@ -562,8 +573,14 @@ async function openSnapshotDetail(snapshotId: number): Promise<void> {
   snapshotDetailVisible.value = true;
   snapshotDetailLoading.value = true;
   selectedSnapshotDetail.value = null;
+  selectedSnapshotAiSummary.value = null;
   try {
-    selectedSnapshotDetail.value = await fetchFundDailySnapshotDetail(snapshotId);
+    const [detail, aiSummaryResult] = await Promise.all([
+      fetchFundDailySnapshotDetail(snapshotId),
+      fetchFundDailySnapshotAiSummary(snapshotId).catch(() => null),
+    ]);
+    selectedSnapshotDetail.value = detail;
+    selectedSnapshotAiSummary.value = aiSummaryResult;
   } catch (error) {
     snapshotDetailVisible.value = false;
     ElMessage.error(error instanceof Error ? error.message : '日报快照详情加载失败');
@@ -1048,6 +1065,26 @@ watch(snapshotLimit, async () => {
   line-height: 1.6;
   margin: 0;
   padding-left: 10px;
+}
+
+.snapshot-ai-result {
+  border-left: 2px solid rgba(56, 189, 248, 0.72);
+  display: grid;
+  gap: 7px;
+  padding-left: 10px;
+}
+
+.snapshot-ai-result p,
+.snapshot-ai-result small {
+  color: var(--color-text);
+  font-size: 12px;
+  line-height: 1.65;
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.snapshot-ai-result small {
+  color: var(--color-muted);
 }
 
 .analysis-context {

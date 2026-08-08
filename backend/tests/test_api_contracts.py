@@ -996,6 +996,12 @@ def test_fund_daily_report_snapshots_are_idempotent_and_comparable(
     assert detail["analysis_context"]["contract_version"] == "fund-daily-context.v1"
     assert detail["analysis_context"]["report_date"] == history["items"][0]["report_date"]
     assert client.get("/api/v1/fund/reports/daily/snapshots/999999").status_code == 404
+    assert (
+        client.get(
+            f"/api/v1/fund/reports/daily/snapshots/{history['items'][0]['id']}/ai-summary"
+        ).status_code
+        == 404
+    )
 
     insight_response = client.get("/api/v1/fund/reports/daily/insights")
     assert insight_response.status_code == 200
@@ -1045,6 +1051,7 @@ def test_fund_daily_report_snapshots_are_idempotent_and_comparable(
     disabled_summary_response = client.post("/api/v1/fund/reports/daily/ai-summary")
     assert disabled_summary_response.status_code == 503
     assert disabled_summary_response.json()["code"] == "FUND_AI_SUMMARY_UNAVAILABLE"
+    assert client.get("/api/v1/fund/reports/daily/snapshots").json()["data"]["count"] == 2
 
 
 def test_fund_transactions_track_cash_flows(client: TestClient) -> None:
