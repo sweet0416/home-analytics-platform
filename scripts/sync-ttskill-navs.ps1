@@ -62,9 +62,23 @@ function Import-HapNav {
     param([object]$Payload)
     $headers = @{ 'X-HAP-Sync-Token' = $SyncToken }
     $uri = '{0}/api/v1/fund/integrations/ttskill/nav-info' -f $HapBaseUrl.TrimEnd('/')
-    return Invoke-RestMethod -Method Post -Uri $uri -Headers $headers `
-        -ContentType 'application/json; charset=utf-8' `
-        -Body ($Payload | ConvertTo-Json -Depth 100 -Compress)
+    try {
+        return Invoke-RestMethod -Method Post -Uri $uri -Headers $headers `
+            -ContentType 'application/json; charset=utf-8' `
+            -Body ($Payload | ConvertTo-Json -Depth 100 -Compress)
+    } catch {
+        $detail = $_.Exception.Message
+        $response = $_.Exception.Response
+        if ($null -ne $response) {
+            try {
+                $reader = New-Object System.IO.StreamReader($response.GetResponseStream())
+                $body = $reader.ReadToEnd()
+                $reader.Dispose()
+                if (-not [string]::IsNullOrWhiteSpace($body)) { $detail = "$detail $body" }
+            } catch { }
+        }
+        throw $detail
+    }
 }
 
 function Find-FundHoldings {
