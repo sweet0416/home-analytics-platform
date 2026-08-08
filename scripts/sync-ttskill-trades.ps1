@@ -19,19 +19,18 @@ $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
 function Invoke-TtSkillJson {
     param([Parameter(Mandatory = $true)] [string]$Action, [Parameter(Mandatory = $true)] [hashtable]$Body)
     $requestPath = Join-Path $env:TEMP ("hap-trade-query-{0}.json" -f [guid]::NewGuid())
+    $responsePath = Join-Path $env:TEMP ("hap-trade-response-{0}.json" -f [guid]::NewGuid())
     try {
         $request = @{ body = $Body } | ConvertTo-Json -Depth 20 -Compress
         [System.IO.File]::WriteAllText($requestPath, $request, $utf8NoBom)
         # Trade import needs the complete raw result, not the CLI summary envelope.
-        $output = & $ttskillCommand.Source invoke TRADE_QUERY --action $Action --body $requestPath
+        # Read it from a file so PowerShell does not corrupt non-ASCII JSON in the pipe.
+        & $ttskillCommand.Source invoke TRADE_QUERY --action $Action --body $requestPath --output $responsePath | Out-Null
         if ($LASTEXITCODE -ne 0) { throw "ttskill $Action failed with exit code $LASTEXITCODE." }
-        $rawText = ($output | ForEach-Object { [string]$_ }) -join "`n"
-        $jsonStart = $rawText.IndexOf('{')
-        $jsonEnd = $rawText.LastIndexOf('}')
-        if ($jsonStart -lt 0 -or $jsonEnd -le $jsonStart) { throw "ttskill $Action did not return a JSON object." }
-        $jsonText = $rawText.Substring($jsonStart, $jsonEnd - $jsonStart + 1)
+        if (-not (Test-Path -LiteralPath $responsePath)) { throw "ttskill $Action did not write a JSON response file." }
+        $rawText = [System.IO.File]::ReadAllText($responsePath)
         try {
-            return ($jsonText | ConvertFrom-Json)
+            return ($rawText | ConvertFrom-Json)
         } catch {
             $logDirectory = Join-Path $env:LOCALAPPDATA 'HAP\logs'
             New-Item -ItemType Directory -Path $logDirectory -Force | Out-Null
@@ -40,6 +39,7 @@ function Invoke-TtSkillJson {
         }
     } finally {
         if (Test-Path -LiteralPath $requestPath) { Remove-Item -LiteralPath $requestPath -Force }
+        if (Test-Path -LiteralPath $responsePath) { Remove-Item -LiteralPath $responsePath -Force }
     }
 }
 
