@@ -9,7 +9,10 @@
       </div>
       <div class="page-header-actions">
         <div class="page-header-meta">数据来自已保存的持仓与净值记录</div>
-        <el-button type="primary" plain @click="downloadSnapshotCsv">导出快照 CSV</el-button>
+        <div class="page-header-buttons">
+          <el-button plain @click="printReport">打印 / 保存 PDF</el-button>
+          <el-button type="primary" plain @click="downloadSnapshotCsv">导出快照 CSV</el-button>
+        </div>
       </div>
     </RevealContent>
 
@@ -58,6 +61,10 @@ const refreshKey = 0;
 function downloadSnapshotCsv(): void {
   window.location.href = getFundDailySnapshotsExportUrl();
 }
+
+function printReport(): void {
+  window.print();
+}
 </script>
 
 <style scoped>
@@ -76,6 +83,11 @@ function downloadSnapshotCsv(): void {
   display: grid;
   gap: 10px;
   justify-items: end;
+}
+
+.page-header-buttons {
+  display: flex;
+  gap: 8px;
 }
 
 .capability-grid {
@@ -133,8 +145,24 @@ function downloadSnapshotCsv(): void {
     justify-items: stretch;
   }
 
+  .page-header-buttons {
+    flex-direction: column;
+  }
+
   .capability-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+@media print {
+  .reports-page {
+    color: #111827;
+    display: block;
+  }
+
+  .page-header-buttons,
+  .report-capabilities {
+    display: none;
   }
 }
 </style>
