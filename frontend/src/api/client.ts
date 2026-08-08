@@ -21,7 +21,7 @@ export async function getApiData<T>(url: string, options?: { timeout?: number })
 export async function postApiData<T, P extends object>(
   url: string,
   payload: P,
-  options?: { timeout?: number },
+  options?: { timeout?: number; headers?: Record<string, string> },
 ): Promise<T> {
   const response = await apiClient.post<ApiResponse<T>>(url, payload, options);
   return response.data.data;

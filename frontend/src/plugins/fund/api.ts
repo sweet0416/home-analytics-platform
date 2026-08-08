@@ -907,19 +907,23 @@ export function fetchFundTransactionSummary(): Promise<FundTransactionSummary> {
 
 export function previewTtSkillTrades(
   payload: FundTtSkillTradesImport,
+  options?: { headers?: Record<string, string> },
 ): Promise<FundTtSkillTradesImportResult> {
   return postApiData<FundTtSkillTradesImportResult, FundTtSkillTradesImport>(
     '/fund/integrations/ttskill/trades/preview',
     payload,
+    options,
   );
 }
 
 export function importTtSkillTrades(
   payload: FundTtSkillTradesImport,
+  options?: { headers?: Record<string, string> },
 ): Promise<FundTtSkillTradesImportResult> {
   return postApiData<FundTtSkillTradesImportResult, FundTtSkillTradesImport>(
     '/fund/integrations/ttskill/trades/import',
     payload,
+    options,
   );
 }
 

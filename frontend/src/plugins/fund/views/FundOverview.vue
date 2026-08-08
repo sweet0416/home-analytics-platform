@@ -254,6 +254,7 @@
 
     <FundNavTrend @synced="handleHistorySynced" />
 
+    <FundTradeSyncPanel @imported="handleTransactionChanged" />
     <FundTransactions @changed="handleTransactionChanged" />
 
     <RevealContent as="section" class="panel fund-panel" :delay="300">
@@ -478,6 +479,7 @@ import FundPortfolioBenchmark from '@/plugins/fund/components/FundPortfolioBench
 import FundPortfolioPerformance from '@/plugins/fund/components/FundPortfolioPerformance.vue';
 import FundRiskContribution from '@/plugins/fund/components/FundRiskContribution.vue';
 import FundTransactions from '@/plugins/fund/components/FundTransactions.vue';
+import FundTradeSyncPanel from '@/plugins/fund/components/FundTradeSyncPanel.vue';
 import {
   createFundNavRecord,
   createFundPosition,
