@@ -86,6 +86,10 @@ $rows = @($rows | Where-Object {
 })
 $tradeCount = $rows.Count
 Write-Output ("Skills returned {0} trade rows." -f $tradeCount)
+if ($tradeCount -eq 0) {
+    Write-Output 'No fund trades returned. Nothing to import.'
+    exit 0
+}
 $detailPayloads = @()
 foreach ($row in $rows) {
     $tradeId = if ($row.PSObject.Properties.Name -contains 'tradeId') { $row.tradeId } else { $row.trade_id }
