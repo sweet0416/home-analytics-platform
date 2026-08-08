@@ -345,12 +345,60 @@
 
 @media (max-width: 640px) {
   .sidebar {
+    border-bottom: 1px solid var(--color-border-soft);
+    border-right: 0;
+    display: block;
+    flex: 0 0 auto;
+    height: auto;
+    padding: calc(6px + env(safe-area-inset-top)) 12px 8px;
+    position: sticky;
+    top: 0;
+    width: 100%;
+  }
+
+  .nav-list {
+    display: flex;
+    gap: 4px;
+    overflow-x: auto;
+    padding: 2px 0;
+    scrollbar-width: none;
+  }
+
+  .nav-list::-webkit-scrollbar {
+    display: none;
+  }
+
+  .nav-item {
+    flex: 0 0 auto;
+    justify-content: flex-start;
+    min-height: 34px;
+    padding: 0 10px;
+  }
+
+  .nav-item span {
+    display: inline;
+    white-space: nowrap;
+  }
+
+  .nav-active-line {
     display: none;
   }
 
   .topbar {
+    position: relative;
     min-height: 58px;
     padding-inline: 16px;
+  }
+
+  .brand {
+    gap: 8px;
+    margin-bottom: 8px;
+    padding-inline: 4px;
+  }
+
+  .brand-mark {
+    width: 32px;
+    height: 32px;
   }
 
   .topbar-subtitle,

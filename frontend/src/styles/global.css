@@ -184,8 +184,13 @@ select:focus-visible {
 }
 
 @media (max-width: 640px) {
+  .app-shell {
+    flex-direction: column;
+    min-height: 100dvh;
+  }
+
   .content-shell {
-    padding: 18px 14px 32px;
+    padding: 18px 14px calc(32px + env(safe-area-inset-bottom));
   }
 
   .grid.metrics {
