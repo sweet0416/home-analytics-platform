@@ -64,6 +64,7 @@ from app.plugins.fund.infrastructure.sources.ttskill import (
     TtSkillAccountHoldingSource,
     TtSkillBaseInfoSource,
 )
+from app.plugins.fund.infrastructure.sources.ttskill_nav import TtSkillNavInfoSource
 from app.plugins.fund.infrastructure.sources.ttskill_trades import (
     TtSkillTrade,
     TtSkillTradeQuerySource,
@@ -546,6 +547,13 @@ class FundService:
         payload: dict[str, object],
     ) -> FundNavRecordRead:
         latest = TtSkillBaseInfoSource().parse(payload)
+        return self._persist_latest_nav(latest)
+
+    def import_ttskill_nav_info(
+        self,
+        payload: dict[str, object],
+    ) -> FundNavRecordRead:
+        latest = TtSkillNavInfoSource().parse(payload)
         return self._persist_latest_nav(latest)
 
     def import_ttskill_account_holdings(

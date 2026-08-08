@@ -9,6 +9,7 @@ from app.plugins.fund.infrastructure.sources.ttskill import (
     TtSkillAccountHoldingSource,
     TtSkillBaseInfoSource,
 )
+from app.plugins.fund.infrastructure.sources.ttskill_nav import TtSkillNavInfoSource
 from app.shared.exceptions.base import AppError
 
 
@@ -76,6 +77,40 @@ def test_ttskill_source_parses_base_infos() -> None:
     assert latest.fund_name == "中欧阿尔法混合C"
     assert latest.unit_nav == Decimal("0.7748")
     assert latest.source == "ttfund_skills"
+
+
+def test_ttskill_nav_info_source_parses_latest_history_item() -> None:
+    payload = {
+        "code": 0,
+        "data": {
+            "skill_id": "TTFUND_NAV_INFO",
+            "raw_result": {
+                "status_code": 200,
+                "body": {
+                    "success": True,
+                    "action": "query",
+                    "data": {
+                        "fund_profile": {
+                            "fund_code": "009777",
+                            "fund_name": "中欧阿尔法混合C",
+                            "fund_type": "混合型-偏股",
+                        },
+                        "nav_history": {
+                            "items": {
+                                "FSRQ": ["2026-08-06", "2026-08-07"],
+                                "DWJZ": ["0.7700", "0.7748"],
+                                "LJJZ": ["0.7700", "0.7748"],
+                            }
+                        },
+                    },
+                },
+            },
+        },
+    }
+    latest = TtSkillNavInfoSource().parse(payload)
+    assert latest.fund_code == "009777"
+    assert latest.nav_date == date(2026, 8, 7)
+    assert latest.unit_nav == Decimal("0.7748")
 
 
 def test_ttskill_source_rejects_ambiguous_response() -> None:

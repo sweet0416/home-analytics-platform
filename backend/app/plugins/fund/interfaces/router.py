@@ -202,6 +202,21 @@ def import_ttskill_base_infos(
 
 
 @router.post(
+    "/integrations/ttskill/nav-info",
+    response_model=ApiResponse[FundNavRecordRead],
+    dependencies=[Depends(require_ttskill_sync_token)],
+)
+def import_ttskill_nav_info(
+    payload: dict[str, object],
+    service: FundService = Depends(get_fund_service),
+) -> ApiResponse[FundNavRecordRead]:
+    return ok(
+        service.import_ttskill_nav_info(payload),
+        message="Tiantian Skills NAV info imported.",
+    )
+
+
+@router.post(
     "/integrations/ttskill/holdings",
     response_model=ApiResponse[FundAccountSnapshotRead],
     dependencies=[Depends(require_ttskill_sync_token)],
