@@ -99,6 +99,21 @@ def test_cancelled_trade_is_not_a_cash_flow_transaction() -> None:
     assert trade.transaction_type is None
 
 
+def test_trade_list_accepts_empty_success_without_result_container() -> None:
+    payload = _envelope("trade_list", "message", "no trades")
+    assert TtSkillTradeQuerySource().parse_bundle(payload, []).trades == ()
+
+
+def test_trade_list_accepts_trade_list_alias() -> None:
+    trade_id = "trade-alias"
+    payload = _envelope(
+        "trade_list",
+        "tradeListResult",
+        {"items": [{"trade_id": trade_id}]},
+    )
+    assert TtSkillTradeQuerySource()._list_rows(payload)[0]["trade_id"] == trade_id
+
+
 def test_trade_import_preview_then_apply_is_idempotent(client: TestClient) -> None:
     trade_id = "trade-import-1"
     payload = {

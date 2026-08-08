@@ -65,7 +65,9 @@ class TtSkillTradeQuerySource:
         }
         parsed: list[TtSkillTrade] = []
         for row in list_rows:
-            trade_id = self._required_text(row.get("tradeId"), "tradeId")
+            trade_id = self._required_text(
+                row.get("tradeId") or row.get("trade_id"), "tradeId"
+            )
             detail = details.get(trade_id)
             if detail is None:
                 raise self._error(f"Missing trade detail for tradeId {trade_id}.")
@@ -74,15 +76,34 @@ class TtSkillTradeQuerySource:
 
     def _list_rows(self, payload: dict[str, Any]) -> list[dict[str, Any]]:
         body = self._response_body(payload, "trade_list")
-        result = self._mapping(body.get("trade_list_result"), "trade_list_result")
-        rows = result.get("trades")
-        if not isinstance(rows, list):
-            raise self._error("Tiantian Skills response is missing trade_list_result.trades.")
+        result = body.get("trade_list_result") or body.get("tradeListResult")
+        if isinstance(result, list):
+            rows = result
+        elif isinstance(result, dict):
+            rows = next(
+                (
+                    result.get(key)
+                    for key in ("trades", "tradeList", "items", "records", "list")
+                    if isinstance(result.get(key), list)
+                ),
+                None,
+            )
+        else:
+            rows = None
+        if rows is None:
+            rows = self._find_trade_rows(body)
+        if rows is None:
+            # Some account states return a successful empty result without the
+            # result container. Treat it as no trades, not a broken response.
+            return []
         return [self._mapping(row, "trade_list_result.trades[]") for row in rows]
 
     def _parse_detail(self, payload: dict[str, Any]) -> TtSkillTrade:
         body = self._response_body(payload, "trade_detail")
-        row = self._mapping(body.get("trade_detail_result"), "trade_detail_result")
+        row = body.get("trade_detail_result") or body.get("tradeDetailResult")
+        if not isinstance(row, dict):
+            row = self._find_trade_detail(body)
+        row = self._mapping(row, "trade_detail_result")
         return TtSkillTrade(
             trade_id=self._required_text(row.get("tradeId"), "tradeId"),
             trade_type=self._required_text(row.get("tradeType"), "tradeType"),
@@ -119,6 +140,39 @@ class TtSkillTradeQuerySource:
         if not isinstance(value, dict):
             raise TtSkillTradeQuerySource._error(f"Tiantian Skills response is missing {field}.")
         return value
+
+    @classmethod
+    def _find_trade_rows(cls, value: object) -> list[object] | None:
+        if isinstance(value, list):
+            if value and all(isinstance(item, dict) for item in value):
+                if any("tradeId" in item or "trade_id" in item for item in value):
+                    return value
+            for item in value:
+                found = cls._find_trade_rows(item)
+                if found is not None:
+                    return found
+        elif isinstance(value, dict):
+            for child in value.values():
+                found = cls._find_trade_rows(child)
+                if found is not None:
+                    return found
+        return None
+
+    @classmethod
+    def _find_trade_detail(cls, value: object) -> dict[str, Any] | None:
+        if isinstance(value, dict):
+            if "tradeId" in value or "trade_id" in value:
+                return value
+            for child in value.values():
+                found = cls._find_trade_detail(child)
+                if found is not None:
+                    return found
+        elif isinstance(value, list):
+            for child in value:
+                found = cls._find_trade_detail(child)
+                if found is not None:
+                    return found
+        return None
 
     @staticmethod
     def _text(value: object) -> str | None:

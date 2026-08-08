@@ -50,6 +50,28 @@ function Invoke-HapImport {
     return Invoke-RestMethod -Method Post -Uri $endpoint -Headers $headers -ContentType 'application/json; charset=utf-8' -Body $json
 }
 
+function Find-TradeRows {
+    param([object]$Value)
+    if ($null -eq $Value) { return @() }
+    if ($Value -is [System.Collections.IEnumerable] -and $Value -isnot [string]) {
+        $items = @($Value)
+        if ($items.Count -gt 0 -and ($items | Where-Object {
+            $_.PSObject.Properties.Name -contains 'tradeId' -or
+            $_.PSObject.Properties.Name -contains 'trade_id'
+        })) { return $items }
+        foreach ($item in $items) {
+            $found = @(Find-TradeRows $item)
+            if ($found.Count -gt 0) { return $found }
+        }
+        return @()
+    }
+    foreach ($property in @($Value.PSObject.Properties)) {
+        $found = @(Find-TradeRows $property.Value)
+        if ($found.Count -gt 0) { return $found }
+    }
+    return @()
+}
+
 $listPayload = Invoke-TtSkillJson -Action 'trade_list' -Body @{
     tradeType = 'fund'
     dateType = if ($Months -eq 1) { '1' } elseif ($Months -eq 3) { '6' } elseif ($Months -eq 6) { '2' } else { '3' }
@@ -57,12 +79,20 @@ $listPayload = Invoke-TtSkillJson -Action 'trade_list' -Body @{
     statu = '0'
     pageSize = 500
 }
-$rows = @($listPayload.data.raw_result.body.trade_list_result.trades)
+$rows = @(Find-TradeRows $listPayload.data.raw_result.body)
+$rows = @($rows | Where-Object {
+    $_.PSObject.Properties.Name -contains 'tradeId' -or
+    $_.PSObject.Properties.Name -contains 'trade_id'
+})
+$tradeCount = $rows.Count
+Write-Output ("Skills returned {0} trade rows." -f $tradeCount)
 $detailPayloads = @()
 foreach ($row in $rows) {
+    $tradeId = if ($row.PSObject.Properties.Name -contains 'tradeId') { $row.tradeId } else { $row.trade_id }
+    $fundCode = if ($row.PSObject.Properties.Name -contains 'fundCode') { $row.fundCode } else { $row.fund_code }
     $detailPayloads += Invoke-TtSkillJson -Action 'trade_detail' -Body @{
-        fundCode = [string]$row.fundCode
-        tradeId = [string]$row.tradeId
+        fundCode = [string]$fundCode
+        tradeId = [string]$tradeId
         tradeType = 'fund'
         dateType = '1'
         busType = '0'
