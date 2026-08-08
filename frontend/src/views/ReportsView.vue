@@ -33,7 +33,7 @@
         </article>
         <article class="capability-item is-ready">
           <strong>AI 摘要</strong>
-          <span>通过已配置的 Webhook 生成结构化日报摘要。</span>
+          <span>通过已配置的 AI 接口生成结构化日报摘要。</span>
           <em>按配置启用</em>
         </article>
         <article class="capability-item is-ready">
