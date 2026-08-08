@@ -1120,9 +1120,9 @@ export function saveFundDailySnapshot(): Promise<FundDailySnapshot> {
   );
 }
 
-export function pushFundDailyReport(): Promise<FundDailyPushResult> {
-  return postApiData<FundDailyPushResult, { channel: 'bark' }>(
+export function pushFundDailyReport(includeAiSummary = false): Promise<FundDailyPushResult> {
+  return postApiData<FundDailyPushResult, { channel: 'bark'; include_ai_summary: boolean }>(
     '/fund/reports/daily/push',
-    { channel: 'bark' },
+    { channel: 'bark', include_ai_summary: includeAiSummary },
   );
 }

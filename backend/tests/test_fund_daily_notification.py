@@ -72,6 +72,45 @@ def test_daily_notification_includes_snapshot_change_summary() -> None:
     assert "数据完整度较前次快照下降。" in message
 
 
+def test_daily_notification_can_include_archived_ai_summary() -> None:
+    report = SimpleNamespace(
+        report_date="2026-08-02",
+        holding_summary=SimpleNamespace(
+            position_count=0,
+            fund_count=0,
+            total_cost=Decimal("0"),
+            current_value=None,
+            unrealized_profit=None,
+            unrealized_return_rate=None,
+        ),
+        allocation=SimpleNamespace(
+            current_nav_count=0,
+            position_count=0,
+            top_holding_weight=None,
+        ),
+        holding_risk=SimpleNamespace(
+            analyzed_fund_count=0,
+            fund_count=0,
+            items=[],
+        ),
+        nav_summary=SimpleNamespace(latest_nav_date=None),
+        watchlist_summary=SimpleNamespace(item_count=0),
+        transaction_summary=SimpleNamespace(
+            transaction_count=0,
+            net_cash_flow=Decimal("0"),
+        ),
+        alerts=[],
+    )
+
+    message = FundDailyNotificationService._build_message(
+        report,
+        ai_summary=SimpleNamespace(summary="摘要内容"),
+    )
+
+    assert "AI 日报摘要:" in message
+    assert "摘要内容" in message
+
+
 def test_daily_notification_omits_change_section_without_previous_snapshot() -> None:
     report = SimpleNamespace(
         report_date="2026-08-02",

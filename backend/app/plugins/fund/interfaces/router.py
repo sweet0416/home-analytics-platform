@@ -684,10 +684,16 @@ def push_fund_daily_report(
     report = service.get_daily_report()
     snapshot = service.save_daily_report_snapshot(report)
     insights = service.get_daily_report_insights()
+    ai_summary = (
+        service.get_daily_ai_summary(snapshot.id)
+        if payload.include_ai_summary
+        else None
+    )
     result = FundDailyNotificationService(settings=settings).send(
         report=report,
         channel=payload.channel,
         snapshot=snapshot,
         insights=insights,
+        ai_summary=ai_summary,
     )
     return ok(result, message="fund daily report push finished")

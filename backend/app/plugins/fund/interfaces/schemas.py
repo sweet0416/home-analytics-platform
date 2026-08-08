@@ -874,6 +874,7 @@ class FundDailyAiSummaryArchiveRead(FundDailyAiSummaryRead):
 
 class FundDailyPushRequest(BaseModel):
     channel: NotificationChannel = NotificationChannel.bark
+    include_ai_summary: bool = False
 
 
 class FundModuleRead(BaseModel):

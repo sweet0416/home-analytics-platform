@@ -8,6 +8,9 @@
         </span>
       </div>
       <div class="report-actions">
+        <el-checkbox v-model="includeAiSummary" :disabled="!aiSummary">
+          附带 AI 摘要
+        </el-checkbox>
         <el-button :icon="DocumentAdd" :loading="savingSnapshot" @click="saveSnapshot">
           保存今日快照
         </el-button>
@@ -461,6 +464,7 @@ const snapshotDetailVisible = ref(false);
 const snapshotDetailLoading = ref(false);
 const loading = ref(false);
 const pushing = ref(false);
+const includeAiSummary = ref(false);
 const savingSnapshot = ref(false);
 const generatingAiSummary = ref(false);
 const snapshotChartRef = ref<HTMLDivElement | null>(null);
@@ -618,7 +622,7 @@ async function saveSnapshot(): Promise<void> {
 async function pushReport(): Promise<void> {
   pushing.value = true;
   try {
-    const result = await pushFundDailyReport();
+    const result = await pushFundDailyReport(includeAiSummary.value);
     const bark = result.results.find((item) => item.channel === 'bark');
     if (bark?.status === 'sent') {
       ElMessage.success('基金日报已推送到 Bark');

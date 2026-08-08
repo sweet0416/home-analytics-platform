@@ -7,6 +7,7 @@ from app.core.notification.schemas import (
 )
 from app.core.notification.service import NotificationService
 from app.plugins.fund.interfaces.schemas import (
+    FundDailyAiSummaryArchiveRead,
     FundDailyInsightsRead,
     FundDailyReportRead,
     FundDailySnapshotRead,
@@ -24,6 +25,7 @@ class FundDailyNotificationService:
         channel: NotificationChannel,
         snapshot: FundDailySnapshotRead | None = None,
         insights: FundDailyInsightsRead | None = None,
+        ai_summary: FundDailyAiSummaryArchiveRead | None = None,
     ) -> NotificationTestResult:
         return self._notification_service.send_test(
             channel=channel,
@@ -32,6 +34,7 @@ class FundDailyNotificationService:
                 report,
                 snapshot=snapshot,
                 insights=insights,
+                ai_summary=ai_summary,
             ),
             source="fund_daily_report",
         )
@@ -43,6 +46,7 @@ class FundDailyNotificationService:
         *,
         snapshot: FundDailySnapshotRead | None = None,
         insights: FundDailyInsightsRead | None = None,
+        ai_summary: FundDailyAiSummaryArchiveRead | None = None,
     ) -> str:
         holding = report.holding_summary
         allocation = report.allocation
@@ -141,6 +145,11 @@ class FundDailyNotificationService:
                 "数据来自 HAP 已保存记录，不代表实时行情或投资建议。",
             ]
         )
+        if ai_summary is not None and ai_summary.summary.strip():
+            summary = ai_summary.summary.strip()
+            if len(summary) > 1800:
+                summary = summary[:1800].rstrip() + "..."
+            lines.extend(["", "AI 日报摘要:", summary])
         return "\n".join(lines)
 
     @staticmethod
