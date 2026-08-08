@@ -22,6 +22,7 @@ from app.plugins.fund.infrastructure.ai_summary_webhook import FundAiSummaryWebh
 from app.plugins.fund.infrastructure.persistence.repositories import FundRepository
 from app.plugins.fund.interfaces.schemas import (
     FundAccountSnapshotRead,
+    FundAiAutomationRunRead,
     FundAllocationRead,
     FundCashFlowPerformanceRead,
     FundDailyAiInputRead,
@@ -589,6 +590,16 @@ def get_fund_daily_ai_summary_status(
     ai_service: FundDailyAiSummaryService = Depends(get_fund_ai_summary_service),
 ) -> ApiResponse[FundDailyAiSummaryStatusRead]:
     return ok(ai_service.get_status())
+
+
+@router.get(
+    "/reports/daily/ai-automation/status",
+    response_model=ApiResponse[FundAiAutomationRunRead | None],
+)
+def get_fund_daily_ai_automation_status(
+    service: FundService = Depends(get_fund_service),
+) -> ApiResponse[FundAiAutomationRunRead | None]:
+    return ok(service.get_ai_automation_run())
 
 
 @router.post(

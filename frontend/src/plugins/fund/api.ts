@@ -769,6 +769,27 @@ export interface FundDailyAiSummaryStatus {
   note: string;
 }
 
+export interface FundAiAutomationRun {
+  id: number;
+  scope_key: string;
+  report_date: string;
+  latest_nav_date: string | null;
+  summary_id: number | null;
+  summary_version: string;
+  model_name: string;
+  prompt_version: string;
+  input_tokens: number | null;
+  output_tokens: number | null;
+  cost: string | null;
+  ai_status: string;
+  push_status: string;
+  ai_error_message: string;
+  push_error_message: string;
+  attempts: number;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface FundDailyAiSummary {
   contract_version: 'fund-daily-ai-summary.v1';
   generated_at: string;
@@ -1083,6 +1104,10 @@ export function fetchFundDailyInsights(): Promise<FundDailyInsights> {
 
 export function fetchFundDailyAiSummaryStatus(): Promise<FundDailyAiSummaryStatus> {
   return getApiData<FundDailyAiSummaryStatus>('/fund/reports/daily/ai-summary/status');
+}
+
+export function fetchFundDailyAiAutomationStatus(): Promise<FundAiAutomationRun | null> {
+  return getApiData<FundAiAutomationRun | null>('/fund/reports/daily/ai-automation/status');
 }
 
 export function generateFundDailyAiSummary(): Promise<FundDailyAiSummary> {

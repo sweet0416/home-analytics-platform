@@ -152,6 +152,23 @@
             <span>提供方：{{ aiProviderLabel }}</span>
             <span>目标：{{ aiSummaryStatus.target }}</span>
           </div>
+          <div v-if="automationRun" class="ai-automation-status">
+            <span :class="`status-pill is-${automationRun.ai_status.toLowerCase()}`">
+              AI {{ automationStatusLabel(automationRun.ai_status) }}
+            </span>
+            <span :class="`status-pill is-${automationRun.push_status.toLowerCase()}`">
+              Bark {{ automationStatusLabel(automationRun.push_status) }}
+            </span>
+            <span>执行日期 {{ automationRun.report_date }}</span>
+            <span v-if="automationRun.input_tokens !== null">输入 {{ automationRun.input_tokens }} tokens</span>
+            <span v-if="automationRun.output_tokens !== null">输出 {{ automationRun.output_tokens }} tokens</span>
+          </div>
+          <p v-if="automationRun?.ai_error_message" class="ai-automation-error">
+            AI：{{ automationRun.ai_error_message }}
+          </p>
+          <p v-if="automationRun?.push_error_message" class="ai-automation-error">
+            Bark：{{ automationRun.push_error_message }}
+          </p>
           <div v-if="aiSummary" class="ai-summary-result">
             <div>
               <strong>{{ aiSummary.report_date }}</strong>
@@ -431,6 +448,7 @@ import EmptyState from '@/components/common/EmptyState.vue';
 import RevealContent from '@/components/common/RevealContent.vue';
 import {
   fetchFundDailyReport,
+  fetchFundDailyAiAutomationStatus,
   fetchFundDailyAiSummaryStatus,
   fetchFundDailyInsights,
   fetchFundDailySnapshotAiSummary,
@@ -442,6 +460,7 @@ import {
   type FundDailyAiSummary,
   type FundDailyAiSummaryArchive,
   type FundDailyAiSummaryStatus,
+  type FundAiAutomationRun,
   type FundDailyReport,
   type FundDailyInsights,
   type FundDailySnapshot,
@@ -455,6 +474,7 @@ const props = defineProps<{
 const report = ref<FundDailyReport | null>(null);
 const insights = ref<FundDailyInsights | null>(null);
 const aiSummaryStatus = ref<FundDailyAiSummaryStatus | null>(null);
+const automationRun = ref<FundAiAutomationRun | null>(null);
 const aiSummary = ref<FundDailyAiSummary | null>(null);
 const snapshots = ref<FundDailySnapshot[]>([]);
 const snapshotLimit = ref(30);
@@ -487,6 +507,17 @@ const aiProviderLabel = computed(() => {
     ? 'OpenAI 兼容 API'
     : '通用 Webhook';
 });
+
+function automationStatusLabel(status: string): string {
+  const labels: Record<string, string> = {
+    PENDING: '等待中',
+    SUCCESS: '成功',
+    FAILED: '失败',
+    SKIPPED: '跳过',
+    NOT_REQUESTED: '未请求',
+  };
+  return labels[status] ?? status;
+}
 
 const aiStatusClass = computed(() => ({
   'is-available': aiSummaryAvailable.value,
@@ -559,17 +590,19 @@ async function loadReport(): Promise<void> {
   loading.value = true;
   aiSummary.value = null;
   try {
-    const [reportResult, historyResult, insightsResult, aiStatusResult] = await Promise.allSettled([
+    const [reportResult, historyResult, insightsResult, aiStatusResult, automationResult] = await Promise.allSettled([
       fetchFundDailyReport(),
       fetchFundDailySnapshots(snapshotLimit.value),
       fetchFundDailyInsights(),
       fetchFundDailyAiSummaryStatus(),
+      fetchFundDailyAiAutomationStatus(),
     ]);
     if (reportResult.status === 'rejected') throw reportResult.reason;
     report.value = reportResult.value;
     snapshots.value = historyResult.status === 'fulfilled' ? historyResult.value.items : [];
     insights.value = insightsResult.status === 'fulfilled' ? insightsResult.value : null;
     aiSummaryStatus.value = aiStatusResult.status === 'fulfilled' ? aiStatusResult.value : null;
+    automationRun.value = automationResult.status === 'fulfilled' ? automationResult.value : null;
     await nextTick();
     renderSnapshotChart();
   } catch (error) {
@@ -1179,6 +1212,45 @@ watch(snapshotLimit, async () => {
 .ai-summary-status {
   display: flex;
   gap: 16px;
+}
+
+.ai-automation-status {
+  align-items: center;
+  color: var(--color-muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 12px;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.status-pill {
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 999px;
+  padding: 3px 8px;
+}
+
+.status-pill.is-success {
+  border-color: rgba(52, 211, 153, 0.3);
+  color: #34d399;
+}
+
+.status-pill.is-failed {
+  border-color: rgba(248, 113, 113, 0.35);
+  color: #f87171;
+}
+
+.status-pill.is-skipped,
+.status-pill.is-pending,
+.status-pill.is-not_requested {
+  border-color: rgba(251, 191, 36, 0.3);
+  color: #fbbf24;
+}
+
+.ai-automation-error {
+  color: #f87171;
+  font-size: 12px;
+  margin: 8px 0 0;
 }
 
 .ai-status {

@@ -67,6 +67,7 @@ from app.plugins.fund.interfaces.schemas import (
     FundAccountHoldingRead,
     FundAccountManualOnlyRead,
     FundAccountSnapshotRead,
+    FundAiAutomationRunRead,
     FundAllocationGroupRead,
     FundAllocationHoldingRead,
     FundAllocationRead,
@@ -2301,6 +2302,37 @@ class FundService:
             source_contract=record.source_contract,
             summary=record.summary,
             disclaimer=record.disclaimer,
+            model_name=record.model_name,
+            prompt_version=record.prompt_version,
+            input_tokens=record.input_tokens,
+            output_tokens=record.output_tokens,
+            cost=record.cost,
+        )
+
+    def get_ai_automation_run(self) -> FundAiAutomationRunRead | None:
+        report = self.get_daily_report()
+        record = self.repository.get_ai_automation_run(report_date=report.report_date)
+        if record is None:
+            return None
+        return FundAiAutomationRunRead(
+            id=record.id,
+            scope_key=record.scope_key,
+            report_date=record.report_date,
+            latest_nav_date=record.latest_nav_date,
+            summary_id=record.summary_id,
+            summary_version=record.summary_version,
+            model_name=record.model_name,
+            prompt_version=record.prompt_version,
+            input_tokens=record.input_tokens,
+            output_tokens=record.output_tokens,
+            cost=record.cost,
+            ai_status=record.ai_status,
+            push_status=record.push_status,
+            ai_error_message=record.ai_error_message,
+            push_error_message=record.push_error_message,
+            attempts=record.attempts,
+            created_at=record.created_at,
+            updated_at=record.updated_at,
         )
 
     def export_daily_report_snapshots_csv(self, *, limit: int = 365) -> str:

@@ -877,6 +877,27 @@ class FundDailyAiSummaryArchiveRead(FundDailyAiSummaryRead):
     snapshot_id: int
 
 
+class FundAiAutomationRunRead(BaseModel):
+    id: int
+    scope_key: str
+    report_date: date
+    latest_nav_date: date | None
+    summary_id: int | None
+    summary_version: str
+    model_name: str
+    prompt_version: str
+    input_tokens: int | None
+    output_tokens: int | None
+    cost: Decimal | None
+    ai_status: str
+    push_status: str
+    ai_error_message: str
+    push_error_message: str
+    attempts: int
+    created_at: datetime
+    updated_at: datetime
+
+
 class FundDailyPushRequest(BaseModel):
     channel: NotificationChannel = NotificationChannel.bark
     include_ai_summary: bool = False
