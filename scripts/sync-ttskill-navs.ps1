@@ -49,22 +49,51 @@ function Import-HapNav {
         -Body ($Payload | ConvertTo-Json -Depth 100 -Compress)
 }
 
+function Find-FundHoldings {
+    param([object]$Value)
+    if ($null -eq $Value) { return @() }
+    if ($Value -is [System.Collections.IEnumerable] -and $Value -isnot [string]) {
+        $items = @($Value)
+        $rows = @($items | Where-Object {
+            $code = if ($_.PSObject.Properties.Name -contains 'fundCode') { $_.fundCode } else { $_.fund_code }
+            [string]$code -match '^\d{6}$'
+        })
+        if ($rows.Count -gt 0) { return $rows }
+        foreach ($item in $items) {
+            $found = @(Find-FundHoldings $item)
+            if ($found.Count -gt 0) { return $found }
+        }
+        return @()
+    }
+    foreach ($property in @($Value.PSObject.Properties)) {
+        $found = @(Find-FundHoldings $property.Value)
+        if ($found.Count -gt 0) { return $found }
+    }
+    return @()
+}
+
 $holdingPayload = Invoke-TtSkillJson -Skill 'ACCOUNT_HOLDING' -Action 'holding_list' -Body @{}
-$holdings = @($holdingPayload.data.raw_result.body.holding_list_result | Where-Object {
-    $_.pType -eq 'fund' -and $_.fundCode -match '^\d{6}$'
-})
+$holdings = @(Find-FundHoldings $holdingPayload.data.raw_result.body)
+$holdings = @($holdings | Sort-Object {
+    if ($_.PSObject.Properties.Name -contains 'fundCode') { $_.fundCode } else { $_.fund_code }
+} -Unique)
+if ($holdings.Count -eq 0) {
+    throw 'ACCOUNT_HOLDING returned no six-digit fund holdings. Check the ttskill login or response format.'
+}
 $successCount = 0
 foreach ($holding in $holdings) {
     try {
+        $fundCode = if ($holding.PSObject.Properties.Name -contains 'fundCode') { $holding.fundCode } else { $holding.fund_code }
+        $fundName = if ($holding.PSObject.Properties.Name -contains 'fundName') { $holding.fundName } else { $holding.fund_name }
         $payload = Invoke-TtSkillJson -Skill 'TTFUND_NAV_INFO' -Action 'query' -Body @{
-            fund_id = [string]$holding.fundCode
+            fund_id = [string]$fundCode
             range = $Range
         }
         $null = Import-HapNav -Payload $payload
         $successCount++
-        Write-Output ("Synced {0} {1}" -f $holding.fundCode, $holding.fundName)
+        Write-Output ("Synced {0} {1}" -f $fundCode, $fundName)
     } catch {
-        Write-Warning ("Failed {0} {1}: {2}" -f $holding.fundCode, $holding.fundName, $_.Exception.Message)
+        Write-Warning ("Failed {0} {1}: {2}" -f $fundCode, $fundName, $_.Exception.Message)
     }
 }
 Write-Output ("NAV sync finished: {0}/{1} funds processed." -f $successCount, $holdings.Count)
