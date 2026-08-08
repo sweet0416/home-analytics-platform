@@ -146,6 +146,14 @@
               >
                 生成 AI 摘要
               </el-button>
+              <el-button
+                v-if="automationRun?.ai_status === 'SUCCESS' && automationRun.push_status === 'FAILED'"
+                :icon="Bell"
+                :loading="pushing"
+                @click="retryAiPush"
+              >
+                重新推送给 Bark
+              </el-button>
             </div>
           </div>
           <div class="ai-summary-status">
@@ -664,6 +672,24 @@ async function pushReport(): Promise<void> {
     ElMessage.warning(bark?.message ?? 'Bark 推送未发送');
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : '基金日报推送失败');
+  } finally {
+    pushing.value = false;
+  }
+}
+
+async function retryAiPush(): Promise<void> {
+  pushing.value = true;
+  try {
+    const result = await pushFundDailyReport(true);
+    automationRun.value = await fetchFundDailyAiAutomationStatus();
+    const bark = result.results.find((item) => item.channel === 'bark');
+    if (bark?.status === 'sent') {
+      ElMessage.success('AI 摘要已重新推送到 Bark');
+      return;
+    }
+    ElMessage.warning(bark?.message ?? 'Bark 推送未发送');
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : 'Bark 重新推送失败');
   } finally {
     pushing.value = false;
   }
