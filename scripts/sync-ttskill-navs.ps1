@@ -22,13 +22,29 @@ function Invoke-TtSkillJson {
             ($Body | ConvertTo-Json -Compress),
             $utf8NoBom
         )
-        # Summary mode omits holding_list_result and nav_history, so batch sync
-        # must consume the complete Skills response.
-        $output = & $ttskillCommand.Source invoke $Skill --action $Action --body $requestPath 2>&1
-        if ($LASTEXITCODE -ne 0) {
-            throw "ttskill $Skill failed with exit code $LASTEXITCODE."
+        # Read the complete UTF-8 stdout stream. PowerShell's call operator can
+        # decode a large JSON response through the console code page.
+        $processInfo = New-Object System.Diagnostics.ProcessStartInfo
+        $processInfo.FileName = $env:ComSpec
+        $cliCommand = '"{0}" invoke {1} --action {2} --body "{3}"' -f `
+            $ttskillCommand.Source, $Skill, $Action, $requestPath
+        $processInfo.Arguments = '/d /s /c "{0}"' -f $cliCommand
+        $processInfo.UseShellExecute = $false
+        $processInfo.CreateNoWindow = $true
+        $processInfo.RedirectStandardOutput = $true
+        $processInfo.RedirectStandardError = $true
+        $processInfo.StandardOutputEncoding = $utf8NoBom
+        $processInfo.StandardErrorEncoding = $utf8NoBom
+        $process = New-Object System.Diagnostics.Process
+        $process.StartInfo = $processInfo
+        if (-not $process.Start()) { throw "Failed to start ttskill $Skill." }
+        $standardOutput = $process.StandardOutput.ReadToEnd()
+        $standardError = $process.StandardError.ReadToEnd()
+        $process.WaitForExit()
+        if ($process.ExitCode -ne 0) {
+            throw "ttskill $Skill failed with exit code $($process.ExitCode): $standardError"
         }
-        $raw = ($output | ForEach-Object { [string]$_ }) -join "`n"
+        $raw = $standardOutput
         $start = $raw.IndexOf('{')
         $end = $raw.LastIndexOf('}')
         if ($start -lt 0 -or $end -le $start) {
