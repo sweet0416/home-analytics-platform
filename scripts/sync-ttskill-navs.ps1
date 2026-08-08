@@ -22,7 +22,9 @@ function Invoke-TtSkillJson {
             ($Body | ConvertTo-Json -Compress),
             $utf8NoBom
         )
-        $output = & $ttskillCommand.Source invoke $Skill --action $Action --body $requestPath --summary 2>&1
+        # Summary mode omits holding_list_result and nav_history, so batch sync
+        # must consume the complete Skills response.
+        $output = & $ttskillCommand.Source invoke $Skill --action $Action --body $requestPath 2>&1
         if ($LASTEXITCODE -ne 0) {
             throw "ttskill $Skill failed with exit code $LASTEXITCODE."
         }
