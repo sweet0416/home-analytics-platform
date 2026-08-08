@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.core.config.settings import Settings, get_settings
 from app.core.database.session import get_db
 from app.core.notification.schemas import NotificationTestResult
+from app.core.time import utcnow
 from app.plugins.fund.application.ai_summary import FundDailyAiSummaryService
 from app.plugins.fund.application.notification import FundDailyNotificationService
 from app.plugins.fund.application.services import FundService
@@ -696,4 +697,14 @@ def push_fund_daily_report(
         insights=insights,
         ai_summary=ai_summary,
     )
+    if payload.include_ai_summary:
+        run = service.repository.get_ai_automation_run(report_date=snapshot.report_date)
+        if run is not None:
+            sent = any(item.status == "sent" for item in result.results)
+            run.push_status = "SUCCESS" if sent else "FAILED"
+            run.push_error_message = "" if sent else "; ".join(
+                item.message for item in result.results
+            )
+            run.updated_at = utcnow()
+            service.repository.commit()
     return ok(result, message="fund daily report push finished")

@@ -15,7 +15,10 @@ from app.plugins.fund.application.services import FundService
 from app.plugins.fund.domain.ai_automation import build_nav_fingerprint
 from app.plugins.fund.infrastructure.ai_summary_openai import FundAiSummaryOpenAIProvider
 from app.plugins.fund.infrastructure.ai_summary_webhook import FundAiSummaryWebhookProvider
-from app.plugins.fund.infrastructure.persistence.models import FundNavSyncRunModel
+from app.plugins.fund.infrastructure.persistence.models import (
+    FundAiAutomationRunModel,
+    FundNavSyncRunModel,
+)
 from app.plugins.fund.infrastructure.persistence.repositories import FundRepository
 from app.plugins.fund.interfaces.schemas import (
     FundDailyInsightsRead,
@@ -156,6 +159,7 @@ def _run_scheduled_fund_nav_sync() -> None:
                 settings=settings,
                 result=result,
                 snapshot=daily_snapshot,
+                report=daily_report,
             )
             daily_insights = (
                 service.get_daily_report_insights()
@@ -276,6 +280,7 @@ def _generate_automatic_ai_summary(
     settings: object,
     result: object,
     snapshot: FundDailySnapshotRead | None,
+    report: FundDailyReportRead,
 ) -> str:
     if not getattr(settings, "fund_ai_summary_enabled", False):
         return "disabled"
@@ -322,7 +327,14 @@ def _generate_automatic_ai_summary(
         run.updated_at = utcnow()
         repository.commit()
         logger.info("Automatic fund AI summary generated for {}.", archive.report_date)
-        return "success"
+        return _push_automatic_ai_summary(
+            repository=repository,
+            service=service,
+            settings=settings,
+            report=report,
+            snapshot=snapshot,
+            run=run,
+        )
     except Exception as exc:  # noqa: BLE001
         logger.exception("Automatic fund AI summary failed: {}", exc)
         run.ai_status = "FAILED"
@@ -331,6 +343,56 @@ def _generate_automatic_ai_summary(
         run.updated_at = utcnow()
         repository.commit()
         return "failed"
+
+
+def _push_automatic_ai_summary(
+    *,
+    repository: FundRepository,
+    service: FundService,
+    settings: object,
+    report: FundDailyReportRead,
+    snapshot: FundDailySnapshotRead,
+    run: FundAiAutomationRunModel,
+) -> str:
+    if not getattr(settings, "fund_nav_notify_enabled", False):
+        run.push_status = "SKIPPED"
+        run.push_error_message = "Fund notifications are disabled."
+        repository.commit()
+        return "success, push skipped"
+    if not getattr(settings, "notification_bark_enabled", False):
+        run.push_status = "SKIPPED"
+        run.push_error_message = "Bark is disabled."
+        repository.commit()
+        return "success, push skipped"
+
+    ai_summary = service.get_daily_ai_summary(snapshot.id)
+    if ai_summary is None:
+        run.push_status = "FAILED"
+        run.push_error_message = "AI summary archive was not found."
+        repository.commit()
+        return "success, push failed"
+    try:
+        result = FundDailyNotificationService(settings=settings).send(
+            report=report,
+            channel=NotificationChannel.bark,
+            snapshot=snapshot,
+            insights=service.get_daily_report_insights(),
+            ai_summary=ai_summary,
+        )
+        statuses = ", ".join(
+            f"{item.status}: {item.message}" for item in result.results
+        )
+        sent = any(item.status == "sent" for item in result.results)
+        run.push_status = "SUCCESS" if sent else "FAILED"
+        run.push_error_message = "" if sent else statuses
+        repository.commit()
+        return "success, push sent" if sent else "success, push failed"
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("Automatic fund AI Bark push failed: {}", exc)
+        run.push_status = "FAILED"
+        run.push_error_message = str(exc)
+        repository.commit()
+        return "success, push failed"
 
 
 def _save_daily_report_snapshot(

@@ -70,6 +70,19 @@ class FundRepository:
             return None
         return run
 
+    def get_ai_automation_run(
+        self,
+        *,
+        report_date: date,
+        scope_key: str = "portfolio",
+    ) -> FundAiAutomationRunModel | None:
+        return self.db.scalar(
+            select(FundAiAutomationRunModel).where(
+                FundAiAutomationRunModel.report_date == report_date,
+                FundAiAutomationRunModel.scope_key == scope_key,
+            )
+        )
+
     def create_account_snapshot(
         self,
         *,
