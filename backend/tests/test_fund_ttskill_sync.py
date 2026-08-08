@@ -1,3 +1,4 @@
+from datetime import date
 from decimal import Decimal
 
 from fastapi.testclient import TestClient
@@ -88,7 +89,9 @@ def test_ttskill_nav_info_source_parses_latest_history_item() -> None:
                 "status_code": 200,
                 "body": {
                     "success": True,
-                    "action": "query",
+                    # TTFUND_NAV_INFO 1.1.1 may return this alias while the
+                    # payload contract remains unchanged.
+                    "action": "query_by_code",
                     "data": {
                         "fund_profile": {
                             "fund_code": "009777",

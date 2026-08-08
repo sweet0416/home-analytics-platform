@@ -21,8 +21,9 @@ class TtSkillNavInfoSource:
         body = self._mapping(raw.get("body"), "data.raw_result.body")
         if raw.get("status_code") != 200 or body.get("success") is not True:
             self._raise("Tiantian NAV Skills request was not successful.")
-        if body.get("action") != "query":
-            self._raise("Expected Tiantian NAV Skills action query.")
+        # Installed NAV_INFO skill versions may return different action labels
+        # (for example query/query_by_code); the skill id and data contract are
+        # the stable identifiers for this protected endpoint.
         result = self._mapping(body.get("data"), "data.raw_result.body.data")
         profile = self._mapping(result.get("fund_profile"), "fund_profile")
         history = self._mapping(result.get("nav_history"), "nav_history")
