@@ -1314,8 +1314,11 @@ onMounted(loadOverview);
 .form-actions {
   align-items: end;
   display: flex;
+  flex-wrap: wrap;
+  grid-column: 1 / -1;
   gap: 10px;
   justify-content: flex-end;
+  min-width: 0;
 }
 
 .watchlist-grid {
