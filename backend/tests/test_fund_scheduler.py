@@ -166,6 +166,56 @@ def test_scheduled_sync_pushes_daily_report_after_new_nav(
     assert "bark sent" in scheduler._last_run["message"]
 
 
+def test_scheduled_sync_skips_regular_push_after_ai_push(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    regular_push_calls: list[object] = []
+
+    class FakeDb:
+        def close(self) -> None:
+            pass
+
+    class FakeService:
+        def __init__(self, repository: object, settings: object) -> None:
+            self.repository = repository
+            self.settings = settings
+
+        def sync_tracked_navs(self) -> SimpleNamespace:
+            return SimpleNamespace(total=4, succeeded=4, failed=0, updated=1)
+
+        def get_daily_report(self) -> SimpleNamespace:
+            return SimpleNamespace(report_date="2026-08-01")
+
+        def save_daily_report_snapshot(
+            self,
+            report: SimpleNamespace,
+        ) -> SimpleNamespace:
+            return SimpleNamespace(report_date=report.report_date)
+
+    settings = SimpleNamespace(fund_nav_notify_enabled=True)
+    monkeypatch.setattr(scheduler, "_completed_date", None)
+    monkeypatch.setattr(scheduler, "SessionLocal", FakeDb)
+    monkeypatch.setattr(scheduler, "FundRepository", FakeRepository)
+    monkeypatch.setattr(scheduler, "FundService", FakeService)
+    monkeypatch.setattr(scheduler, "get_settings", lambda: settings)
+    monkeypatch.setattr(
+        scheduler,
+        "_generate_automatic_ai_summary",
+        lambda **_: "success, push sent",
+    )
+    monkeypatch.setattr(
+        scheduler,
+        "_send_daily_report_notification",
+        lambda **_: regular_push_calls.append(True) or "sent",
+    )
+
+    scheduler._run_scheduled_fund_nav_sync()
+
+    assert regular_push_calls == []
+    assert scheduler._last_run is not None
+    assert "skipped (included in AI summary push)" in scheduler._last_run["message"]
+
+
 def test_scheduled_sync_backfills_holding_history_after_new_nav(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

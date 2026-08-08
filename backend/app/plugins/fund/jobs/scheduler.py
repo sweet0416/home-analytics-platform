@@ -161,17 +161,20 @@ def _run_scheduled_fund_nav_sync() -> None:
                 snapshot=daily_snapshot,
                 report=daily_report,
             )
-            daily_insights = (
-                service.get_daily_report_insights()
-                if getattr(settings, "fund_nav_notify_enabled", False)
-                else None
-            )
-            notification_summary = _send_daily_report_notification(
-                report=daily_report,
-                settings=settings,
-                snapshot=daily_snapshot,
-                insights=daily_insights,
-            )
+            if ai_summary_summary == "success, push sent":
+                notification_summary = "skipped (included in AI summary push)"
+            else:
+                daily_insights = (
+                    service.get_daily_report_insights()
+                    if getattr(settings, "fund_nav_notify_enabled", False)
+                    else None
+                )
+                notification_summary = _send_daily_report_notification(
+                    report=daily_report,
+                    settings=settings,
+                    snapshot=daily_snapshot,
+                    insights=daily_insights,
+                )
         status = "succeeded" if result.failed == 0 else "partial"
         message = (
             f"Fund NAV sync finished: {result.succeeded}/{result.total} succeeded, "
