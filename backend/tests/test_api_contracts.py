@@ -1048,6 +1048,12 @@ def test_fund_daily_report_snapshots_are_idempotent_and_comparable(
         "note": "仅在手动生成摘要时发送结构化日报输入；默认关闭，不会自动上传持仓数据。",
     }
 
+    automation_status_response = client.get(
+        "/api/v1/fund/reports/daily/ai-automation/status"
+    )
+    assert automation_status_response.status_code == 200
+    assert automation_status_response.json()["data"] is None
+
     disabled_summary_response = client.post("/api/v1/fund/reports/daily/ai-summary")
     assert disabled_summary_response.status_code == 503
     assert disabled_summary_response.json()["code"] == "FUND_AI_SUMMARY_UNAVAILABLE"

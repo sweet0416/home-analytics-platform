@@ -137,7 +137,7 @@ def get_fund_status() -> ApiResponse[FundStatusRead]:
             modules=FUND_MODULES,
             data_source_status="configured",
             storage_status="storage_ready",
-            next_step="AI Webhook 适配层已就绪；下一步接入前端配置状态与手动摘要。",
+            next_step="AI 摘要自动化和独立 Bark 推送已就绪；下一步验证生产配置与定时执行。",
         )
     )
 
