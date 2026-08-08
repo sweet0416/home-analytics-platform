@@ -184,7 +184,13 @@
             <strong>{{ transaction.fund_name }}</strong>
             <small>{{ transaction.fund_code }} · {{ transaction.fund_type }}</small>
           </span>
-          <span>{{ transaction.account_name }}</span>
+          <span>
+            <strong>{{ transaction.account_name }}</strong>
+            <small>{{ transactionSourceText(transaction) }}</small>
+            <small v-if="transaction.external_trade_id">
+              {{ transaction.external_trade_id }}
+            </small>
+          </span>
           <span>
             {{ formatNumber(transaction.shares, 4) }}
             <small>{{ formatNumber(transaction.unit_price, 4) }}</small>
@@ -427,6 +433,12 @@ async function removeTransaction(transaction: FundTransaction): Promise<void> {
 
 function transactionTypeText(type: FundTransactionType): string {
   return transactionTypes.find((item) => item.value === type)?.label ?? type;
+}
+
+function transactionSourceText(transaction: FundTransaction): string {
+  return transaction.external_source === 'ttfund_skills'
+    ? '天天 Skills'
+    : '手动录入';
 }
 
 function formatMoney(value: string | number | null | undefined): string {
