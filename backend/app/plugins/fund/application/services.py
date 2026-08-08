@@ -1134,7 +1134,7 @@ class FundService:
         fund = self.repository.upsert_fund(
             code=trade.fund_code,
             name=trade.fund_name,
-            fund_type="unknown",
+            fund_type=self._imported_trade_fund_type(trade),
             source="ttfund_skills",
         )
         return self.repository.create_transaction(
@@ -1166,7 +1166,7 @@ class FundService:
         fund = self.repository.upsert_fund(
             code=trade.fund_code,
             name=trade.fund_name,
-            fund_type="unknown",
+            fund_type=self._imported_trade_fund_type(trade),
             source="ttfund_skills",
         )
         transaction.fund = fund
@@ -1185,6 +1185,14 @@ class FundService:
         transaction.confirm_date = trade.confirm_date
         transaction.source_updated_at = trade.trade_time
         transaction.updated_at = utcnow()
+
+    def _imported_trade_fund_type(self, trade: TtSkillTrade) -> str:
+        existing = self.repository.get_fund_by_code(trade.fund_code)
+        if existing is not None and existing.fund_type != "unknown":
+            return existing.fund_type
+        if "QDII" in trade.fund_name.upper():
+            return "QDII"
+        return "unknown"
 
     def delete_transaction(self, transaction_id: int) -> None:
         transaction = self.repository.get_transaction(transaction_id)
