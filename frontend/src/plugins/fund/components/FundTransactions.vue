@@ -148,7 +148,20 @@
         </div>
       </div>
 
-      <div v-if="transactions.length" class="transaction-table">
+      <div class="transaction-filters">
+        <el-input v-model="transactionQuery" clearable placeholder="搜索基金代码或名称" />
+        <el-select v-model="transactionTypeFilter" clearable placeholder="全部流水类型">
+          <el-option
+            v-for="option in transactionTypes"
+            :key="option.value"
+            :label="option.label"
+            :value="option.value"
+          />
+        </el-select>
+        <span class="filter-result">显示 {{ paginatedTransactions.length }} / {{ filteredTransactions.length }} 条</span>
+      </div>
+
+      <div v-if="paginatedTransactions.length" class="transaction-table">
         <div class="transaction-row table-head">
           <span>日期 / 类型</span>
           <span>基金</span>
@@ -159,7 +172,7 @@
           <span>操作</span>
         </div>
         <div
-          v-for="transaction in transactions"
+          v-for="transaction in paginatedTransactions"
           :key="transaction.id"
           class="transaction-row"
         >
@@ -195,10 +208,23 @@
           </span>
         </div>
       </div>
+      <div v-else-if="transactions.length" class="transaction-message">
+        没有符合当前筛选条件的流水。
+      </div>
       <EmptyState
-        v-else
+        v-else-if="!loading"
         title="还没有交易流水"
         description="流水账本独立于当前持仓，后续用于计算真实收益和持仓演变。"
+      />
+
+      <el-pagination
+        v-if="filteredTransactions.length > pageSize"
+        v-model:current-page="currentPage"
+        class="transaction-pagination"
+        layout="prev, pager, next"
+        :page-size="pageSize"
+        :total="filteredTransactions.length"
+        background
       />
 
       <p class="transaction-note">
@@ -212,7 +238,7 @@
 <script setup lang="ts">
 import { Delete, Refresh, Search } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 
 import EmptyState from '@/components/common/EmptyState.vue';
 import RevealContent from '@/components/common/RevealContent.vue';
@@ -246,6 +272,10 @@ const loading = ref(false);
 const saving = ref(false);
 const lookingUp = ref(false);
 const deletingId = ref<number | null>(null);
+const transactionQuery = ref('');
+const transactionTypeFilter = ref<FundTransactionType | ''>('');
+const currentPage = ref(1);
+const pageSize = 20;
 const form = ref<FundTransactionCreate>(buildDefaultForm());
 
 const usesShares = computed(() => (
@@ -254,6 +284,21 @@ const usesShares = computed(() => (
 const calculatedAmount = computed(() => (
   Number(form.value.shares ?? 0) * Number(form.value.unit_price ?? 0)
 ));
+const filteredTransactions = computed(() => {
+  const query = transactionQuery.value.trim().toLowerCase();
+  return transactions.value.filter((transaction) => {
+    const matchesQuery = !query
+      || transaction.fund_code.toLowerCase().includes(query)
+      || transaction.fund_name.toLowerCase().includes(query);
+    const matchesType = !transactionTypeFilter.value
+      || transaction.transaction_type === transactionTypeFilter.value;
+    return matchesQuery && matchesType;
+  });
+});
+const paginatedTransactions = computed(() => {
+  const start = (currentPage.value - 1) * pageSize;
+  return filteredTransactions.value.slice(start, start + pageSize);
+});
 
 function buildDefaultForm(): FundTransactionCreate {
   return {
@@ -275,6 +320,10 @@ function resetForm(): void {
   form.value = buildDefaultForm();
 }
 
+watch([transactionQuery, transactionTypeFilter], () => {
+  currentPage.value = 1;
+});
+
 async function loadTransactions(): Promise<void> {
   loading.value = true;
   try {
@@ -284,6 +333,9 @@ async function loadTransactions(): Promise<void> {
     ]);
     transactions.value = nextTransactions;
     summary.value = nextSummary;
+    if (currentPage.value > Math.max(1, Math.ceil(filteredTransactions.value.length / pageSize))) {
+      currentPage.value = 1;
+    }
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : '交易流水加载失败');
   } finally {
@@ -479,6 +531,27 @@ onMounted(() => {
   color: var(--color-text);
 }
 
+.transaction-filters {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.transaction-filters .el-input {
+  max-width: 260px;
+}
+
+.transaction-filters .el-select {
+  max-width: 160px;
+}
+
+.filter-result,
+.transaction-message {
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
 .transaction-table {
   display: grid;
   gap: 8px;
@@ -518,6 +591,11 @@ onMounted(() => {
   margin: 16px 0 0;
 }
 
+.transaction-pagination {
+  justify-content: center;
+  margin-top: 14px;
+}
+
 @media (max-width: 980px) {
   .transaction-form {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -538,9 +616,15 @@ onMounted(() => {
 
 @media (max-width: 640px) {
   .panel-header,
-  .transaction-actions {
+  .transaction-actions,
+  .transaction-filters {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .transaction-filters .el-input,
+  .transaction-filters .el-select {
+    max-width: none;
   }
 
   .transaction-form,

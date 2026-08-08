@@ -4,6 +4,7 @@ param(
     [string]$SyncToken = $env:HAP_TTSKILL_SYNC_TOKEN,
     [int]$Months = 1,
     [switch]$PreviewOnly,
+    [switch]$AutoConfirm,
     [string]$BundlePath = ''
 )
 
@@ -78,10 +79,14 @@ if ($PreviewOnly) {
     exit 0
 }
 
-$confirmation = Read-Host 'Import the previewed changes into HAP? Enter Y to confirm; any other input cancels'
-if ($confirmation -notin @('Y', 'y')) {
-    Write-Output 'Import cancelled. No data was written to HAP.'
-    exit 0
+if (-not $AutoConfirm) {
+    $confirmation = Read-Host 'Import the previewed changes into HAP? Enter Y to confirm; any other input cancels'
+    if ($confirmation -notin @('Y', 'y')) {
+        Write-Output 'Import cancelled. No data was written to HAP.'
+        exit 0
+    }
+} else {
+    Write-Output 'Automatic mode enabled. Importing the previewed changes.'
 }
 
 $importResponse = Invoke-HapImport -Path 'import' -Payload $bundle
