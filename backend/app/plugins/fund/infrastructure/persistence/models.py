@@ -184,6 +184,12 @@ class FundTransactionModel(Base):
         Index("ix_fund_transactions_fund_date", "fund_id", "trade_date"),
         Index("ix_fund_transactions_account_date", "account_name", "trade_date"),
         Index("ix_fund_transactions_type_date", "transaction_type", "trade_date"),
+        Index(
+            "ix_fund_transactions_external_trade",
+            "external_source",
+            "external_trade_id",
+            unique=True,
+        ),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -196,6 +202,14 @@ class FundTransactionModel(Base):
     amount: Mapped[Decimal] = mapped_column(Numeric(18, 2))
     fee: Mapped[Decimal] = mapped_column(Numeric(18, 2), default=Decimal("0"))
     note: Mapped[str] = mapped_column(Text, default="")
+    external_source: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    external_trade_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    external_trade_type: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    external_business_code: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    external_status: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    external_confirm_status: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    confirm_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    source_updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 

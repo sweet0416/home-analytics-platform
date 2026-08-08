@@ -294,8 +294,42 @@ export interface FundTransaction {
   fee: string;
   cash_flow: string;
   note: string;
+  external_source: string | null;
+  external_trade_id: string | null;
+  external_trade_type: string | null;
+  external_business_code: string | null;
+  external_status: string | null;
+  external_confirm_status: string | null;
+  confirm_date: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface FundTtSkillTradesImportItem {
+  trade_id: string;
+  fund_code: string;
+  fund_name: string;
+  business_type: string;
+  trade_time: string;
+  action: 'create' | 'update' | 'skip' | 'error';
+  reason: string;
+  transaction_id: number | null;
+}
+
+export interface FundTtSkillTradesImport {
+  list_payload: Record<string, unknown>;
+  detail_payloads: Record<string, unknown>[];
+  account_name: string;
+}
+
+export interface FundTtSkillTradesImportResult {
+  dry_run: boolean;
+  total: number;
+  create_count: number;
+  update_count: number;
+  skip_count: number;
+  error_count: number;
+  items: FundTtSkillTradesImportItem[];
 }
 
 export interface FundTransactionSummary {
@@ -869,6 +903,24 @@ export function createFundTransaction(
 
 export function fetchFundTransactionSummary(): Promise<FundTransactionSummary> {
   return getApiData<FundTransactionSummary>('/fund/transactions/summary');
+}
+
+export function previewTtSkillTrades(
+  payload: FundTtSkillTradesImport,
+): Promise<FundTtSkillTradesImportResult> {
+  return postApiData<FundTtSkillTradesImportResult, FundTtSkillTradesImport>(
+    '/fund/integrations/ttskill/trades/preview',
+    payload,
+  );
+}
+
+export function importTtSkillTrades(
+  payload: FundTtSkillTradesImport,
+): Promise<FundTtSkillTradesImportResult> {
+  return postApiData<FundTtSkillTradesImportResult, FundTtSkillTradesImport>(
+    '/fund/integrations/ttskill/trades/import',
+    payload,
+  );
 }
 
 export function fetchFundCashFlowPerformance(): Promise<FundCashFlowPerformance> {

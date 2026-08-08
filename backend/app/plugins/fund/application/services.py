@@ -3,6 +3,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime
 from decimal import Decimal
 from io import StringIO
+from typing import Literal
 from zoneinfo import ZoneInfo
 
 from loguru import logger
@@ -62,6 +63,10 @@ from app.plugins.fund.infrastructure.sources.eastmoney_holdings import (
 from app.plugins.fund.infrastructure.sources.ttskill import (
     TtSkillAccountHoldingSource,
     TtSkillBaseInfoSource,
+)
+from app.plugins.fund.infrastructure.sources.ttskill_trades import (
+    TtSkillTrade,
+    TtSkillTradeQuerySource,
 )
 from app.plugins.fund.interfaces.schemas import (
     FundAccountHoldingRead,
@@ -128,6 +133,9 @@ from app.plugins.fund.interfaces.schemas import (
     FundTransactionCreate,
     FundTransactionRead,
     FundTransactionSummaryRead,
+    FundTtSkillTradeImportItemRead,
+    FundTtSkillTradesImport,
+    FundTtSkillTradesImportRead,
     FundWatchlistCreate,
     FundWatchlistNavSyncItemRead,
     FundWatchlistNavSyncRead,
@@ -1033,6 +1041,124 @@ class FundService:
         )
         self.repository.commit()
         return self._to_transaction_read(transaction)
+
+    def import_ttskill_trades(
+        self,
+        payload: FundTtSkillTradesImport,
+        *,
+        dry_run: bool,
+    ) -> FundTtSkillTradesImportRead:
+        source = TtSkillTradeQuerySource()
+        bundle = source.parse_bundle(payload.list_payload, payload.detail_payloads)
+        items: list[FundTtSkillTradeImportItemRead] = []
+        for trade in bundle.trades:
+            existing = self.repository.get_transaction_by_external_id(
+                external_source=source.source,
+                external_trade_id=trade.trade_id,
+            )
+            action, reason = self._trade_import_action(trade, existing is not None)
+            transaction_id = existing.id if existing is not None else None
+            if not dry_run and action == "create":
+                transaction = self._create_imported_trade(payload.account_name, trade)
+                transaction_id = transaction.id
+            elif not dry_run and action == "update" and existing is not None:
+                self._update_imported_trade(existing, payload.account_name, trade)
+            items.append(
+                FundTtSkillTradeImportItemRead(
+                    trade_id=trade.trade_id,
+                    fund_code=trade.fund_code,
+                    fund_name=trade.fund_name,
+                    business_type=trade.business_type,
+                    trade_time=trade.trade_time,
+                    action=action,
+                    reason=reason,
+                    transaction_id=transaction_id,
+                )
+            )
+        if not dry_run:
+            self.repository.commit()
+        return FundTtSkillTradesImportRead(
+            dry_run=dry_run,
+            total=len(items),
+            create_count=sum(item.action == "create" for item in items),
+            update_count=sum(item.action == "update" for item in items),
+            skip_count=sum(item.action == "skip" for item in items),
+            error_count=sum(item.action == "error" for item in items),
+            items=items,
+        )
+
+    @staticmethod
+    def _trade_import_action(
+        trade: TtSkillTrade,
+        exists: bool,
+    ) -> tuple[Literal["create", "update", "skip", "error"], str]:
+        if trade.transaction_type is None:
+            return "skip", "撤单或暂不支持的业务类型，不进入现金流流水。"
+        if not trade.confirmed or trade.confirm_status != "confirmed":
+            return "skip", "交易尚未确认成功，等待下次同步。"
+        if trade.effective_amount is None or trade.effective_amount <= 0:
+            return "error", "缺少有效确认金额。"
+        if trade.transaction_type in {"buy", "sell"} and (
+            trade.confirm_vol is None or trade.confirm_vol <= 0 or trade.nav is None or trade.nav <= 0
+        ):
+            return "error", "买入或卖出缺少确认份额或确认净值。"
+        return ("update", "已存在，按最新详情更新。") if exists else ("create", "新流水。")
+
+    def _create_imported_trade(self, account_name: str, trade: TtSkillTrade) -> FundTransactionModel:
+        fund = self.repository.upsert_fund(
+            code=trade.fund_code,
+            name=trade.fund_name,
+            fund_type="unknown",
+            source="ttfund_skills",
+        )
+        return self.repository.create_transaction(
+            fund=fund,
+            account_name=account_name,
+            transaction_type=trade.transaction_type or "fee",
+            trade_date=trade.confirm_date or trade.trade_time.date(),
+            shares=trade.confirm_vol,
+            unit_price=trade.nav,
+            amount=trade.effective_amount or Decimal("0"),
+            fee=trade.charge,
+            note=f"来源: 天天基金; 业务: {trade.business_type}",
+            external_source="ttfund_skills",
+            external_trade_id=trade.trade_id,
+            external_trade_type=trade.trade_type,
+            external_business_code=trade.business_code,
+            external_status=trade.status_text,
+            external_confirm_status=trade.confirm_status,
+            confirm_date=trade.confirm_date,
+            source_updated_at=trade.trade_time,
+        )
+
+    def _update_imported_trade(
+        self,
+        transaction: FundTransactionModel,
+        account_name: str,
+        trade: TtSkillTrade,
+    ) -> None:
+        fund = self.repository.upsert_fund(
+            code=trade.fund_code,
+            name=trade.fund_name,
+            fund_type="unknown",
+            source="ttfund_skills",
+        )
+        transaction.fund = fund
+        transaction.account_name = account_name
+        transaction.transaction_type = trade.transaction_type or transaction.transaction_type
+        transaction.trade_date = trade.confirm_date or trade.trade_time.date()
+        transaction.shares = trade.confirm_vol
+        transaction.unit_price = trade.nav
+        transaction.amount = trade.effective_amount or Decimal("0")
+        transaction.fee = trade.charge
+        transaction.note = f"来源: 天天基金; 业务: {trade.business_type}"
+        transaction.external_trade_type = trade.trade_type
+        transaction.external_business_code = trade.business_code
+        transaction.external_status = trade.status_text
+        transaction.external_confirm_status = trade.confirm_status
+        transaction.confirm_date = trade.confirm_date
+        transaction.source_updated_at = trade.trade_time
+        transaction.updated_at = utcnow()
 
     def delete_transaction(self, transaction_id: int) -> None:
         transaction = self.repository.get_transaction(transaction_id)
@@ -2898,6 +3024,13 @@ class FundService:
             fee=transaction.fee,
             cash_flow=self._transaction_cash_flow(transaction),
             note=transaction.note,
+            external_source=transaction.external_source,
+            external_trade_id=transaction.external_trade_id,
+            external_trade_type=transaction.external_trade_type,
+            external_business_code=transaction.external_business_code,
+            external_status=transaction.external_status,
+            external_confirm_status=transaction.external_confirm_status,
+            confirm_date=transaction.confirm_date,
             created_at=transaction.created_at,
             updated_at=transaction.updated_at,
         )

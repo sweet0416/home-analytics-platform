@@ -65,6 +65,8 @@ from app.plugins.fund.interfaces.schemas import (
     FundTransactionCreate,
     FundTransactionRead,
     FundTransactionSummaryRead,
+    FundTtSkillTradesImport,
+    FundTtSkillTradesImportRead,
     FundWatchlistCreate,
     FundWatchlistNavSyncRead,
     FundWatchlistRead,
@@ -230,6 +232,30 @@ def list_fund_transactions(
     service: FundService = Depends(get_fund_service),
 ) -> ApiResponse[list[FundTransactionRead]]:
     return ok(service.list_transactions(limit=limit))
+
+
+@router.post(
+    "/integrations/ttskill/trades/preview",
+    response_model=ApiResponse[FundTtSkillTradesImportRead],
+    dependencies=[Depends(require_ttskill_sync_token)],
+)
+def preview_ttskill_trades(
+    payload: FundTtSkillTradesImport,
+    service: FundService = Depends(get_fund_service),
+) -> ApiResponse[FundTtSkillTradesImportRead]:
+    return ok(service.import_ttskill_trades(payload, dry_run=True))
+
+
+@router.post(
+    "/integrations/ttskill/trades/import",
+    response_model=ApiResponse[FundTtSkillTradesImportRead],
+    dependencies=[Depends(require_ttskill_sync_token)],
+)
+def import_ttskill_trades(
+    payload: FundTtSkillTradesImport,
+    service: FundService = Depends(get_fund_service),
+) -> ApiResponse[FundTtSkillTradesImportRead]:
+    return ok(service.import_ttskill_trades(payload, dry_run=False))
 
 
 @router.post("/transactions", response_model=ApiResponse[FundTransactionRead])

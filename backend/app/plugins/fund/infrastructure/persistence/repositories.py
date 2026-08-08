@@ -474,6 +474,14 @@ class FundRepository:
         amount: Decimal,
         fee: Decimal,
         note: str,
+        external_source: str | None = None,
+        external_trade_id: str | None = None,
+        external_trade_type: str | None = None,
+        external_business_code: str | None = None,
+        external_status: str | None = None,
+        external_confirm_status: str | None = None,
+        confirm_date: date | None = None,
+        source_updated_at: datetime | None = None,
     ) -> FundTransactionModel:
         transaction = FundTransactionModel(
             fund=fund,
@@ -485,10 +493,33 @@ class FundRepository:
             amount=amount,
             fee=fee,
             note=note,
+            external_source=external_source,
+            external_trade_id=external_trade_id,
+            external_trade_type=external_trade_type,
+            external_business_code=external_business_code,
+            external_status=external_status,
+            external_confirm_status=external_confirm_status,
+            confirm_date=confirm_date,
+            source_updated_at=source_updated_at,
         )
         self.db.add(transaction)
         self.db.flush()
         return transaction
+
+    def get_transaction_by_external_id(
+        self,
+        *,
+        external_source: str,
+        external_trade_id: str,
+    ) -> FundTransactionModel | None:
+        return self.db.scalar(
+            select(FundTransactionModel)
+            .options(selectinload(FundTransactionModel.fund))
+            .where(
+                FundTransactionModel.external_source == external_source,
+                FundTransactionModel.external_trade_id == external_trade_id,
+            )
+        )
 
     def get_transaction(self, transaction_id: int) -> FundTransactionModel | None:
         return self.db.scalar(

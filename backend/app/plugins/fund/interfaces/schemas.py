@@ -355,8 +355,42 @@ class FundTransactionRead(BaseModel):
     fee: Decimal
     cash_flow: Decimal
     note: str
+    external_source: str | None
+    external_trade_id: str | None
+    external_trade_type: str | None
+    external_business_code: str | None
+    external_status: str | None
+    external_confirm_status: str | None
+    confirm_date: date | None
     created_at: datetime
     updated_at: datetime
+
+
+class FundTtSkillTradesImport(BaseModel):
+    list_payload: dict[str, object]
+    detail_payloads: list[dict[str, object]] = Field(default_factory=list)
+    account_name: str = Field(default="天天基金", min_length=1, max_length=64)
+
+
+class FundTtSkillTradeImportItemRead(BaseModel):
+    trade_id: str
+    fund_code: str
+    fund_name: str
+    business_type: str
+    trade_time: datetime
+    action: Literal["create", "update", "skip", "error"]
+    reason: str
+    transaction_id: int | None = None
+
+
+class FundTtSkillTradesImportRead(BaseModel):
+    dry_run: bool
+    total: int
+    create_count: int
+    update_count: int
+    skip_count: int
+    error_count: int
+    items: list[FundTtSkillTradeImportItemRead]
 
 
 class FundTransactionSummaryRead(BaseModel):
