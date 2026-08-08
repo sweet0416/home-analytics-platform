@@ -87,6 +87,8 @@ class Settings(BaseSettings):
     fund_ai_summary_api_key: str = ""
     fund_ai_summary_model: str = ""
     fund_ai_summary_timeout_seconds: int = Field(default=30, ge=5, le=120)
+    fund_ai_auto_summary_enabled: bool = False
+    fund_ai_auto_summary_max_per_day: int = Field(default=1, ge=1, le=1)
     cors_origins: list[str] = Field(
         default_factory=lambda: [
             "http://localhost:5173",

@@ -8,8 +8,13 @@ from loguru import logger
 from app.core.config.settings import get_settings
 from app.core.database.session import SessionLocal
 from app.core.notification.schemas import NotificationChannel
+from app.core.time import utcnow
+from app.plugins.fund.application.ai_summary import FundDailyAiSummaryService
 from app.plugins.fund.application.notification import FundDailyNotificationService
 from app.plugins.fund.application.services import FundService
+from app.plugins.fund.domain.ai_automation import build_nav_fingerprint
+from app.plugins.fund.infrastructure.ai_summary_openai import FundAiSummaryOpenAIProvider
+from app.plugins.fund.infrastructure.ai_summary_webhook import FundAiSummaryWebhookProvider
 from app.plugins.fund.infrastructure.persistence.models import FundNavSyncRunModel
 from app.plugins.fund.infrastructure.persistence.repositories import FundRepository
 from app.plugins.fund.interfaces.schemas import (
@@ -130,6 +135,7 @@ def _run_scheduled_fund_nav_sync() -> None:
         notification_summary = ""
         history_summary = ""
         snapshot_summary = ""
+        ai_summary_summary = ""
         if result.updated > 0:
             _completed_date = now.date()
             history_summary = _sync_holding_history(
@@ -143,6 +149,13 @@ def _run_scheduled_fund_nav_sync() -> None:
             )
             snapshot_summary = (
                 str(daily_snapshot.report_date) if daily_snapshot is not None else "failed"
+            )
+            ai_summary_summary = _generate_automatic_ai_summary(
+                repository=repository,
+                service=service,
+                settings=settings,
+                result=result,
+                snapshot=daily_snapshot,
             )
             daily_insights = (
                 service.get_daily_report_insights()
@@ -166,6 +179,8 @@ def _run_scheduled_fund_nav_sync() -> None:
             message = f"{message} Holding history: {history_summary}."
         if snapshot_summary:
             message = f"{message} Daily snapshot: {snapshot_summary}."
+        if ai_summary_summary:
+            message = f"{message} AI summary: {ai_summary_summary}."
         logger.info(message)
         _last_run = _save_run(
             repository,
@@ -251,6 +266,70 @@ def _send_daily_report_notification(
         return statuses or "no channel result"
     except Exception as exc:  # noqa: BLE001
         logger.exception("Fund daily report notification failed: {}", exc)
+        return "failed"
+
+
+def _generate_automatic_ai_summary(
+    *,
+    repository: FundRepository,
+    service: FundService,
+    settings: object,
+    result: object,
+    snapshot: FundDailySnapshotRead | None,
+) -> str:
+    if not getattr(settings, "fund_ai_summary_enabled", False):
+        return "disabled"
+    if not getattr(settings, "fund_ai_auto_summary_enabled", False):
+        return "disabled"
+    if snapshot is None:
+        return "snapshot unavailable"
+
+    latest_nav_date, nav_fingerprint = build_nav_fingerprint(result.items)
+    run = repository.claim_ai_automation_run(
+        report_date=snapshot.report_date,
+        latest_nav_date=latest_nav_date,
+        nav_fingerprint=nav_fingerprint,
+        summary_version="fund-daily-ai-summary.v1",
+        model_name=(
+            str(getattr(settings, "fund_ai_summary_model", "")).strip()
+            or "webhook"
+        ),
+        prompt_version="fund-daily-prompt.v1",
+    )
+    if run is None:
+        logger.info("Automatic fund AI summary skipped: daily slot already claimed.")
+        return "skipped (already claimed)"
+
+    repository.commit()
+    try:
+        provider = (
+            FundAiSummaryOpenAIProvider(settings)
+            if getattr(settings, "fund_ai_summary_provider", "webhook")
+            == "openai_compatible"
+            else FundAiSummaryWebhookProvider(settings)
+        )
+        summary = FundDailyAiSummaryService(settings=settings, provider=provider).generate(
+            service.get_daily_report_ai_input()
+        )
+        archive = service.save_daily_ai_summary(snapshot.id, summary)
+        run_record = repository.get_daily_ai_summary(snapshot.id)
+        run.ai_status = "SUCCESS"
+        run.summary_id = run_record.id if run_record is not None else None
+        run.input_tokens = summary.input_tokens
+        run.output_tokens = summary.output_tokens
+        run.cost = summary.cost
+        run.attempts = 1
+        run.updated_at = utcnow()
+        repository.commit()
+        logger.info("Automatic fund AI summary generated for {}.", archive.report_date)
+        return "success"
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("Automatic fund AI summary failed: {}", exc)
+        run.ai_status = "FAILED"
+        run.ai_error_message = str(exc)
+        run.attempts = 1
+        run.updated_at = utcnow()
+        repository.commit()
         return "failed"
 
 
