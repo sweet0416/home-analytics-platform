@@ -18,7 +18,7 @@ $powershell = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powersh
 $arguments = '-NoProfile -ExecutionPolicy Bypass -File "{0}" -HapBaseUrl "{1}" -Months {2}' -f $runner, $HapBaseUrl, $Months
 $action = New-ScheduledTaskAction -Execute $powershell -Argument $arguments -WorkingDirectory $RepositoryPath
 $trigger = New-ScheduledTaskTrigger -Daily -At $StartAt
-$principal = New-ScheduledTaskPrincipal -UserId ("{0}\{1}" -f $env:USERDOMAIN, $env:USERNAME) -LogonType InteractiveToken -RunLevel Limited
+$principal = New-ScheduledTaskPrincipal -UserId ("{0}\{1}" -f $env:USERDOMAIN, $env:USERNAME) -LogonType Interactive -RunLevel Limited
 $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Hours 1) -MultipleInstances IgnoreNew
 
 Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Description 'HAP daily fund transaction sync through the local ttSkill login.' -Force | Out-Null
