@@ -148,6 +148,12 @@
         </div>
       </div>
 
+      <div v-if="latestTtSkillSyncAt" class="transaction-sync-status">
+        <span class="sync-status-dot" aria-hidden="true" />
+        <span>天天 Skills 最近同步：{{ formatDateTime(latestTtSkillSyncAt) }}</span>
+        <span>已导入 {{ importedTransactionCount }} 条</span>
+      </div>
+
       <div class="transaction-filters">
         <el-input v-model="transactionQuery" clearable placeholder="搜索基金代码或名称" />
         <el-select v-model="transactionTypeFilter" clearable placeholder="全部流水类型">
@@ -305,6 +311,17 @@ const paginatedTransactions = computed(() => {
   const start = (currentPage.value - 1) * pageSize;
   return filteredTransactions.value.slice(start, start + pageSize);
 });
+const importedTransactions = computed(() => (
+  transactions.value.filter((transaction) => transaction.external_source === 'ttfund_skills')
+));
+const importedTransactionCount = computed(() => importedTransactions.value.length);
+const latestTtSkillSyncAt = computed(() => {
+  const latest = importedTransactions.value
+    .map((transaction) => transaction.updated_at)
+    .sort()
+    .at(-1);
+  return latest ?? null;
+});
 
 function buildDefaultForm(): FundTransactionCreate {
   return {
@@ -439,6 +456,18 @@ function transactionSourceText(transaction: FundTransaction): string {
   return transaction.external_source === 'ttfund_skills'
     ? '天天 Skills'
     : '手动录入';
+}
+
+function formatDateTime(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 }
 
 function formatMoney(value: string | number | null | undefined): string {
@@ -596,6 +625,24 @@ onMounted(() => {
 
 .is-outflow {
   color: #22c55e !important;
+}
+
+.transaction-sync-status {
+  align-items: center;
+  color: var(--color-muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 12px;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.sync-status-dot {
+  background: #22c55e;
+  border-radius: 999px;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.14);
+  height: 7px;
+  width: 7px;
 }
 
 .transaction-note {
