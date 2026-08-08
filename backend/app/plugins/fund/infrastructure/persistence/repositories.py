@@ -185,6 +185,16 @@ class FundRepository:
             )
         )
 
+    def get_daily_report_snapshot(
+        self,
+        snapshot_id: int,
+    ) -> FundDailyReportSnapshotModel | None:
+        return self.db.scalar(
+            select(FundDailyReportSnapshotModel).where(
+                FundDailyReportSnapshotModel.id == snapshot_id
+            )
+        )
+
     def get_fund_by_code(self, code: str) -> FundModel | None:
         return self.db.scalar(select(FundModel).where(FundModel.code == code))
 

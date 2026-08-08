@@ -800,6 +800,10 @@ class FundDailySnapshotRead(BaseModel):
     change_from_previous: FundDailySnapshotChangeRead | None
 
 
+class FundDailySnapshotDetailRead(FundDailySnapshotRead):
+    analysis_context: FundDailyAnalysisContextRead
+
+
 class FundDailySnapshotHistoryRead(BaseModel):
     count: int
     items: list[FundDailySnapshotRead]

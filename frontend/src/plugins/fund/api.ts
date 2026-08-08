@@ -723,6 +723,10 @@ export interface FundDailySnapshot {
   change_from_previous: FundDailySnapshotChange | null;
 }
 
+export interface FundDailySnapshotDetail extends FundDailySnapshot {
+  analysis_context: FundDailyAnalysisContext;
+}
+
 export interface FundDailySnapshotHistory {
   count: number;
   items: FundDailySnapshot[];
@@ -1087,6 +1091,10 @@ export function generateFundDailyAiSummary(): Promise<FundDailyAiSummary> {
 
 export function fetchFundDailySnapshots(limit = 30): Promise<FundDailySnapshotHistory> {
   return getApiData<FundDailySnapshotHistory>(`/fund/reports/daily/snapshots?limit=${limit}`);
+}
+
+export function fetchFundDailySnapshotDetail(id: number): Promise<FundDailySnapshotDetail> {
+  return getApiData<FundDailySnapshotDetail>(`/fund/reports/daily/snapshots/${id}`);
 }
 
 export function getFundDailySnapshotsExportUrl(limit = 365): string {

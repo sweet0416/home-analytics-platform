@@ -258,7 +258,15 @@
               <span>较前次估值</span>
               <span>数据状态</span>
             </div>
-            <div v-for="snapshot in historyRows" :key="snapshot.id" class="snapshot-row">
+            <div
+              v-for="snapshot in historyRows"
+              :key="snapshot.id"
+              class="snapshot-row snapshot-data-row"
+              role="button"
+              tabindex="0"
+              @click="openSnapshotDetail(snapshot.id)"
+              @keydown.enter="openSnapshotDetail(snapshot.id)"
+            >
               <strong>{{ snapshot.report_date }}</strong>
               <span>{{ formatMoney(snapshot.current_value) }}</span>
               <span :class="valueClass(snapshot.unrealized_profit)">
@@ -324,6 +332,68 @@
           日报用于整理已记录数据。缺少当前净值的持仓不会计入浮盈亏，
           配置分析则会使用成本暂估，两者口径不同。
         </p>
+      <el-dialog
+        v-model="snapshotDetailVisible"
+        title="日报快照详情"
+        width="680px"
+        destroy-on-close
+      >
+        <div v-if="snapshotDetailLoading" class="report-loading">正在加载快照详情...</div>
+        <div v-else-if="selectedSnapshotDetail" class="snapshot-detail">
+          <div class="snapshot-detail-heading">
+            <strong>{{ selectedSnapshotDetail.report_date }}</strong>
+            <span>{{ formatDateTime(selectedSnapshotDetail.generated_at) }}</span>
+          </div>
+          <div class="snapshot-detail-metrics">
+            <div>
+              <span>数据质量</span>
+              <strong>{{ qualityText(selectedSnapshotDetail.quality_level) }}</strong>
+            </div>
+            <div>
+              <span>当前估值</span>
+              <strong>{{ formatMoney(selectedSnapshotDetail.current_value) }}</strong>
+            </div>
+            <div>
+              <span>浮盈亏</span>
+              <strong>{{ formatSignedMoney(selectedSnapshotDetail.unrealized_profit) }}</strong>
+            </div>
+            <div>
+              <span>风险样本</span>
+              <strong>{{ selectedSnapshotDetail.risk_sample_count }} 个</strong>
+            </div>
+          </div>
+          <div class="snapshot-detail-section">
+            <strong>当日关键事实</strong>
+            <div v-if="selectedSnapshotDetail.analysis_context.facts.length" class="snapshot-facts">
+              <div
+                v-for="fact in selectedSnapshotDetail.analysis_context.facts"
+                :key="fact.code"
+                class="snapshot-fact"
+              >
+                <span>{{ fact.label }}</span>
+                <strong>{{ fact.value }} {{ fact.unit }}</strong>
+                <small>{{ fact.sample_scope }}</small>
+              </div>
+            </div>
+            <p v-else class="snapshot-detail-muted">该日没有可展示的关键事实。</p>
+          </div>
+          <div
+            v-if="selectedSnapshotDetail.analysis_context.data_quality.warnings.length"
+            class="snapshot-detail-section"
+          >
+            <strong>数据质量提醒</strong>
+            <ul>
+              <li v-for="warning in selectedSnapshotDetail.analysis_context.data_quality.warnings" :key="warning">
+                {{ warning }}
+              </li>
+            </ul>
+          </div>
+          <div class="snapshot-detail-section">
+            <strong>口径说明</strong>
+            <p>{{ selectedSnapshotDetail.analysis_context.disclaimers.join(' ') }}</p>
+          </div>
+        </div>
+      </el-dialog>
       </div>
       <div v-else-if="loading" class="report-loading">正在生成日报...</div>
       <EmptyState
@@ -349,6 +419,7 @@ import {
   fetchFundDailyReport,
   fetchFundDailyAiSummaryStatus,
   fetchFundDailyInsights,
+  fetchFundDailySnapshotDetail,
   fetchFundDailySnapshots,
   generateFundDailyAiSummary,
   pushFundDailyReport,
@@ -358,6 +429,7 @@ import {
   type FundDailyReport,
   type FundDailyInsights,
   type FundDailySnapshot,
+  type FundDailySnapshotDetail,
 } from '@/plugins/fund/api';
 
 const props = defineProps<{
@@ -370,6 +442,9 @@ const aiSummaryStatus = ref<FundDailyAiSummaryStatus | null>(null);
 const aiSummary = ref<FundDailyAiSummary | null>(null);
 const snapshots = ref<FundDailySnapshot[]>([]);
 const snapshotLimit = ref(30);
+const selectedSnapshotDetail = ref<FundDailySnapshotDetail | null>(null);
+const snapshotDetailVisible = ref(false);
+const snapshotDetailLoading = ref(false);
 const loading = ref(false);
 const pushing = ref(false);
 const savingSnapshot = ref(false);
@@ -477,6 +552,20 @@ async function loadReport(): Promise<void> {
     ElMessage.error(error instanceof Error ? error.message : '基金日报加载失败');
   } finally {
     loading.value = false;
+  }
+}
+
+async function openSnapshotDetail(snapshotId: number): Promise<void> {
+  snapshotDetailVisible.value = true;
+  snapshotDetailLoading.value = true;
+  selectedSnapshotDetail.value = null;
+  try {
+    selectedSnapshotDetail.value = await fetchFundDailySnapshotDetail(snapshotId);
+  } catch (error) {
+    snapshotDetailVisible.value = false;
+    ElMessage.error(error instanceof Error ? error.message : '日报快照详情加载失败');
+  } finally {
+    snapshotDetailLoading.value = false;
   }
 }
 
@@ -851,6 +940,17 @@ watch(snapshotLimit, async () => {
   border-bottom: 0;
 }
 
+.snapshot-data-row {
+  cursor: pointer;
+  transition: background-color 160ms ease;
+}
+
+.snapshot-data-row:hover,
+.snapshot-data-row:focus-visible {
+  background: rgba(56, 189, 248, 0.08);
+  outline: none;
+}
+
 .snapshot-row span,
 .snapshot-row strong {
   font-size: 12px;
@@ -875,6 +975,67 @@ watch(snapshotLimit, async () => {
 .snapshot-history > p {
   line-height: 1.6;
   margin: 0;
+}
+
+.snapshot-detail {
+  display: grid;
+  gap: 18px;
+}
+
+.snapshot-detail-heading,
+.snapshot-detail-heading span {
+  align-items: baseline;
+  display: flex;
+  gap: 10px;
+}
+
+.snapshot-detail-heading span,
+.snapshot-detail-muted,
+.snapshot-detail-section p,
+.snapshot-detail-section li,
+.snapshot-fact small {
+  color: var(--color-muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.snapshot-detail-metrics,
+.snapshot-facts {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.snapshot-detail-metrics > div,
+.snapshot-fact {
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 8px;
+  display: grid;
+  gap: 5px;
+  padding: 10px;
+}
+
+.snapshot-detail-metrics span,
+.snapshot-fact span {
+  color: var(--color-muted);
+  font-size: 11px;
+}
+
+.snapshot-detail-section {
+  display: grid;
+  gap: 9px;
+}
+
+.snapshot-detail-section p,
+.snapshot-detail-section ul {
+  margin: 0;
+}
+
+.snapshot-detail-section ul {
+  color: #fbbf24;
+  display: grid;
+  gap: 5px;
+  padding-left: 18px;
 }
 
 .analysis-context {
@@ -1259,6 +1420,11 @@ watch(snapshotLimit, async () => {
   .period-comparison + .period-comparison {
     border-top: 1px solid rgba(148, 163, 184, 0.14);
     padding-top: 12px;
+  }
+
+  .snapshot-detail-metrics,
+  .snapshot-facts {
+    grid-template-columns: 1fr;
   }
 }
 </style>

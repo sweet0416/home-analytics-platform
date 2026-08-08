@@ -83,6 +83,7 @@ from app.plugins.fund.interfaces.schemas import (
     FundDailyPeriodComparisonRead,
     FundDailyReportRead,
     FundDailySnapshotChangeRead,
+    FundDailySnapshotDetailRead,
     FundDailySnapshotHistoryRead,
     FundDailySnapshotRead,
     FundDisclosureSyncItemRead,
@@ -2217,6 +2218,33 @@ class FundService:
             for index, record in enumerate(records[:bounded_limit])
         ]
         return FundDailySnapshotHistoryRead(count=len(items), items=items)
+
+    def get_daily_report_snapshot_detail(
+        self,
+        snapshot_id: int,
+    ) -> FundDailySnapshotDetailRead:
+        records = self.repository.list_daily_report_snapshots(limit=366)
+        index = next(
+            (index for index, record in enumerate(records) if record.id == snapshot_id),
+            None,
+        )
+        if index is None:
+            raise AppError(
+                code=ErrorCode.not_found,
+                message="Fund daily report snapshot was not found.",
+                status_code=404,
+            )
+        record = records[index]
+        summary = self._to_daily_snapshot_read(
+            record,
+            previous=records[index + 1] if index + 1 < len(records) else None,
+        )
+        return FundDailySnapshotDetailRead(
+            **summary.model_dump(),
+            analysis_context=FundDailyAnalysisContextRead.model_validate_json(
+                record.context_json
+            ),
+        )
 
     def export_daily_report_snapshots_csv(self, *, limit: int = 365) -> str:
         """Return saved daily report snapshots as a portable CSV document."""

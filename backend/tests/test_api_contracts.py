@@ -988,6 +988,15 @@ def test_fund_daily_report_snapshots_are_idempotent_and_comparable(
     assert history["items"][0]["change_from_previous"]["position_count"] == 1
     assert history["items"][1]["change_from_previous"] is None
 
+    detail_response = client.get(
+        f"/api/v1/fund/reports/daily/snapshots/{history['items'][0]['id']}"
+    )
+    assert detail_response.status_code == 200
+    detail = detail_response.json()["data"]
+    assert detail["analysis_context"]["contract_version"] == "fund-daily-context.v1"
+    assert detail["analysis_context"]["report_date"] == history["items"][0]["report_date"]
+    assert client.get("/api/v1/fund/reports/daily/snapshots/999999").status_code == 404
+
     insight_response = client.get("/api/v1/fund/reports/daily/insights")
     assert insight_response.status_code == 200
     insight = insight_response.json()["data"]

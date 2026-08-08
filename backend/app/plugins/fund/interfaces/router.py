@@ -28,6 +28,7 @@ from app.plugins.fund.interfaces.schemas import (
     FundDailyInsightsRead,
     FundDailyPushRequest,
     FundDailyReportRead,
+    FundDailySnapshotDetailRead,
     FundDailySnapshotHistoryRead,
     FundDailySnapshotRead,
     FundDisclosureSyncRead,
@@ -619,6 +620,17 @@ def export_fund_daily_report_snapshots(
             "Content-Disposition": 'attachment; filename="hap-fund-daily-snapshots.csv"',
         },
     )
+
+
+@router.get(
+    "/reports/daily/snapshots/{snapshot_id}",
+    response_model=ApiResponse[FundDailySnapshotDetailRead],
+)
+def get_fund_daily_report_snapshot_detail(
+    snapshot_id: int,
+    service: FundService = Depends(get_fund_service),
+) -> ApiResponse[FundDailySnapshotDetailRead]:
+    return ok(service.get_daily_report_snapshot_detail(snapshot_id))
 
 
 @router.post(
