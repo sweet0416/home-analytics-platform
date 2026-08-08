@@ -1089,6 +1089,10 @@ export function fetchFundDailySnapshots(limit = 30): Promise<FundDailySnapshotHi
   return getApiData<FundDailySnapshotHistory>(`/fund/reports/daily/snapshots?limit=${limit}`);
 }
 
+export function getFundDailySnapshotsExportUrl(limit = 365): string {
+  return `/api/v1/fund/reports/daily/snapshots/export?limit=${limit}`;
+}
+
 export function saveFundDailySnapshot(): Promise<FundDailySnapshot> {
   return postApiData<FundDailySnapshot, Record<string, never>>(
     '/fund/reports/daily/snapshots',

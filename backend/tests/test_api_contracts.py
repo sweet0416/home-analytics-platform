@@ -999,6 +999,16 @@ def test_fund_daily_report_snapshots_are_idempotent_and_comparable(
         alert["code"] for alert in insight["alerts"]
     }
 
+    export_response = client.get(
+        "/api/v1/fund/reports/daily/snapshots/export",
+        params={"limit": 7},
+    )
+    assert export_response.status_code == 200
+    assert export_response.headers["content-type"].startswith("text/csv")
+    assert "attachment" in export_response.headers["content-disposition"]
+    assert "report_date,generated_at,quality_level" in export_response.text
+    assert "position_count" in export_response.text
+
     ai_input_response = client.get("/api/v1/fund/reports/daily/ai-input")
     assert ai_input_response.status_code == 200
     ai_input = ai_input_response.json()["data"]

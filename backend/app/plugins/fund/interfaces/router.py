@@ -2,6 +2,7 @@ from hmac import compare_digest
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Header, Query
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
 from app.core.config.settings import Settings, get_settings
@@ -604,6 +605,20 @@ def get_fund_daily_report_snapshots(
     service: FundService = Depends(get_fund_service),
 ) -> ApiResponse[FundDailySnapshotHistoryRead]:
     return ok(service.get_daily_report_snapshot_history(limit=limit))
+
+
+@router.get("/reports/daily/snapshots/export")
+def export_fund_daily_report_snapshots(
+    limit: int = Query(default=365, ge=1, le=365),
+    service: FundService = Depends(get_fund_service),
+) -> Response:
+    return Response(
+        content="\ufeff" + service.export_daily_report_snapshots_csv(limit=limit),
+        media_type="text/csv; charset=utf-8",
+        headers={
+            "Content-Disposition": 'attachment; filename="hap-fund-daily-snapshots.csv"',
+        },
+    )
 
 
 @router.post(

@@ -1,6 +1,8 @@
+import csv
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime
 from decimal import Decimal
+from io import StringIO
 from zoneinfo import ZoneInfo
 
 from loguru import logger
@@ -2215,6 +2217,26 @@ class FundService:
             for index, record in enumerate(records[:bounded_limit])
         ]
         return FundDailySnapshotHistoryRead(count=len(items), items=items)
+
+    def export_daily_report_snapshots_csv(self, *, limit: int = 365) -> str:
+        """Return saved daily report snapshots as a portable CSV document."""
+        bounded_limit = max(1, min(limit, 365))
+        records = self.repository.list_daily_report_snapshots(limit=bounded_limit)
+        output = StringIO()
+        writer = csv.writer(output, lineterminator="\n")
+        fields = [
+            "report_date", "generated_at", "quality_level", "position_count",
+            "fund_count", "total_cost", "current_value", "unrealized_profit",
+            "unrealized_return_rate", "valuation_complete", "latest_nav_date",
+            "nav_age_days", "risk_fund_count", "risk_covered_fund_count",
+            "risk_sample_count", "top_holding_weight", "concentration_hhi",
+            "target_configured_count", "target_configuration_complete",
+            "target_weight_total", "alert_count", "warning_count",
+        ]
+        writer.writerow(fields)
+        for record in records:
+            writer.writerow([getattr(record, field) for field in fields])
+        return output.getvalue()
 
     def get_daily_report_insights(self) -> FundDailyInsightsRead:
         records = self.repository.list_daily_report_snapshots(limit=366)

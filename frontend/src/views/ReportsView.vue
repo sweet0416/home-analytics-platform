@@ -7,7 +7,10 @@
           集中查看基金日报、历史快照、变化洞察和推送状态
         </div>
       </div>
-      <div class="page-header-meta">数据来自已保存的持仓与净值记录</div>
+      <div class="page-header-actions">
+        <div class="page-header-meta">数据来自已保存的持仓与净值记录</div>
+        <el-button type="primary" plain @click="downloadSnapshotCsv">导出快照 CSV</el-button>
+      </div>
     </RevealContent>
 
     <FundDailyReport :refresh-key="refreshKey" />
@@ -35,10 +38,10 @@
           <span>将基金日报推送到已配置的 Bark 通道。</span>
           <em>已接入</em>
         </article>
-        <article class="capability-item">
-          <strong>Excel / CSV / PDF</strong>
-          <span>统一导出任务和报告归档将在下一阶段接入。</span>
-          <em>规划中</em>
+        <article class="capability-item is-ready">
+          <strong>CSV 快照导出</strong>
+          <span>导出已保存的日报快照，便于 Excel、数据分析或长期备份。</span>
+          <em>已启用</em>
         </article>
       </div>
     </RevealContent>
@@ -48,8 +51,13 @@
 <script setup lang="ts">
 import RevealContent from '@/components/common/RevealContent.vue';
 import FundDailyReport from '@/plugins/fund/components/FundDailyReport.vue';
+import { getFundDailySnapshotsExportUrl } from '@/plugins/fund/api';
 
 const refreshKey = 0;
+
+function downloadSnapshotCsv(): void {
+  window.location.href = getFundDailySnapshotsExportUrl();
+}
 </script>
 
 <style scoped>
@@ -59,9 +67,15 @@ const refreshKey = 0;
 }
 
 .page-header-meta {
-  align-self: end;
   color: var(--color-muted);
   font-size: 12px;
+}
+
+.page-header-actions {
+  align-items: flex-end;
+  display: grid;
+  gap: 10px;
+  justify-items: end;
 }
 
 .capability-grid {
@@ -113,6 +127,10 @@ const refreshKey = 0;
 @media (max-width: 640px) {
   .page-header-meta {
     display: none;
+  }
+
+  .page-header-actions {
+    justify-items: stretch;
   }
 
   .capability-grid {
