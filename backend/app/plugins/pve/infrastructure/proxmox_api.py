@@ -37,13 +37,26 @@ class ProxmoxApiClient:
         return self._get_list("/cluster/resources?type=vm")
 
     def get_storage(self) -> list[dict[str, Any]]:
-        return self._get_list("/storage")
+        try:
+            resources = self._get_list("/cluster/resources?type=storage")
+        except ProxmoxApiError:
+            return self._get_list("/storage")
+        return [self._normalize_storage(item) for item in resources]
 
     def get_tasks(self, limit: int) -> list[dict[str, Any]]:
         return self._get_list(f"/cluster/tasks?limit={limit}")
 
     def get_node_tasks(self, node: str, limit: int) -> list[dict[str, Any]]:
         return self._get_list(f"/nodes/{node}/tasks?limit={limit}")
+
+    @staticmethod
+    def _normalize_storage(item: dict[str, Any]) -> dict[str, Any]:
+        normalized = dict(item)
+        if "used" not in normalized and "disk" in normalized:
+            normalized["used"] = normalized["disk"]
+        if "total" not in normalized and "maxdisk" in normalized:
+            normalized["total"] = normalized["maxdisk"]
+        return normalized
 
     def _get(self, path: str) -> dict[str, Any]:
         if not self.configured:

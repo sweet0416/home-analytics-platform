@@ -85,6 +85,15 @@ def test_pve_client_rejects_invalid_list_response() -> None:
         client.get_storage()
 
 
+def test_pve_client_normalizes_storage_usage() -> None:
+    session = FakeSession({"data": [{"storage": "local", "disk": 25, "maxdisk": 100}]})
+    client = ProxmoxApiClient(configured_settings(), session=session)  # type: ignore[arg-type]
+
+    assert client.get_storage() == [
+        {"storage": "local", "disk": 25, "maxdisk": 100, "used": 25, "total": 100}
+    ]
+
+
 def test_pve_client_translates_request_errors() -> None:
     class ErrorSession(FakeSession):
         def get(self, url: str, **kwargs: Any) -> FakeResponse:
