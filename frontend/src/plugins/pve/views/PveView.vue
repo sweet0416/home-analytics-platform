@@ -115,7 +115,7 @@
           <div v-for="item in storage" :key="String(item.storage ?? item.id)" class="storage-row">
             <div class="storage-heading">
               <strong>{{ text(item.storage ?? item.id, '未知存储') }}</strong>
-              <span>{{ usage(item.used, item.total).toFixed(1) }}%</span>
+              <span :class="{ 'is-muted': !hasStorageCapacity(item) }">{{ storageUsage(item) }}</span>
             </div>
             <div class="usage-track"><span :style="{ width: `${usage(item.used, item.total)}%` }"></span></div>
             <small>{{ bytes(item.used) }} / {{ bytes(item.total) }} · {{ text(item.type, 'storage') }}</small>
@@ -283,6 +283,14 @@ function bytes(value: unknown): string {
 function usage(used: unknown, total: unknown): number {
   const value = Number(used) / Number(total) * 100;
   return Number.isFinite(value) ? Math.min(100, Math.max(0, value)) : 0;
+}
+
+function hasStorageCapacity(item: Record<string, unknown>): boolean {
+  return Number.isFinite(Number(item.used)) && Number.isFinite(Number(item.total)) && Number(item.total) > 0;
+}
+
+function storageUsage(item: Record<string, unknown>): string {
+  return hasStorageCapacity(item) ? `${usage(item.used, item.total).toFixed(1)}%` : '--';
 }
 
 function uptime(value: unknown): string {
