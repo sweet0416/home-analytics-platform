@@ -17,6 +17,9 @@ if ($DetailDelaySeconds -lt 0 -or $DetailDelaySeconds -gt 60) { throw 'DetailDel
 
 $ttskillCommand = Get-Command ttskill -ErrorAction Stop
 $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+# Build the account label from code points so Windows PowerShell 5 does not
+# reinterpret the script file's UTF-8 Chinese literal using the system code page.
+$accountName = ([char]0x5929) + ([char]0x5929) + ([char]0x57fa) + ([char]0x91d1)
 
 function Invoke-TtSkillJson {
     param([Parameter(Mandatory = $true)] [string]$Action, [Parameter(Mandatory = $true)] [hashtable]$Body)
@@ -136,7 +139,7 @@ foreach ($row in $rows) {
 $bundle = @{
     list_payload = $listPayload
     detail_payloads = $detailPayloads
-    account_name = '天天基金'
+    account_name = $accountName
 }
 if (-not [string]::IsNullOrWhiteSpace($BundlePath)) {
     $bundle | ConvertTo-Json -Depth 100 | Set-Content -LiteralPath $BundlePath -Encoding UTF8
