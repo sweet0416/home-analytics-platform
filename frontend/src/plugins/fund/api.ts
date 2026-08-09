@@ -861,6 +861,10 @@ export function fetchFundPositions(): Promise<FundPosition[]> {
   return getApiData<FundPosition[]>('/fund/positions');
 }
 
+export function getFundPositionsExportUrl(): string {
+  return '/api/v1/fund/positions/export';
+}
+
 export function fetchLatestFundAccountSnapshot(): Promise<FundAccountSnapshot | null> {
   return getApiData<FundAccountSnapshot | null>(
     '/fund/integrations/ttskill/holdings/latest',
@@ -890,6 +894,10 @@ export function createFundPosition(payload: FundPositionCreate): Promise<FundPos
 
 export function fetchFundTransactions(limit = 100): Promise<FundTransaction[]> {
   return getApiData<FundTransaction[]>(`/fund/transactions?limit=${limit}`);
+}
+
+export function getFundTransactionsExportUrl(limit = 500): string {
+  return `/api/v1/fund/transactions/export?limit=${limit}`;
 }
 
 export function createFundTransaction(

@@ -162,6 +162,19 @@ def list_fund_positions(
     return ok(service.list_positions())
 
 
+@router.get("/positions/export")
+def export_fund_positions(
+    service: FundService = Depends(get_fund_service),
+) -> Response:
+    return Response(
+        content="\ufeff" + service.export_positions_csv(),
+        media_type="text/csv; charset=utf-8",
+        headers={
+            "Content-Disposition": 'attachment; filename="hap-fund-positions.csv"',
+        },
+    )
+
+
 @router.get(
     "/holdings/nav-freshness",
     response_model=ApiResponse[FundNavFreshnessRead],
@@ -258,6 +271,20 @@ def list_fund_transactions(
     service: FundService = Depends(get_fund_service),
 ) -> ApiResponse[list[FundTransactionRead]]:
     return ok(service.list_transactions(limit=limit))
+
+
+@router.get("/transactions/export")
+def export_fund_transactions(
+    limit: int = Query(default=500, ge=1, le=500),
+    service: FundService = Depends(get_fund_service),
+) -> Response:
+    return Response(
+        content="\ufeff" + service.export_transactions_csv(limit=limit),
+        media_type="text/csv; charset=utf-8",
+        headers={
+            "Content-Disposition": 'attachment; filename="hap-fund-transactions.csv"',
+        },
+    )
 
 
 @router.post(

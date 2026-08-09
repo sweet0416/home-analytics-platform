@@ -419,6 +419,32 @@ def test_fund_positions_can_be_created_and_summarized(client: TestClient) -> Non
     assert final_summary_response.json()["data"]["position_count"] == 0
 
 
+def test_fund_positions_export_returns_utf8_csv(client: TestClient) -> None:
+    response = client.post(
+        "/api/v1/fund/positions",
+        json={
+            "fund_code": "513100",
+            "fund_name": "纳指 ETF",
+            "fund_type": "QDII",
+            "account_name": "默认账户",
+            "shares": "100",
+            "cost_price": "1.2000",
+            "current_nav": "1.3000",
+            "opened_at": "2026-07-01",
+            "tags": "海外",
+            "note": "export test",
+        },
+    )
+    assert response.status_code == 200
+
+    export_response = client.get("/api/v1/fund/positions/export")
+    assert export_response.status_code == 200
+    assert export_response.headers["content-type"].startswith("text/csv")
+    assert "attachment" in export_response.headers["content-disposition"]
+    assert "fund_code,fund_name" in export_response.content.decode("utf-8-sig")
+    assert "513100,纳指 ETF" in export_response.content.decode("utf-8-sig")
+
+
 def test_fund_allocation_uses_nav_and_cost_fallback(client: TestClient) -> None:
     payloads = [
         {
@@ -1113,6 +1139,14 @@ def test_fund_transactions_track_cash_flows(client: TestClient) -> None:
         "dividend",
         "fee",
     }
+
+    export_response = client.get("/api/v1/fund/transactions/export")
+    assert export_response.status_code == 200
+    assert export_response.headers["content-type"].startswith("text/csv")
+    assert "attachment" in export_response.headers["content-disposition"]
+    export_csv = export_response.content.decode("utf-8-sig")
+    assert "trade_date,transaction_type,fund_code" in export_csv
+    assert "110022" in export_csv
 
     summary_response = client.get("/api/v1/fund/transactions/summary")
     assert summary_response.status_code == 200

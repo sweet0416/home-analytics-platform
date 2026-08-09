@@ -10,6 +10,9 @@
       <el-button :icon="Refresh" :loading="loading" @click="loadTransactions">
         刷新
       </el-button>
+      <el-button :icon="Download" @click="downloadTransactions">
+        导出 CSV
+      </el-button>
     </div>
     <div class="panel-body">
       <div class="transaction-form">
@@ -248,7 +251,7 @@
 </template>
 
 <script setup lang="ts">
-import { Delete, Refresh, Search } from '@element-plus/icons-vue';
+import { Delete, Download, Refresh, Search } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { computed, onMounted, ref, watch } from 'vue';
 
@@ -259,6 +262,7 @@ import {
   deleteFundTransaction,
   fetchFundTransactions,
   fetchFundTransactionSummary,
+  getFundTransactionsExportUrl,
   lookupLatestFundNav,
   type FundTransaction,
   type FundTransactionCreate,
@@ -364,6 +368,10 @@ async function loadTransactions(): Promise<void> {
   } finally {
     loading.value = false;
   }
+}
+
+function downloadTransactions(): void {
+  window.location.href = getFundTransactionsExportUrl();
 }
 
 async function lookupFund(): Promise<void> {

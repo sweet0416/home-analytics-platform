@@ -265,6 +265,11 @@
         </div>
       </div>
       <div class="panel-body">
+        <div class="position-export-actions">
+          <el-button :icon="Download" @click="downloadPositions">
+            导出持仓 CSV
+          </el-button>
+        </div>
         <div class="position-form">
           <div v-if="editingPositionId !== null" class="edit-banner wide">
             正在编辑持仓 #{{ editingPositionId }}
@@ -459,7 +464,7 @@
 </template>
 
 <script setup lang="ts">
-import { Refresh, SortDown, SortUp } from '@element-plus/icons-vue';
+import { Download, Refresh, SortDown, SortUp } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { computed, onMounted, ref } from 'vue';
 
@@ -492,6 +497,7 @@ import {
   fetchFundNavSchedulerStatus,
   fetchFundNavSummary,
   fetchFundPositions,
+  getFundPositionsExportUrl,
   fetchFundStatus,
   fetchFundWatchlist,
   fetchFundWatchlistSummary,
@@ -1235,6 +1241,10 @@ async function loadOverview(): Promise<void> {
 }
 
 onMounted(loadOverview);
+
+function downloadPositions(): void {
+  window.location.href = getFundPositionsExportUrl();
+}
 </script>
 
 <style scoped>

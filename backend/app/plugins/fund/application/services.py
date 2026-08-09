@@ -258,6 +258,21 @@ class FundService:
     def list_positions(self) -> list[FundPositionRead]:
         return [self._to_position_read(position) for position in self.repository.list_positions()]
 
+    def export_positions_csv(self) -> str:
+        """Return the current manual positions as a portable CSV document."""
+        output = StringIO()
+        writer = csv.writer(output, lineterminator="\n")
+        fields = [
+            "fund_code", "fund_name", "fund_type", "account_name", "shares",
+            "cost_price", "total_cost", "current_nav", "target_weight",
+            "current_value", "unrealized_profit", "unrealized_return_rate",
+            "opened_at", "tags", "note", "updated_at",
+        ]
+        writer.writerow(fields)
+        for position in self.list_positions():
+            writer.writerow([getattr(position, field) for field in fields])
+        return output.getvalue()
+
     def get_nav_freshness(
         self,
         stale_after_business_days: int = 2,
@@ -463,6 +478,23 @@ class FundService:
             self._to_transaction_read(transaction)
             for transaction in self.repository.list_transactions(limit=bounded_limit)
         ]
+
+    def export_transactions_csv(self, *, limit: int = 500) -> str:
+        """Return recent transactions as a portable CSV document."""
+        bounded_limit = max(1, min(limit, 500))
+        output = StringIO()
+        writer = csv.writer(output, lineterminator="\n")
+        fields = [
+            "trade_date", "transaction_type", "fund_code", "fund_name",
+            "fund_type", "account_name", "shares", "unit_price", "amount",
+            "fee", "cash_flow", "note", "external_source", "external_trade_id",
+            "external_trade_type", "external_business_code", "external_status",
+            "external_confirm_status", "confirm_date", "updated_at",
+        ]
+        writer.writerow(fields)
+        for transaction in self.list_transactions(limit=bounded_limit):
+            writer.writerow([getattr(transaction, field) for field in fields])
+        return output.getvalue()
 
     def list_watchlist_items(self) -> list[FundWatchlistRead]:
         return [self._to_watchlist_read(item) for item in self.repository.list_watchlist_items()]
