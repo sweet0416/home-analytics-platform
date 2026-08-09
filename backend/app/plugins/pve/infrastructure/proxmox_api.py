@@ -42,6 +42,9 @@ class ProxmoxApiClient:
     def get_tasks(self, limit: int) -> list[dict[str, Any]]:
         return self._get_list(f"/cluster/tasks?limit={limit}")
 
+    def get_node_tasks(self, node: str, limit: int) -> list[dict[str, Any]]:
+        return self._get_list(f"/nodes/{node}/tasks?limit={limit}")
+
     def _get(self, path: str) -> dict[str, Any]:
         if not self.configured:
             raise ProxmoxApiError("PVE monitoring is not configured.")

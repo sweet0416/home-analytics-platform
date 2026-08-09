@@ -96,6 +96,25 @@ def test_pve_client_translates_request_errors() -> None:
         client.get_version()
 
 
+def test_pve_service_falls_back_to_node_tasks() -> None:
+    class TaskFallbackClient:
+        configured = True
+
+        def get_tasks(self, limit: int) -> list[dict[str, Any]]:
+            raise ProxmoxApiError("cluster tasks forbidden")
+
+        def get_nodes(self) -> list[dict[str, Any]]:
+            return [{"node": "VUModule"}]
+
+        def get_node_tasks(self, node: str, limit: int) -> list[dict[str, Any]]:
+            assert node == "VUModule"
+            return [{"node": node, "status": "OK"}]
+
+    result = PveService(configured_settings(), client=TaskFallbackClient()).tasks()  # type: ignore[arg-type]
+
+    assert result == [{"node": "VUModule", "status": "OK"}]
+
+
 def test_pve_status_is_explicit_when_disabled(client: TestClient) -> None:
     response = client.get("/api/v1/pve/status")
 

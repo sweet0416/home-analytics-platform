@@ -40,4 +40,22 @@ class PveService:
         return self.client.get_storage()
 
     def tasks(self) -> list[dict[str, Any]]:
-        return self.client.get_tasks(self.settings.pve_tasks_limit)
+        limit = self.settings.pve_tasks_limit
+        try:
+            return self.client.get_tasks(limit)
+        except Exception:  # noqa: BLE001
+            # Some PVE installations restrict the cluster-wide task endpoint.
+            # Fall back to the node-scoped read-only endpoint so one limitation
+            # does not hide all recent task data.
+            tasks: list[dict[str, Any]] = []
+            for node in self.client.get_nodes():
+                node_name = node.get("node")
+                if not isinstance(node_name, str) or not node_name:
+                    continue
+                try:
+                    tasks.extend(self.client.get_node_tasks(node_name, limit))
+                except Exception:  # noqa: BLE001
+                    continue
+                if len(tasks) >= limit:
+                    break
+            return tasks[:limit]
