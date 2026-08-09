@@ -21,32 +21,24 @@
           <RouterLink to="/lottery/dlt" class="panel-link">打开</RouterLink>
         </div>
         <div class="panel-body">
-          <div class="summary-row">
-            <span>当前规则</span>
-            <strong>{{ lottery.rule?.rule_name ?? '未加载' }}</strong>
-          </div>
-          <div class="summary-row">
-            <span>最新期号</span>
-            <strong>{{ latestIssue }}</strong>
-          </div>
-          <div class="summary-row">
-            <span>开奖数据</span>
-            <strong>{{ lottery.draws?.pagination.total ?? 0 }}</strong>
-          </div>
-          <div class="summary-row">
-            <span>同步状态</span>
-            <strong>{{ syncStatus }}</strong>
-          </div>
+          <div class="summary-row"><span>当前规则</span><strong>{{ lottery.rule?.rule_name ?? '未加载' }}</strong></div>
+          <div class="summary-row"><span>最新期号</span><strong>{{ latestIssue }}</strong></div>
+          <div class="summary-row"><span>开奖数据</span><strong>{{ lottery.draws?.pagination.total ?? 0 }}</strong></div>
+          <div class="summary-row"><span>同步状态</span><strong>{{ syncStatus }}</strong></div>
         </div>
       </RevealContent>
 
       <RevealContent as="section" class="panel" :delay="380">
-        <div class="panel-header">
-          <h2 class="panel-title">基础设施</h2>
-        </div>
+        <div class="panel-header"><h2 class="panel-title">基础设施</h2></div>
         <div class="panel-body infra-list">
-          <div><span>Docker</span><strong>预留</strong></div>
-          <div><span>PVE</span><strong>预留</strong></div>
+          <div>
+            <span>Docker</span>
+            <span class="infra-actions">
+              <strong :class="dockerStatusClass">{{ dockerSummary }}</strong>
+              <RouterLink to="/docker" class="panel-link">查看</RouterLink>
+            </span>
+          </div>
+          <div><span>PVE</span><strong>已接入</strong></div>
           <div><span>Scheduler</span><strong>{{ schedulerStatus }}</strong></div>
         </div>
       </RevealContent>
@@ -55,15 +47,17 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 
 import RevealContent from '@/components/common/RevealContent.vue';
 import MetricCard from '@/components/metric/MetricCard.vue';
+import { fetchDockerStatus, type DockerStatus } from '@/plugins/docker/api';
 import { useLotteryStore } from '@/plugins/lottery/store';
 import { useSystemStore } from '@/stores/system';
 
 const system = useSystemStore();
 const lottery = useLotteryStore();
+const dockerStatus = ref<DockerStatus | null>(null);
 
 const latestIssue = computed(() => lottery.draws?.items[0]?.issue_no ?? '--');
 const syncStatus = computed(() => {
@@ -78,59 +72,33 @@ const syncStatus = computed(() => {
   return labels[status] ?? status;
 });
 const schedulerStatus = computed(() => (lottery.latestSyncRun ? '已启用' : '等待首次运行'));
+const dockerSummary = computed(() => {
+  if (!dockerStatus.value?.configured) return '未配置';
+  if (!dockerStatus.value.reachable) return '连接异常';
+  return `${dockerStatus.value.running}/${dockerStatus.value.containers} 运行中`;
+});
+const dockerStatusClass = computed(() => ({
+  'is-online': Boolean(dockerStatus.value?.reachable),
+  'is-warning': Boolean(dockerStatus.value?.configured && !dockerStatus.value?.reachable),
+}));
 
 onMounted(() => {
   void system.fetchHealth();
   void lottery.loadOverview();
+  void fetchDockerStatus().then((value) => { dockerStatus.value = value; }).catch(() => { dockerStatus.value = null; });
 });
 </script>
 
 <style scoped>
-.dashboard-grid {
-  display: grid;
-  grid-template-columns: 1.4fr 1fr;
-  gap: 16px;
-  margin-top: 16px;
-}
-
-.panel-link {
-  color: var(--color-primary);
-  font-size: 13px;
-}
-
-.summary-row,
-.infra-list div {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  border-bottom: 1px solid rgba(148, 163, 184, 0.12);
-  padding: 11px 0;
-}
-
-.summary-row:first-child,
-.infra-list div:first-child {
-  padding-top: 0;
-}
-
-.summary-row:last-child,
-.infra-list div:last-child {
-  border-bottom: 0;
-  padding-bottom: 0;
-}
-
-.summary-row span,
-.infra-list span {
-  color: var(--color-muted);
-}
-
-.summary-row strong,
-.infra-list strong {
-  text-align: right;
-}
-
-@media (max-width: 900px) {
-  .dashboard-grid {
-    grid-template-columns: 1fr;
-  }
-}
+.dashboard-grid { display: grid; grid-template-columns: 1.4fr 1fr; gap: 16px; margin-top: 16px; }
+.panel-link { color: var(--color-primary); font-size: 13px; }
+.summary-row, .infra-list div { display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(148, 163, 184, 0.12); padding: 11px 0; }
+.summary-row:first-child, .infra-list div:first-child { padding-top: 0; }
+.summary-row:last-child, .infra-list div:last-child { border-bottom: 0; padding-bottom: 0; }
+.summary-row span, .infra-list span { color: var(--color-muted); }
+.summary-row strong, .infra-list strong { text-align: right; }
+.infra-actions { display: inline-flex; align-items: center; gap: 12px; }
+.infra-actions strong.is-online { color: var(--color-success); }
+.infra-actions strong.is-warning { color: var(--color-warning); }
+@media (max-width: 900px) { .dashboard-grid { grid-template-columns: 1fr; } }
 </style>
