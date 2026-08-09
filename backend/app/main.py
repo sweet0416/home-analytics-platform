@@ -13,6 +13,7 @@ from app.core.middleware import add_trace_id_middleware
 from app.core.plugins.registry import plugin_registry
 from app.plugins.fund.plugin import fund_plugin
 from app.plugins.lottery.plugin import lottery_plugin
+from app.plugins.pve.plugin import pve_plugin
 from app.shared.exceptions.handlers import register_exception_handlers
 
 
@@ -24,6 +25,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     start_backup_scheduler()
     plugin_registry.register(fund_plugin)
     plugin_registry.register(lottery_plugin)
+    plugin_registry.register(pve_plugin)
     try:
         yield
     finally:

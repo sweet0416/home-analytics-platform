@@ -24,3 +24,5 @@ class ErrorCode(StrEnum):
     fund_ttskill_sync_disabled = "FUND_TTSKILL_SYNC_DISABLED"
     fund_ttskill_unauthorized = "FUND_TTSKILL_UNAUTHORIZED"
     fund_ttskill_parse_failed = "FUND_TTSKILL_PARSE_FAILED"
+    pve_not_configured = "PVE_NOT_CONFIGURED"
+    pve_api_unavailable = "PVE_API_UNAVAILABLE"

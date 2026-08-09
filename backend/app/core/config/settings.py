@@ -89,6 +89,13 @@ class Settings(BaseSettings):
     fund_ai_summary_timeout_seconds: int = Field(default=30, ge=5, le=120)
     fund_ai_auto_summary_enabled: bool = False
     fund_ai_auto_summary_max_per_day: int = Field(default=1, ge=1, le=1)
+    pve_enabled: bool = False
+    pve_url: str = ""
+    pve_api_token_id: str = ""
+    pve_api_token_secret: str = ""
+    pve_verify_ssl: bool = True
+    pve_timeout_seconds: int = Field(default=10, ge=3, le=60)
+    pve_tasks_limit: int = Field(default=50, ge=1, le=200)
     cors_origins: list[str] = Field(
         default_factory=lambda: [
             "http://localhost:5173",
