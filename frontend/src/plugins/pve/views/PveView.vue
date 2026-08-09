@@ -279,9 +279,10 @@ function statusDotClass(value: unknown): string {
 }
 
 function taskStatusType(value: unknown): 'success' | 'warning' | 'danger' | 'info' {
-  if (value === 'OK') return 'success';
-  if (value === 'stopped') return 'warning';
-  if (value === 'error') return 'danger';
+  const status = String(value ?? '').toLowerCase();
+  if (status === 'ok') return 'success';
+  if (status === 'stopped') return 'warning';
+  if (status === 'error' || status.includes('failed') || status.includes('error')) return 'danger';
   return 'info';
 }
 
