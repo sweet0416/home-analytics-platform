@@ -34,7 +34,10 @@ class DockerApiClient:
     def get_container_stats(self, container_id: str) -> dict[str, Any]:
         if not container_id or "/" in container_id:
             raise DockerApiError("Docker API received an invalid container id.")
-        return self._get_object(f"/containers/{container_id}/stats?stream=false")
+        return self._get_object(
+            f"/containers/{container_id}/stats?stream=false",
+            timeout=self.settings.docker_stats_timeout_seconds,
+        )
 
     def get_volumes(self) -> list[dict[str, Any]]:
         payload = self._get_object("/volumes")
@@ -43,19 +46,19 @@ class DockerApiClient:
             raise DockerApiError("Docker API returned an invalid volume list.")
         return volumes
 
-    def _get_object(self, path: str) -> dict[str, Any]:
-        payload = self._get_json(path)
+    def _get_object(self, path: str, timeout: int | None = None) -> dict[str, Any]:
+        payload = self._get_json(path, timeout=timeout)
         if not isinstance(payload, dict):
             raise DockerApiError("Docker API returned an invalid object.")
         return payload
 
-    def _get_json(self, path: str) -> Any:
+    def _get_json(self, path: str, timeout: int | None = None) -> Any:
         if not self.configured:
             raise DockerApiError("Docker monitoring is not configured.")
         try:
             response = self.session.get(
                 f"{self.base_url}{path}",
-                timeout=self.settings.docker_timeout_seconds,
+                timeout=timeout or self.settings.docker_timeout_seconds,
             )
             response.raise_for_status()
             payload = response.json()

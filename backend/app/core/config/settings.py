@@ -100,6 +100,7 @@ class Settings(BaseSettings):
     docker_url: str = "http://docker-socket-proxy:2375"
     docker_timeout_seconds: int = Field(default=10, ge=3, le=60)
     docker_stats_limit: int = Field(default=20, ge=1, le=50)
+    docker_stats_timeout_seconds: int = Field(default=3, ge=1, le=10)
     cors_origins: list[str] = Field(
         default_factory=lambda: [
             "http://localhost:5173",

@@ -1,3 +1,4 @@
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any
 
 from app.core.config.settings import Settings
@@ -40,16 +41,19 @@ class DockerService:
     def container_stats(self) -> list[dict[str, Any]]:
         containers = self.client.get_containers()
         active = [item for item in containers if item.get("State") == "running"]
+        targets = [str(item.get("Id", "")) for item in active[: self.client.settings.docker_stats_limit]]
+        targets = [item for item in targets if item]
+        if not targets:
+            return []
         results: list[dict[str, Any]] = []
-        for container in active[: self.client.settings.docker_stats_limit]:
-            container_id = str(container.get("Id", ""))
-            if not container_id:
-                continue
-            try:
-                stats = self.client.get_container_stats(container_id)
-            except Exception:  # noqa: BLE001
-                continue
-            results.append({"id": container_id, **self._normalize_stats(stats)})
+        with ThreadPoolExecutor(max_workers=min(4, len(targets))) as executor:
+            futures = {executor.submit(self.client.get_container_stats, container_id): container_id for container_id in targets}
+            for future in as_completed(futures):
+                container_id = futures[future]
+                try:
+                    results.append({"id": container_id, **self._normalize_stats(future.result())})
+                except Exception:  # noqa: BLE001
+                    continue
         return results
 
     @staticmethod
