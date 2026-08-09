@@ -7,6 +7,7 @@ import ReportsView from '@/views/ReportsView.vue';
 import SettingsView from '@/views/SettingsView.vue';
 import { fundRoutes } from '@/plugins/fund/routes';
 import { lotteryRoutes } from '@/plugins/lottery/routes';
+import { pveRoutes } from '@/plugins/pve/routes';
 
 const routes: RouteRecordRaw[] = [
   {
@@ -20,6 +21,7 @@ const routes: RouteRecordRaw[] = [
       },
       ...lotteryRoutes,
       ...fundRoutes,
+      ...pveRoutes,
       {
         path: 'stocks',
         name: 'stocks-placeholder',
@@ -33,8 +35,8 @@ const routes: RouteRecordRaw[] = [
         meta: { title: 'Docker', subtitle: 'PVE 主机 Docker 容器监控模块' },
       },
       {
-        path: 'pve',
-        name: 'pve-placeholder',
+        path: 'pve-legacy',
+        name: 'pve-placeholder-legacy',
         component: PlaceholderView,
         meta: { title: 'PVE', subtitle: 'Proxmox VE 节点、VM、LXC 与存储监控模块' },
       },
