@@ -3,6 +3,7 @@ param(
     [string]$HapBaseUrl = 'http://192.168.100.249:8088',
     [string]$SyncToken = $env:HAP_TTSKILL_SYNC_TOKEN,
     [int]$Months = 1,
+    [int]$DetailDelaySeconds = 2,
     [switch]$PreviewOnly,
     [switch]$AutoConfirm,
     [string]$BundlePath = ''
@@ -12,6 +13,7 @@ $ErrorActionPreference = 'Stop'
 
 if ([string]::IsNullOrWhiteSpace($SyncToken)) { throw 'Set HAP_TTSKILL_SYNC_TOKEN or pass -SyncToken before synchronizing.' }
 if ($Months -notin @(1, 3, 6, 12)) { throw 'Months must be one of 1, 3, 6, or 12.' }
+if ($DetailDelaySeconds -lt 0 -or $DetailDelaySeconds -gt 60) { throw 'DetailDelaySeconds must be between 0 and 60.' }
 
 $ttskillCommand = Get-Command ttskill -ErrorAction Stop
 $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
@@ -25,8 +27,23 @@ function Invoke-TtSkillJson {
         [System.IO.File]::WriteAllText($requestPath, $request, $utf8NoBom)
         # Trade import needs the complete raw result, not the CLI summary envelope.
         # Read it from a file so PowerShell does not corrupt non-ASCII JSON in the pipe.
-        & $ttskillCommand.Source invoke TRADE_QUERY --action $Action --body $requestPath --output $responsePath | Out-Null
-        if ($LASTEXITCODE -ne 0) { throw "ttskill $Action failed with exit code $LASTEXITCODE." }
+        $maxAttempts = 3
+        for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
+            if (Test-Path -LiteralPath $responsePath) { Remove-Item -LiteralPath $responsePath -Force }
+            $cliOutput = @(
+                & $ttskillCommand.Source invoke TRADE_QUERY --action $Action --body $requestPath --output $responsePath 2>&1
+            )
+            if ($LASTEXITCODE -eq 0) { break }
+
+            $errorText = ($cliOutput | ForEach-Object { [string]$_ }) -join "`n"
+            if ($errorText -notmatch '429|调用次数|rate limit' -or $attempt -eq $maxAttempts) {
+                throw "ttskill $Action failed with exit code $LASTEXITCODE. $errorText"
+            }
+
+            $retryDelay = 60
+            Write-Warning ("ttskill {0} hit the rate limit; retrying in {1}s ({2}/{3})." -f $Action, $retryDelay, $attempt, $maxAttempts)
+            Start-Sleep -Seconds $retryDelay
+        }
         if (-not (Test-Path -LiteralPath $responsePath)) { throw "ttskill $Action did not write a JSON response file." }
         $rawText = [System.IO.File]::ReadAllText($responsePath)
         try {
@@ -100,6 +117,9 @@ if ($tradeCount -eq 0) {
 }
 $detailPayloads = @()
 foreach ($row in $rows) {
+    if ($detailPayloads.Count -gt 0 -and $DetailDelaySeconds -gt 0) {
+        Start-Sleep -Seconds $DetailDelaySeconds
+    }
     $tradeId = if ($row.PSObject.Properties.Name -contains 'tradeId') { $row.tradeId } else { $row.trade_id }
     $fundCode = if ($row.PSObject.Properties.Name -contains 'fundCode') { $row.fundCode } else { $row.fund_code }
     $detailPayloads += Invoke-TtSkillJson -Action 'trade_detail' -Body @{
