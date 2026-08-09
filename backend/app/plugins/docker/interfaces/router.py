@@ -37,6 +37,11 @@ def get_docker_containers(service: DockerService = Depends(get_docker_service)) 
     return _read(service.containers)
 
 
+@router.get("/containers/stats", response_model=ApiResponse[DockerResourceRead])
+def get_docker_container_stats(service: DockerService = Depends(get_docker_service)) -> ApiResponse[DockerResourceRead]:
+    return _read(service.container_stats)
+
+
 @router.get("/images", response_model=ApiResponse[DockerResourceRead])
 def get_docker_images(service: DockerService = Depends(get_docker_service)) -> ApiResponse[DockerResourceRead]:
     return _read(service.images)

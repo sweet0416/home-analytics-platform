@@ -24,6 +24,10 @@ export function fetchDockerContainers(): Promise<DockerResourceResponse> {
   return getApiData<DockerResourceResponse>('/docker/containers');
 }
 
+export function fetchDockerContainerStats(): Promise<DockerResourceResponse> {
+  return getApiData<DockerResourceResponse>('/docker/containers/stats');
+}
+
 export function fetchDockerImages(): Promise<DockerResourceResponse> {
   return getApiData<DockerResourceResponse>('/docker/images');
 }

@@ -31,6 +31,11 @@ class DockerApiClient:
     def get_images(self) -> list[dict[str, Any]]:
         return self._get_list("/images/json")
 
+    def get_container_stats(self, container_id: str) -> dict[str, Any]:
+        if not container_id or "/" in container_id:
+            raise DockerApiError("Docker API received an invalid container id.")
+        return self._get_object(f"/containers/{container_id}/stats?stream=false")
+
     def get_volumes(self) -> list[dict[str, Any]]:
         payload = self._get_object("/volumes")
         volumes = payload.get("Volumes", [])

@@ -55,11 +55,14 @@
         </div>
         <div class="panel-body table-wrap">
           <table class="data-table">
-            <thead><tr><th>名称</th><th>状态</th><th>镜像</th><th>端口</th></tr></thead>
+            <thead><tr><th>名称</th><th>状态</th><th>CPU</th><th>内存</th><th>网络</th><th>镜像</th><th>端口</th></tr></thead>
             <tbody>
               <tr v-for="container in containers" :key="String(container.Id ?? container.Names)">
                 <td><strong>{{ containerName(container) }}</strong></td>
                 <td><span class="state"><i :class="['status-dot', containerStatusClass(container)]"></i>{{ text(container.Status, '未知') }}</span></td>
+                <td>{{ statText(container, 'cpu_percent', '%') }}</td>
+                <td>{{ memoryText(container) }}</td>
+                <td>{{ networkText(container) }}</td>
                 <td class="truncate">{{ text(container.Image, '--') }}</td>
                 <td>{{ ports(container.Ports) }}</td>
               </tr>
@@ -101,6 +104,7 @@ import { computed, onMounted, ref } from 'vue';
 import MetricCard from '@/components/metric/MetricCard.vue';
 import {
   fetchDockerContainers,
+  fetchDockerContainerStats,
   fetchDockerImages,
   fetchDockerStatus,
   fetchDockerVolumes,
@@ -160,15 +164,52 @@ function containerStatusClass(container: Record<string, unknown>): string {
   return container.State === 'running' ? 'is-running' : 'is-stopped';
 }
 
+function statText(container: Record<string, unknown>, key: string, suffix = ''): string {
+  const stats = container.stats as Record<string, unknown> | undefined;
+  const value = Number(stats?.[key]);
+  return Number.isFinite(value) ? `${value.toFixed(1)}${suffix}` : '--';
+}
+
+function memoryText(container: Record<string, unknown>): string {
+  const stats = container.stats as Record<string, unknown> | undefined;
+  const usage = Number(stats?.memory_usage);
+  const limit = Number(stats?.memory_limit);
+  if (!Number.isFinite(usage) || !Number.isFinite(limit) || !limit) return '--';
+  return `${bytes(usage)} / ${bytes(limit)}`;
+}
+
+function networkText(container: Record<string, unknown>): string {
+  const stats = container.stats as Record<string, unknown> | undefined;
+  const rx = Number(stats?.network_rx);
+  const tx = Number(stats?.network_tx);
+  if (!Number.isFinite(rx) || !Number.isFinite(tx)) return '--';
+  return `↓${bytes(rx)} ↑${bytes(tx)}`;
+}
+
+function bytes(value: number): string {
+  if (!Number.isFinite(value) || value <= 0) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB'];
+  const index = Math.min(Math.floor(Math.log(value) / Math.log(1024)), units.length - 1);
+  return `${(value / 1024 ** index).toFixed(index ? 1 : 0)} ${units[index]}`;
+}
+
 async function loadAll(): Promise<void> {
   loading.value = true;
   errorMessage.value = '';
   try {
     status.value = await fetchDockerStatus();
-    const results = await Promise.allSettled([fetchDockerContainers(), fetchDockerImages(), fetchDockerVolumes()]);
+    const results = await Promise.allSettled([fetchDockerContainers(), fetchDockerContainerStats(), fetchDockerImages(), fetchDockerVolumes()]);
     const targets = [containers, images, volumes];
     results.forEach((result, index) => {
-      if (result.status === 'fulfilled') targets[index].value = result.value.data;
+      if (index === 1) {
+        if (result.status === 'fulfilled') {
+          const statsById = new Map(result.value.data.map((item) => [String(item.id), item]));
+          containers.value = containers.value.map((container) => ({ ...container, stats: statsById.get(String(container.Id)) }));
+        } else if (!errorMessage.value) errorMessage.value = '容器资源统计读取失败，基础状态仍可用。';
+        return;
+      }
+      const target = targets[index > 1 ? index - 1 : index];
+      if (result.status === 'fulfilled') target.value = result.value.data;
       else if (!errorMessage.value) errorMessage.value = '部分 Docker 资源读取失败，请稍后重试。';
     });
     if (status.value.error) errorMessage.value = status.value.error;
