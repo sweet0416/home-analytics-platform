@@ -148,7 +148,7 @@
 
 <script setup lang="ts">
 import { Refresh } from '@element-plus/icons-vue';
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, reactive, ref } from 'vue';
 
 import MetricCard from '@/components/metric/MetricCard.vue';
 import {
@@ -168,20 +168,26 @@ const storage = ref<Record<string, unknown>[]>([]);
 const tasks = ref<Record<string, unknown>[]>([]);
 const errorMessage = ref('');
 const refreshedAt = ref<Date | null>(null);
+type ResourceKey = 'nodes' | 'guests' | 'storage' | 'tasks';
+const resourceErrors = reactive<Record<ResourceKey, string>>({ nodes: '', guests: '', storage: '', tasks: '' });
 
 const configured = computed(() => Boolean(status.value?.configured));
 const connectionClass = computed(() => {
   if (!status.value?.configured) return 'is-muted';
+  if (hasResourceError.value) return 'is-warning';
   return status.value.reachable ? 'is-online' : 'is-warning';
 });
 const connectionTitle = computed(() => {
   if (!status.value?.configured) return 'PVE 只读监控尚未配置';
+  if (hasResourceError.value) return 'PVE API 已连接，资源读取异常';
   return status.value.reachable ? 'PVE API 连接正常' : 'PVE API 暂时不可达';
 });
 const connectionMessage = computed(() => {
   if (!status.value?.configured) return '配置只读 Token 后，HAP 才会读取节点和虚拟机状态。';
+  if (hasResourceError.value) return '版本接口正常，但部分资源接口返回错误，请检查 Token Secret 和 PVEAuditor 权限。';
   return status.value.reachable ? '数据来自 Proxmox VE API，只读模式已启用。' : status.value.error ?? '请检查 PVE 地址、证书和 Token。';
 });
+const hasResourceError = computed(() => Object.values(resourceErrors).some(Boolean));
 const refreshedAtLabel = computed(() =>
   refreshedAt.value ? `更新于 ${refreshedAt.value.toLocaleTimeString('zh-CN', { hour12: false })}` : '尚未更新',
 );
@@ -189,6 +195,7 @@ const refreshedAtLabel = computed(() =>
 async function loadAll(): Promise<void> {
   loading.value = true;
   errorMessage.value = '';
+  for (const key of Object.keys(resourceErrors) as ResourceKey[]) resourceErrors[key] = '';
   try {
     const currentStatus = await fetchPveStatus();
     status.value = currentStatus;
@@ -199,16 +206,25 @@ async function loadAll(): Promise<void> {
       tasks.value = [];
       return;
     }
-    const [nodeResult, guestResult, storageResult, taskResult] = await Promise.all([
+    const results = await Promise.allSettled([
       fetchPveNodes(),
       fetchPveGuests(),
       fetchPveStorage(),
       fetchPveTasks(),
     ]);
-    nodes.value = nodeResult.data;
-    guests.value = guestResult.data;
-    storage.value = storageResult.data;
-    tasks.value = taskResult.data;
+    const keys: ResourceKey[] = ['nodes', 'guests', 'storage', 'tasks'];
+    const setters = [
+      (data: Record<string, unknown>[]) => { nodes.value = data; },
+      (data: Record<string, unknown>[]) => { guests.value = data; },
+      (data: Record<string, unknown>[]) => { storage.value = data; },
+      (data: Record<string, unknown>[]) => { tasks.value = data; },
+    ];
+    results.forEach((result, index) => {
+      const key = keys[index];
+      if (result.status === 'fulfilled') setters[index](result.value.data);
+      else resourceErrors[key] = result.reason instanceof Error ? result.reason.message : '接口读取失败';
+    });
+    if (hasResourceError.value) errorMessage.value = 'PVE 已连接，但部分资源接口读取失败；页面将保留能够正常返回的数据。';
     refreshedAt.value = new Date();
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : 'PVE 数据加载失败，请稍后重试。';
