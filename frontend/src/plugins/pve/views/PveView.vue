@@ -130,9 +130,15 @@
             <h2 class="panel-title">最近任务</h2>
             <span class="panel-meta">只读显示，不提供操作入口</span>
           </div>
+          <el-select v-model="taskFilter" class="task-filter" size="small" aria-label="任务状态筛选">
+            <el-option label="全部" value="all" />
+            <el-option label="成功" value="success" />
+            <el-option label="失败" value="failed" />
+            <el-option label="已停止" value="stopped" />
+          </el-select>
         </div>
         <div class="panel-body task-list">
-          <div v-for="task in tasks" :key="String(task.upid ?? task.id)" class="task-row">
+          <div v-for="task in visibleTasks" :key="String(task.upid ?? task.id)" class="task-row">
             <div>
               <strong>{{ text(task.type, '任务') }}</strong>
               <small>{{ text(task.node, '--') }} · {{ text(task.user, '未知用户') }}</small>
@@ -143,6 +149,7 @@
               </el-tag>
             </el-tooltip>
           </div>
+          <div v-if="tasks.length && !visibleTasks.length" class="empty-inline">当前筛选条件下暂无任务</div>
           <div v-if="!tasks.length" class="empty-inline">暂无任务数据</div>
         </div>
       </section>
@@ -170,6 +177,7 @@ const nodes = ref<Record<string, unknown>[]>([]);
 const guests = ref<Record<string, unknown>[]>([]);
 const storage = ref<Record<string, unknown>[]>([]);
 const tasks = ref<Record<string, unknown>[]>([]);
+const taskFilter = ref<'all' | 'success' | 'failed' | 'stopped'>('all');
 const errorMessage = ref('');
 const refreshedAt = ref<Date | null>(null);
 type ResourceKey = 'nodes' | 'guests' | 'storage' | 'tasks';
@@ -192,6 +200,13 @@ const connectionMessage = computed(() => {
   return status.value.reachable ? '数据来自 Proxmox VE API，只读模式已启用。' : status.value.error ?? '请检查 PVE 地址、证书和 Token。';
 });
 const hasResourceError = computed(() => Object.values(resourceErrors).some(Boolean));
+const visibleTasks = computed(() => tasks.value.filter((task) => {
+  if (taskFilter.value === 'all') return true;
+  const status = String(task.status ?? '').toLowerCase();
+  if (taskFilter.value === 'success') return status === 'ok';
+  if (taskFilter.value === 'stopped') return status === 'stopped';
+  return status.includes('failed') || status.includes('error');
+}));
 const refreshedAtLabel = computed(() =>
   refreshedAt.value ? `更新于 ${refreshedAt.value.toLocaleTimeString('zh-CN', { hour12: false })}` : '尚未更新',
 );
@@ -329,6 +344,7 @@ onMounted(() => {
 .storage-row { display: grid; gap: 7px; padding-bottom: 3px; }
 .storage-heading { align-items: center; display: flex; justify-content: space-between; }
 .storage-heading span { color: var(--color-primary); font-variant-numeric: tabular-nums; font-size: 12px; }
+.task-filter { width: 108px; }
 .usage-track { background: rgba(148, 163, 184, 0.12); border-radius: 999px; height: 6px; overflow: hidden; }
 .usage-track span { background: linear-gradient(90deg, var(--color-primary-strong), #7dd3fc); border-radius: inherit; display: block; height: 100%; transition: width 240ms ease; }
 .task-row > div { display: grid; gap: 3px; }
