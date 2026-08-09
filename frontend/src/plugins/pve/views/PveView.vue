@@ -117,6 +117,7 @@
               <strong>{{ text(item.storage ?? item.id, '未知存储') }}</strong>
               <span :class="{ 'is-muted': !hasStorageCapacity(item) }">{{ storageUsage(item) }}</span>
             </div>
+            <small class="storage-meta">{{ text(item.node, '--') }} · {{ text(item.type, 'storage') }} · {{ text(item.content, 'content unknown') }} · free {{ storageAvailable(item) }}</small>
             <div class="usage-track"><span :style="{ width: `${usage(item.used, item.total)}%` }"></span></div>
             <small>{{ bytes(item.used) }} / {{ bytes(item.total) }} · {{ text(item.type, 'storage') }}</small>
           </div>
@@ -293,6 +294,11 @@ function storageUsage(item: Record<string, unknown>): string {
   return hasStorageCapacity(item) ? `${usage(item.used, item.total).toFixed(1)}%` : '--';
 }
 
+function storageAvailable(item: Record<string, unknown>): string {
+  if (!hasStorageCapacity(item)) return '--';
+  return bytes(Number(item.total) - Number(item.used));
+}
+
 function uptime(value: unknown): string {
   const seconds = Number(value);
   if (!Number.isFinite(seconds)) return '--';
@@ -352,6 +358,7 @@ onMounted(() => {
 .storage-row { display: grid; gap: 7px; padding-bottom: 3px; }
 .storage-heading { align-items: center; display: flex; justify-content: space-between; }
 .storage-heading span { color: var(--color-primary); font-variant-numeric: tabular-nums; font-size: 12px; }
+.storage-meta { overflow-wrap: anywhere; }
 .task-filter { width: 108px; }
 .usage-track { background: rgba(148, 163, 184, 0.12); border-radius: 999px; height: 6px; overflow: hidden; }
 .usage-track span { background: linear-gradient(90deg, var(--color-primary-strong), #7dd3fc); border-radius: inherit; display: block; height: 100%; transition: width 240ms ease; }
