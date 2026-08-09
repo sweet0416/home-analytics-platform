@@ -11,6 +11,7 @@ from app.core.database.session import create_database_schema
 from app.core.logging.setup import configure_logging
 from app.core.middleware import add_trace_id_middleware
 from app.core.plugins.registry import plugin_registry
+from app.plugins.docker.plugin import docker_plugin
 from app.plugins.fund.plugin import fund_plugin
 from app.plugins.lottery.plugin import lottery_plugin
 from app.plugins.pve.plugin import pve_plugin
@@ -26,6 +27,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     plugin_registry.register(fund_plugin)
     plugin_registry.register(lottery_plugin)
     plugin_registry.register(pve_plugin)
+    plugin_registry.register(docker_plugin)
     try:
         yield
     finally:

@@ -26,3 +26,5 @@ class ErrorCode(StrEnum):
     fund_ttskill_parse_failed = "FUND_TTSKILL_PARSE_FAILED"
     pve_not_configured = "PVE_NOT_CONFIGURED"
     pve_api_unavailable = "PVE_API_UNAVAILABLE"
+    docker_not_configured = "DOCKER_NOT_CONFIGURED"
+    docker_api_unavailable = "DOCKER_API_UNAVAILABLE"

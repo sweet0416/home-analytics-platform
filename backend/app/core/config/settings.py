@@ -96,6 +96,9 @@ class Settings(BaseSettings):
     pve_verify_ssl: bool = True
     pve_timeout_seconds: int = Field(default=10, ge=3, le=60)
     pve_tasks_limit: int = Field(default=50, ge=1, le=200)
+    docker_enabled: bool = False
+    docker_url: str = "http://docker-socket-proxy:2375"
+    docker_timeout_seconds: int = Field(default=10, ge=3, le=60)
     cors_origins: list[str] = Field(
         default_factory=lambda: [
             "http://localhost:5173",

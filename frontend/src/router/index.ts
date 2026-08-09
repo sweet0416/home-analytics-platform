@@ -5,6 +5,7 @@ import DashboardView from '@/views/DashboardView.vue';
 import PlaceholderView from '@/views/PlaceholderView.vue';
 import ReportsView from '@/views/ReportsView.vue';
 import SettingsView from '@/views/SettingsView.vue';
+import { dockerRoutes } from '@/plugins/docker/routes';
 import { fundRoutes } from '@/plugins/fund/routes';
 import { lotteryRoutes } from '@/plugins/lottery/routes';
 import { pveRoutes } from '@/plugins/pve/routes';
@@ -22,17 +23,12 @@ const routes: RouteRecordRaw[] = [
       ...lotteryRoutes,
       ...fundRoutes,
       ...pveRoutes,
+      ...dockerRoutes,
       {
         path: 'stocks',
         name: 'stocks-placeholder',
         component: PlaceholderView,
         meta: { title: 'Stocks', subtitle: '股票行情、持仓与走势图模块' },
-      },
-      {
-        path: 'docker',
-        name: 'docker-placeholder',
-        component: PlaceholderView,
-        meta: { title: 'Docker', subtitle: 'PVE 主机 Docker 容器监控模块' },
       },
       {
         path: 'pve-legacy',
