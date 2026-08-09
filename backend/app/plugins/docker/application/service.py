@@ -19,6 +19,7 @@ class DockerService:
             "docker_version": None,
             "containers": 0,
             "running": 0,
+            "problematic": 0,
             "error": None,
         }
         if not self.client.configured:
@@ -33,7 +34,16 @@ class DockerService:
         result["docker_version"] = version.get("Version")
         result["containers"] = len(containers)
         result["running"] = sum(item.get("State") == "running" for item in containers)
+        result["problematic"] = sum(self._is_problematic(item) for item in containers)
         return result
+
+    @staticmethod
+    def _is_problematic(container: dict[str, Any]) -> bool:
+        state = str(container.get("State", "")).lower()
+        status = str(container.get("Status", "")).lower()
+        return state in {"dead", "restarting", "paused"} or any(
+            marker in status for marker in ("exited", "restarting", "unhealthy", "dead")
+        )
 
     def containers(self) -> list[dict[str, Any]]:
         return self.client.get_containers()

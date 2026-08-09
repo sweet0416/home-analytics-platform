@@ -12,6 +12,7 @@ class DockerStatusRead(BaseModel):
     docker_version: str | None = None
     containers: int = 0
     running: int = 0
+    problematic: int = 0
     error: str | None = None
 
 

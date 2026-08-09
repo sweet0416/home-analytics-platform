@@ -75,10 +75,12 @@ const schedulerStatus = computed(() => (lottery.latestSyncRun ? '已启用' : '�
 const dockerSummary = computed(() => {
   if (!dockerStatus.value?.configured) return '未配置';
   if (!dockerStatus.value.reachable) return '连接异常';
-  return `${dockerStatus.value.running}/${dockerStatus.value.containers} 运行中`;
+  return dockerStatus.value.problematic
+    ? `${dockerStatus.value.problematic} 个异常`
+    : `${dockerStatus.value.running}/${dockerStatus.value.containers} 运行中`;
 });
 const dockerStatusClass = computed(() => ({
-  'is-online': Boolean(dockerStatus.value?.reachable),
+  'is-online': Boolean(dockerStatus.value?.reachable && !dockerStatus.value.problematic),
   'is-warning': Boolean(dockerStatus.value?.configured && !dockerStatus.value?.reachable),
 }));
 

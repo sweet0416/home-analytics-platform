@@ -9,6 +9,7 @@ export interface DockerStatus {
   docker_version: string | null;
   containers: number;
   running: number;
+  problematic: number;
   error: string | null;
 }
 

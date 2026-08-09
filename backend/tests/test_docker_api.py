@@ -60,6 +60,27 @@ def test_docker_service_reports_running_count() -> None:
     assert result["running"] == 1
 
 
+def test_docker_service_counts_problematic_containers() -> None:
+    class ProblematicClient:
+        settings = configured_settings()
+        configured = True
+
+        def get_version(self) -> dict[str, Any]:
+            return {"Version": "27.5.1"}
+
+        def get_containers(self) -> list[dict[str, Any]]:
+            return [
+                {"State": "running", "Status": "Up 5 minutes"},
+                {"State": "exited", "Status": "Exited (1)"},
+                {"State": "running", "Status": "Up 2 minutes (unhealthy)"},
+            ]
+
+    result = DockerService(configured_settings(), client=ProblematicClient()).status()  # type: ignore[arg-type]
+
+    assert result["running"] == 2
+    assert result["problematic"] == 2
+
+
 def test_docker_client_rejects_unconfigured_access() -> None:
     client = DockerApiClient(Settings())
 
