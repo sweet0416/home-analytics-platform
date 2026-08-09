@@ -137,7 +137,11 @@
               <strong>{{ text(task.type, '任务') }}</strong>
               <small>{{ text(task.node, '--') }} · {{ text(task.user, '未知用户') }}</small>
             </div>
-            <el-tag :type="taskStatusType(task.status)" effect="dark">{{ text(task.status, '未知') }}</el-tag>
+            <el-tooltip :content="text(task.status, '未知')" placement="top">
+              <el-tag class="task-status-tag" :type="taskStatusType(task.status)" effect="dark">
+                {{ text(task.status, '未知') }}
+              </el-tag>
+            </el-tooltip>
           </div>
           <div v-if="!tasks.length" class="empty-inline">暂无任务数据</div>
         </div>
@@ -328,6 +332,8 @@ onMounted(() => {
 .usage-track { background: rgba(148, 163, 184, 0.12); border-radius: 999px; height: 6px; overflow: hidden; }
 .usage-track span { background: linear-gradient(90deg, var(--color-primary-strong), #7dd3fc); border-radius: inherit; display: block; height: 100%; transition: width 240ms ease; }
 .task-row > div { display: grid; gap: 3px; }
+.task-status-tag { flex: 0 1 52%; height: auto; line-height: 1.35; max-width: 52%; min-width: 0; overflow-wrap: anywhere; text-align: left; white-space: normal; }
+:deep(.task-status-tag .el-tag__content) { overflow-wrap: anywhere; white-space: normal; }
 .empty-inline { color: var(--color-muted); font-size: 13px; padding: 8px 0; }
 @media (max-width: 920px) { .pve-grid { grid-template-columns: 1fr; } }
 @media (max-width: 640px) {
