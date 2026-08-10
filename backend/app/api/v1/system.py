@@ -10,6 +10,7 @@ from app.core.backup.schemas import (
 )
 from app.core.backup.service import DatabaseBackupService
 from app.core.config.settings import get_settings
+from app.core.infrastructure_health.scheduler import get_infrastructure_health_scheduler_status
 from app.core.infrastructure_health.schemas import InfrastructureHealthRead
 from app.core.infrastructure_health.service import InfrastructureHealthService
 from app.core.notification.schemas import (
@@ -30,6 +31,11 @@ router = APIRouter()
 def get_infrastructure_health() -> ApiResponse[InfrastructureHealthRead]:
     settings = get_settings()
     return ok(InfrastructureHealthService(settings).check())
+
+
+@router.get("/infrastructure-health/scheduler", response_model=ApiResponse[dict[str, object]])
+def get_infrastructure_health_scheduler() -> ApiResponse[dict[str, object]]:
+    return ok(get_infrastructure_health_scheduler_status())
 
 
 @router.get("/health", response_model=ApiResponse[dict[str, str]])

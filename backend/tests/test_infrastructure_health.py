@@ -1,8 +1,10 @@
+from types import SimpleNamespace
 from typing import Any
 
 from fastapi.testclient import TestClient
 
 from app.core.config.settings import Settings
+from app.core.infrastructure_health.scheduler import build_health_notification_message
 from app.core.infrastructure_health.service import InfrastructureHealthService
 
 
@@ -93,3 +95,19 @@ def test_infrastructure_health_endpoint_returns_unified_shape(client: TestClient
     assert payload["alerts"] == []
     assert payload["docker"]["plugin"] == "docker"
     assert payload["pve"]["plugin"] == "pve"
+
+
+def test_health_notification_message_explains_unhealthy_components() -> None:
+    health = SimpleNamespace(
+        healthy=False,
+        alerts=["Docker 连接异常", "1 个 Docker 容器异常"],
+        docker=SimpleNamespace(reachable=False, running=2, containers=3, problematic=1),
+        pve=SimpleNamespace(reachable=True),
+    )
+
+    message = build_health_notification_message(health)
+
+    assert "状态：异常" in message
+    assert "Docker：连接异常，容器 2/3，异常 1 个" in message
+    assert "PVE：已连接" in message
+    assert "Docker 连接异常" in message

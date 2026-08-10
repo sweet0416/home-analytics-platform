@@ -53,6 +53,30 @@ class NotificationService:
         self._record_results(source=source, title=title, message=message, results=results)
         return NotificationTestResult(requested_channel=channel, results=results)
 
+    def send_health_change(
+        self,
+        *,
+        channel: NotificationChannel,
+        title: str,
+        message: str,
+        healthy: bool,
+        source: str = "infrastructure_health",
+    ) -> NotificationTestResult:
+        """Send only when the persisted health state changes."""
+        results: list[NotificationSendResult] = []
+        for item in self._expand_channels(channel):
+            latest = self._latest_sent_message(source=source, channel=item)
+            if healthy:
+                if latest is None or "状态：异常" not in latest:
+                    results.append(self._skipped(item, "Health is already normal; recovery notification skipped."))
+                    continue
+            elif latest == message:
+                results.append(self._skipped(item, "The same health alert was already sent."))
+                continue
+            results.append(self._send_to_channel(item, title=title, message=message))
+        self._record_results(source=source, title=title, message=message, results=results)
+        return NotificationTestResult(requested_channel=channel, results=results)
+
     def list_delivery_runs(self, *, limit: int = 20) -> NotificationDeliveryRunPageRead:
         bounded_limit = max(1, min(limit, 100))
         db = SessionLocal()
@@ -71,6 +95,24 @@ class NotificationService:
                 total=total,
                 limit=bounded_limit,
             )
+        finally:
+            db.close()
+
+    @staticmethod
+    def _latest_sent_message(*, source: str, channel: NotificationChannel) -> str | None:
+        db = SessionLocal()
+        try:
+            row = db.scalar(
+                select(NotificationDeliveryRunModel)
+                .where(
+                    NotificationDeliveryRunModel.source == source,
+                    NotificationDeliveryRunModel.channel == channel.value,
+                    NotificationDeliveryRunModel.status == "sent",
+                )
+                .order_by(desc(NotificationDeliveryRunModel.created_at))
+                .limit(1)
+            )
+            return row.message_preview if row is not None else None
         finally:
             db.close()
 

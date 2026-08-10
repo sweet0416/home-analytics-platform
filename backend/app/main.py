@@ -8,6 +8,10 @@ from app.api.v1.router import api_router
 from app.core.backup.scheduler import start_backup_scheduler, stop_backup_scheduler
 from app.core.config.settings import get_settings
 from app.core.database.session import create_database_schema
+from app.core.infrastructure_health.scheduler import (
+    start_infrastructure_health_scheduler,
+    stop_infrastructure_health_scheduler,
+)
 from app.core.logging.setup import configure_logging
 from app.core.middleware import add_trace_id_middleware
 from app.core.plugins.registry import plugin_registry
@@ -24,6 +28,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     configure_logging(settings)
     create_database_schema()
     start_backup_scheduler()
+    start_infrastructure_health_scheduler()
     plugin_registry.register(fund_plugin)
     plugin_registry.register(lottery_plugin)
     plugin_registry.register(pve_plugin)
@@ -32,6 +37,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         yield
     finally:
         stop_backup_scheduler()
+        stop_infrastructure_health_scheduler()
         plugin_registry.shutdown()
 
 

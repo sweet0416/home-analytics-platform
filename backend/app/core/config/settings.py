@@ -41,6 +41,12 @@ class Settings(BaseSettings):
     notification_custom_webhook_enabled: bool = False
     notification_custom_webhook_url: str = ""
     notification_custom_webhook_bearer_token: str = ""
+    infrastructure_health_notify_enabled: bool = False
+    infrastructure_health_notify_cron: str = "*/5 * * * *"
+    infrastructure_health_notify_channel: str = Field(
+        default="bark",
+        pattern=r"^(all|bark|wecom|whatsapp|custom_webhook)$",
+    )
     lottery_dlt_auto_sync_enabled: bool = True
     lottery_dlt_sync_cron: str = "30 22 * * *"
     lottery_dlt_sync_page_size: int = Field(default=100, ge=1, le=500)
