@@ -38,7 +38,7 @@
               <RouterLink to="/docker" class="panel-link">查看</RouterLink>
             </span>
           </div>
-          <div><span>PVE</span><strong>已接入</strong></div>
+          <div><span>PVE</span><span class="infra-actions"><strong :class="pveStatusClass">{{ pveSummary }}</strong><RouterLink to="/pve" class="panel-link">查看</RouterLink></span></div>
           <div><span>Scheduler</span><strong>{{ schedulerStatus }}</strong></div>
         </div>
       </RevealContent>
@@ -53,11 +53,13 @@ import RevealContent from '@/components/common/RevealContent.vue';
 import MetricCard from '@/components/metric/MetricCard.vue';
 import { fetchDockerStatus, type DockerStatus } from '@/plugins/docker/api';
 import { useLotteryStore } from '@/plugins/lottery/store';
+import { fetchPveStatus, type PveStatus } from '@/plugins/pve/api';
 import { useSystemStore } from '@/stores/system';
 
 const system = useSystemStore();
 const lottery = useLotteryStore();
 const dockerStatus = ref<DockerStatus | null>(null);
+const pveStatus = ref<PveStatus | null>(null);
 
 const latestIssue = computed(() => lottery.draws?.items[0]?.issue_no ?? '--');
 const syncStatus = computed(() => {
@@ -83,11 +85,20 @@ const dockerStatusClass = computed(() => ({
   'is-online': Boolean(dockerStatus.value?.reachable && !dockerStatus.value.problematic),
   'is-warning': Boolean(dockerStatus.value?.configured && !dockerStatus.value?.reachable),
 }));
+const pveSummary = computed(() => {
+  if (!pveStatus.value?.configured) return '未配置';
+  return pveStatus.value.reachable ? '已连接' : '连接异常';
+});
+const pveStatusClass = computed(() => ({
+  'is-online': Boolean(pveStatus.value?.reachable),
+  'is-warning': Boolean(pveStatus.value?.configured && !pveStatus.value?.reachable),
+}));
 
 onMounted(() => {
   void system.fetchHealth();
   void lottery.loadOverview();
   void fetchDockerStatus().then((value) => { dockerStatus.value = value; }).catch(() => { dockerStatus.value = null; });
+  void fetchPveStatus().then((value) => { pveStatus.value = value; }).catch(() => { pveStatus.value = null; });
 });
 </script>
 
