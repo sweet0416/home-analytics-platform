@@ -50,17 +50,17 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 
+import { fetchInfrastructureHealth, type InfrastructureHealth } from '@/api/system';
 import RevealContent from '@/components/common/RevealContent.vue';
 import MetricCard from '@/components/metric/MetricCard.vue';
-import { fetchDockerStatus, type DockerStatus } from '@/plugins/docker/api';
 import { useLotteryStore } from '@/plugins/lottery/store';
-import { fetchPveStatus, type PveStatus } from '@/plugins/pve/api';
 import { useSystemStore } from '@/stores/system';
 
 const system = useSystemStore();
 const lottery = useLotteryStore();
-const dockerStatus = ref<DockerStatus | null>(null);
-const pveStatus = ref<PveStatus | null>(null);
+const infrastructureHealth = ref<InfrastructureHealth | null>(null);
+const dockerStatus = computed(() => infrastructureHealth.value?.docker ?? null);
+const pveStatus = computed(() => infrastructureHealth.value?.pve ?? null);
 
 const latestIssue = computed(() => lottery.draws?.items[0]?.issue_no ?? '--');
 const syncStatus = computed(() => {
@@ -94,19 +94,14 @@ const pveStatusClass = computed(() => ({
   'is-online': Boolean(pveStatus.value?.reachable),
   'is-warning': Boolean(pveStatus.value?.configured && !pveStatus.value?.reachable),
 }));
-const infraAlerts = computed(() => {
-  const alerts: string[] = [];
-  if (dockerStatus.value?.configured && !dockerStatus.value.reachable) alerts.push('Docker 连接异常');
-  if (dockerStatus.value?.problematic) alerts.push(`${dockerStatus.value.problematic} 个 Docker 容器异常`);
-  if (pveStatus.value?.configured && !pveStatus.value.reachable) alerts.push('PVE 连接异常');
-  return alerts;
-});
+const infraAlerts = computed(() => infrastructureHealth.value?.alerts ?? []);
 
 onMounted(() => {
   void system.fetchHealth();
   void lottery.loadOverview();
-  void fetchDockerStatus().then((value) => { dockerStatus.value = value; }).catch(() => { dockerStatus.value = null; });
-  void fetchPveStatus().then((value) => { pveStatus.value = value; }).catch(() => { pveStatus.value = null; });
+  void fetchInfrastructureHealth()
+    .then((value) => { infrastructureHealth.value = value; })
+    .catch(() => { infrastructureHealth.value = null; });
 });
 </script>
 

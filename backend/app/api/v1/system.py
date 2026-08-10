@@ -10,6 +10,8 @@ from app.core.backup.schemas import (
 )
 from app.core.backup.service import DatabaseBackupService
 from app.core.config.settings import get_settings
+from app.core.infrastructure_health.schemas import InfrastructureHealthRead
+from app.core.infrastructure_health.service import InfrastructureHealthService
 from app.core.notification.schemas import (
     NotificationDeliveryRunPageRead,
     NotificationStatusRead,
@@ -22,6 +24,12 @@ from app.shared.exceptions.codes import ErrorCode
 from app.shared.responses.schemas import ApiResponse, ok
 
 router = APIRouter()
+
+
+@router.get("/infrastructure-health", response_model=ApiResponse[InfrastructureHealthRead])
+def get_infrastructure_health() -> ApiResponse[InfrastructureHealthRead]:
+    settings = get_settings()
+    return ok(InfrastructureHealthService(settings).check())
 
 
 @router.get("/health", response_model=ApiResponse[dict[str, str]])
