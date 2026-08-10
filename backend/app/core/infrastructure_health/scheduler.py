@@ -17,6 +17,7 @@ _scheduler: BackgroundScheduler | None = None
 _last_run_at: datetime | None = None
 _last_status: str | None = None
 _last_message: str | None = None
+_last_delivery_status: str | None = None
 
 
 def start_infrastructure_health_scheduler() -> None:
@@ -71,11 +72,12 @@ def get_infrastructure_health_scheduler_status() -> dict[str, object]:
         "last_run_at": _last_run_at,
         "last_status": _last_status,
         "last_message": _last_message,
+        "last_delivery_status": _last_delivery_status,
     }
 
 
 def _run_scheduled_health_check() -> None:
-    global _last_message, _last_run_at, _last_status
+    global _last_delivery_status, _last_message, _last_run_at, _last_status
     _last_run_at = datetime.now()
     settings = get_settings()
     try:
@@ -83,6 +85,7 @@ def _run_scheduled_health_check() -> None:
         if health.configured_components == 0:
             _last_status = "skipped"
             _last_message = "No infrastructure plugin is configured."
+            _last_delivery_status = None
             return
 
         channel = NotificationChannel(settings.infrastructure_health_notify_channel)
@@ -96,6 +99,13 @@ def _run_scheduled_health_check() -> None:
         statuses = ", ".join(f"{item.channel.value} {item.status}" for item in result.results)
         _last_status = "healthy" if health.healthy else "unhealthy"
         _last_message = statuses or "no channel result"
+        result_statuses = [item.status for item in result.results]
+        if "failed" in result_statuses:
+            _last_delivery_status = "failed"
+        elif "sent" in result_statuses:
+            _last_delivery_status = "sent"
+        else:
+            _last_delivery_status = "skipped"
         logger.info("Infrastructure health notification check finished: {}", _last_message)
     except Exception as exc:  # noqa: BLE001
         _last_status = "failed"

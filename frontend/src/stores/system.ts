@@ -92,6 +92,7 @@ export interface InfrastructureHealthScheduler {
   last_run_at: string | null;
   last_status: string | null;
   last_message: string | null;
+  last_delivery_status: 'sent' | 'skipped' | 'failed' | null;
 }
 
 interface DatabaseRestorePayload {

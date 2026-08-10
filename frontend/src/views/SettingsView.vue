@@ -199,6 +199,7 @@
               <span>频率：{{ healthSchedulerCron }}</span>
               <span>通道：{{ healthSchedulerChannel }}</span>
               <span>下次检查：{{ healthSchedulerNextRun }}</span>
+              <span>最近推送：{{ healthSchedulerDeliveryStatus }}</span>
             </div>
             <p>{{ healthSchedulerHint }}</p>
           </div>
@@ -473,12 +474,22 @@ const healthSchedulerNextRun = computed(() => {
   const value = healthScheduler.value?.next_run_at;
   return value ? formatDateTime(value) : '暂无';
 });
+const healthSchedulerDeliveryStatus = computed(() => {
+  const status = healthScheduler.value?.last_delivery_status;
+  if (status === 'sent') return '已推送';
+  if (status === 'failed') return '推送失败';
+  if (status === 'skipped') return '已跳过';
+  return '暂无';
+});
 const healthSchedulerHint = computed(() => {
   if (!healthScheduler.value?.enabled) {
     return '监控默认关闭。开启 INFRASTRUCTURE_HEALTH_NOTIFY_ENABLED 后，Docker/PVE 状态变化才会触发 Bark 推送。';
   }
   if (!healthScheduler.value.running) {
     return '监控开关已开启，但当前进程没有运行调度器，请检查容器是否已完成重启。';
+  }
+  if (healthScheduler.value.last_delivery_status === 'failed') {
+    return '监控正在运行，但最近一次 Bark 推送失败，请查看下方推送记录中的失败原因。';
   }
   return healthScheduler.value.last_message
     ? `最近一次检查：${healthScheduler.value.last_message}`
