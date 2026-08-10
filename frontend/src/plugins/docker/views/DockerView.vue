@@ -41,15 +41,22 @@ function memoryText(container: Record<string, unknown>): string { const stats = 
 function networkText(container: Record<string, unknown>): string { const stats = container.stats as Record<string, unknown> | undefined; if (!stats) return statsFallback(); const rx = Number(stats.network_rx); const tx = Number(stats.network_tx); return Number.isFinite(rx) && Number.isFinite(tx) ? `↓${bytes(rx)} ↑${bytes(tx)}` : statsFallback(); }
 
 async function loadAll(): Promise<void> {
+  if (loading.value) return;
   loading.value = true; errorMessage.value = '';
   try {
-    status.value = await fetchDockerStatus();
-    const results = await Promise.allSettled([fetchDockerContainers(), fetchDockerImages(), fetchDockerVolumes()]);
-    if (results[0].status === 'fulfilled') containers.value = results[0].value.data;
-    if (results[1].status === 'fulfilled') images.value = results[1].value.data;
-    if (results[2].status === 'fulfilled') volumes.value = results[2].value.data;
+    const results = await Promise.allSettled([
+      fetchDockerStatus(),
+      fetchDockerContainers(),
+      fetchDockerImages(),
+      fetchDockerVolumes(),
+    ]);
+    const [statusResult, containersResult, imagesResult, volumesResult] = results;
+    if (statusResult.status === 'fulfilled') status.value = statusResult.value;
+    if (containersResult.status === 'fulfilled') containers.value = containersResult.value.data;
+    if (imagesResult.status === 'fulfilled') images.value = imagesResult.value.data;
+    if (volumesResult.status === 'fulfilled') volumes.value = volumesResult.value.data;
     if (results.some((result) => result.status === 'rejected')) errorMessage.value = '部分 Docker 资源读取失败，请稍后重试。';
-    if (status.value.error) errorMessage.value = status.value.error;
+    if (status.value?.error) errorMessage.value = status.value.error;
     refreshedAt.value = new Date();
   } catch (error) { errorMessage.value = error instanceof Error ? error.message : 'Docker 状态读取失败'; }
   finally { loading.value = false; }
