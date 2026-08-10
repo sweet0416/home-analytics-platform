@@ -19,7 +19,7 @@ import { computed, onMounted, ref } from 'vue';
 import MetricCard from '@/components/metric/MetricCard.vue';
 import { fetchDockerContainerStats, fetchDockerContainers, fetchDockerImages, fetchDockerStatus, fetchDockerVolumes, type DockerStatus } from '@/plugins/docker/api';
 
-const loading = ref(false); const status = ref<DockerStatus | null>(null); const containers = ref<Record<string, unknown>[]>([]); const images = ref<Record<string, unknown>[]>([]); const volumes = ref<Record<string, unknown>[]>([]); const errorMessage = ref(''); const refreshedAt = ref<Date | null>(null); const containerFilter = ref<'all' | 'running' | 'problematic' | 'stopped'>('all');
+const loading = ref(false); const statsLoading = ref(false); const statsError = ref(false); const status = ref<DockerStatus | null>(null); const containers = ref<Record<string, unknown>[]>([]); const images = ref<Record<string, unknown>[]>([]); const volumes = ref<Record<string, unknown>[]>([]); const errorMessage = ref(''); const refreshedAt = ref<Date | null>(null); const containerFilter = ref<'all' | 'running' | 'problematic' | 'stopped'>('all');
 const runningCount = computed(() => containers.value.filter((item) => item.State === 'running').length);
 const problematicCount = computed(() => containers.value.filter((item) => isProblematic(item)).length);
 const visibleContainers = computed(() => containers.value.filter((item) => containerFilter.value === 'all' || containerFilter.value === 'running' && item.State === 'running' || containerFilter.value === 'problematic' && isProblematic(item) || containerFilter.value === 'stopped' && item.State !== 'running'));
@@ -35,9 +35,10 @@ function imageSize(value: unknown): string { const bytes = Number(value); if (!N
 function bytes(value: number): string { if (!Number.isFinite(value) || value <= 0) return '0 B'; const units = ['B', 'KB', 'MB', 'GB']; const index = Math.min(Math.floor(Math.log(value) / Math.log(1024)), units.length - 1); return `${(value / 1024 ** index).toFixed(index ? 1 : 0)} ${units[index]}`; }
 function isProblematic(container: Record<string, unknown>): boolean { const state = String(container.State ?? '').toLowerCase(); const status = String(container.Status ?? '').toLowerCase(); return ['dead', 'restarting', 'paused'].includes(state) || ['exited', 'restarting', 'unhealthy', 'dead'].some((marker) => status.includes(marker)); }
 function containerStatusClass(container: Record<string, unknown>): string { return isProblematic(container) ? 'is-problematic' : container.State === 'running' ? 'is-running' : 'is-stopped'; }
-function statText(container: Record<string, unknown>, key: string, suffix = ''): string { const stats = container.stats as Record<string, unknown> | undefined; const value = Number(stats?.[key]); return Number.isFinite(value) ? `${value.toFixed(1)}${suffix}` : '--'; }
-function memoryText(container: Record<string, unknown>): string { const stats = container.stats as Record<string, unknown> | undefined; const usage = Number(stats?.memory_usage); const limit = Number(stats?.memory_limit); return Number.isFinite(usage) && Number.isFinite(limit) && limit ? `${bytes(usage)} / ${bytes(limit)}` : '--'; }
-function networkText(container: Record<string, unknown>): string { const stats = container.stats as Record<string, unknown> | undefined; const rx = Number(stats?.network_rx); const tx = Number(stats?.network_tx); return Number.isFinite(rx) && Number.isFinite(tx) ? `↓${bytes(rx)} ↑${bytes(tx)}` : '--'; }
+function statsFallback(): string { return statsLoading.value ? '加载中…' : statsError.value ? '暂不可用' : '--'; }
+function statText(container: Record<string, unknown>, key: string, suffix = ''): string { const stats = container.stats as Record<string, unknown> | undefined; if (!stats) return statsFallback(); const value = Number(stats[key]); return Number.isFinite(value) ? `${value.toFixed(1)}${suffix}` : statsFallback(); }
+function memoryText(container: Record<string, unknown>): string { const stats = container.stats as Record<string, unknown> | undefined; if (!stats) return statsFallback(); const usage = Number(stats.memory_usage); const limit = Number(stats.memory_limit); return Number.isFinite(usage) && Number.isFinite(limit) && limit ? `${bytes(usage)} / ${bytes(limit)}` : statsFallback(); }
+function networkText(container: Record<string, unknown>): string { const stats = container.stats as Record<string, unknown> | undefined; if (!stats) return statsFallback(); const rx = Number(stats.network_rx); const tx = Number(stats.network_tx); return Number.isFinite(rx) && Number.isFinite(tx) ? `↓${bytes(rx)} ↑${bytes(tx)}` : statsFallback(); }
 
 async function loadAll(): Promise<void> {
   loading.value = true; errorMessage.value = '';
@@ -52,10 +53,11 @@ async function loadAll(): Promise<void> {
     refreshedAt.value = new Date();
   } catch (error) { errorMessage.value = error instanceof Error ? error.message : 'Docker 状态读取失败'; }
   finally { loading.value = false; }
-  void loadContainerStats();
+  statsLoading.value = true; statsError.value = false;
+  void loadContainerStats().finally(() => { statsLoading.value = false; });
 }
 
-async function loadContainerStats(): Promise<void> { try { const response = await fetchDockerContainerStats(); const statsById = new Map(response.data.map((item) => [String(item.id), item])); containers.value = containers.value.map((container) => ({ ...container, stats: statsById.get(String(container.Id)) })); } catch { if (!errorMessage.value) errorMessage.value = '容器资源统计读取失败，基础状态仍可用。'; } }
+async function loadContainerStats(): Promise<void> { try { const response = await fetchDockerContainerStats(); const statsById = new Map(response.data.map((item) => [String(item.id), item])); containers.value = containers.value.map((container) => ({ ...container, stats: statsById.get(String(container.Id)) })); } catch { statsError.value = true; if (!errorMessage.value) errorMessage.value = '容器资源统计读取失败，基础状态仍可用。'; } }
 onMounted(loadAll);
 </script>
 
