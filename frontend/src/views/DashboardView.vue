@@ -13,6 +13,7 @@
       <MetricCard label="Version" :value="system.health?.version ?? '--'" meta="Backend release" :delay="200" />
       <MetricCard label="Deploy" value="PVE Docker" meta="192.168.100.249" :delay="260" />
     </div>
+    <el-alert v-if="infraAlerts.length" type="warning" :closable="false" show-icon :title="infraAlerts.join('；')" />
 
     <div class="dashboard-grid">
       <RevealContent as="section" class="panel" :delay="320">
@@ -93,6 +94,13 @@ const pveStatusClass = computed(() => ({
   'is-online': Boolean(pveStatus.value?.reachable),
   'is-warning': Boolean(pveStatus.value?.configured && !pveStatus.value?.reachable),
 }));
+const infraAlerts = computed(() => {
+  const alerts: string[] = [];
+  if (dockerStatus.value?.configured && !dockerStatus.value.reachable) alerts.push('Docker 连接异常');
+  if (dockerStatus.value?.problematic) alerts.push(`${dockerStatus.value.problematic} 个 Docker 容器异常`);
+  if (pveStatus.value?.configured && !pveStatus.value.reachable) alerts.push('PVE 连接异常');
+  return alerts;
+});
 
 onMounted(() => {
   void system.fetchHealth();
