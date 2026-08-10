@@ -188,6 +188,21 @@
             <p>{{ system.notifications?.note ?? '推送配置只从后端环境变量读取，页面不会显示密钥。' }}</p>
           </div>
 
+          <div class="notification-scheduler">
+            <div class="notification-scheduler-header">
+              <strong>基础设施异常监控</strong>
+              <el-tag size="small" :type="healthSchedulerTagType">
+                {{ healthSchedulerStatusText }}
+              </el-tag>
+            </div>
+            <div class="scheduler-meta">
+              <span>频率：{{ healthSchedulerCron }}</span>
+              <span>通道：{{ healthSchedulerChannel }}</span>
+              <span>下次检查：{{ healthSchedulerNextRun }}</span>
+            </div>
+            <p>{{ healthSchedulerHint }}</p>
+          </div>
+
           <div class="notification-grid">
             <div
               v-for="channel in notificationChannels"
@@ -438,6 +453,36 @@ const notificationStatusText = computed(() => {
     return '暂无可用推送通道';
   }
   return `${notificationReadyCount.value} 个推送通道已就绪`;
+});
+const healthScheduler = computed(() => system.infrastructureHealthScheduler);
+const healthSchedulerStatusText = computed(() => {
+  if (!healthScheduler.value) return '状态待读取';
+  if (!healthScheduler.value.enabled) return '未开启';
+  return healthScheduler.value.running ? '监控运行中' : '已开启但未运行';
+});
+const healthSchedulerTagType = computed<'success' | 'warning' | 'info'>(() => {
+  if (!healthScheduler.value?.enabled) return 'info';
+  return healthScheduler.value.running ? 'success' : 'warning';
+});
+const healthSchedulerCron = computed(() => healthScheduler.value?.cron ?? '未读取');
+const healthSchedulerChannel = computed(() => {
+  const channel = healthScheduler.value?.channel;
+  return notificationChannelLabel(channel ?? 'bark');
+});
+const healthSchedulerNextRun = computed(() => {
+  const value = healthScheduler.value?.next_run_at;
+  return value ? formatDateTime(value) : '暂无';
+});
+const healthSchedulerHint = computed(() => {
+  if (!healthScheduler.value?.enabled) {
+    return '监控默认关闭。开启 INFRASTRUCTURE_HEALTH_NOTIFY_ENABLED 后，Docker/PVE 状态变化才会触发 Bark 推送。';
+  }
+  if (!healthScheduler.value.running) {
+    return '监控开关已开启，但当前进程没有运行调度器，请检查容器是否已完成重启。';
+  }
+  return healthScheduler.value.last_message
+    ? `最近一次检查：${healthScheduler.value.last_message}`
+    : '监控正在运行，异常状态变化会复用上方推送通道。';
 });
 const notificationChannelOptions = computed(() => [
   { label: '全部已启用通道', value: 'all' as NotificationChannel },
@@ -698,6 +743,34 @@ onMounted(() => {
 
 .notification-summary p {
   margin: 0;
+}
+
+.notification-scheduler {
+  display: grid;
+  gap: 8px;
+  border: 1px solid rgba(96, 165, 250, 0.2);
+  border-radius: 8px;
+  background: rgba(30, 64, 175, 0.08);
+  margin-bottom: 14px;
+  padding: 12px 14px;
+}
+
+.notification-scheduler-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.notification-scheduler-header strong {
+  color: var(--color-text);
+}
+
+.notification-scheduler p {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 13px;
+  line-height: 1.55;
 }
 
 .notification-grid {

@@ -82,6 +82,18 @@ export interface NotificationDeliveryRunPage {
   limit: number;
 }
 
+export interface InfrastructureHealthScheduler {
+  enabled: boolean;
+  running: boolean;
+  cron: string;
+  timezone: string;
+  channel: NotificationChannel;
+  next_run_at: string | null;
+  last_run_at: string | null;
+  last_status: string | null;
+  last_message: string | null;
+}
+
 interface DatabaseRestorePayload {
   file_name: string;
   confirmation: string;
@@ -130,6 +142,7 @@ export const useSystemStore = defineStore('system', {
     backups: null as DatabaseBackupList | null,
     notifications: null as NotificationStatus | null,
     notificationRuns: null as NotificationDeliveryRunPage | null,
+    infrastructureHealthScheduler: null as InfrastructureHealthScheduler | null,
     loading: false,
     backupLoading: false,
     notificationLoading: false,
@@ -166,15 +179,18 @@ export const useSystemStore = defineStore('system', {
       this.notificationLoading = true;
       this.notificationError = '';
       try {
-        const [notifications, notificationRuns] = await Promise.all([
+        const [notifications, notificationRuns, infrastructureHealthScheduler] = await Promise.all([
           getApiData<NotificationStatus>('/system/notifications'),
           getApiData<NotificationDeliveryRunPage>('/system/notifications/runs?limit=20'),
+          getApiData<InfrastructureHealthScheduler>('/system/infrastructure-health/scheduler'),
         ]);
         this.notifications = notifications;
         this.notificationRuns = notificationRuns;
+        this.infrastructureHealthScheduler = infrastructureHealthScheduler;
       } catch (error) {
         this.notifications = null;
         this.notificationRuns = null;
+        this.infrastructureHealthScheduler = null;
         this.notificationError = error instanceof Error ? error.message : '\u65e0\u6cd5\u8bfb\u53d6\u63a8\u9001\u914d\u7f6e';
       } finally {
         this.notificationLoading = false;
