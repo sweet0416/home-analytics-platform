@@ -25,8 +25,11 @@ export function fetchDockerContainers(): Promise<DockerResourceResponse> {
   return getApiData<DockerResourceResponse>('/docker/containers');
 }
 
-export function fetchDockerContainerStats(): Promise<DockerResourceResponse> {
-  return getApiData<DockerResourceResponse>('/docker/containers/stats');
+export function fetchDockerContainerStats(containerIds: string[] = []): Promise<DockerResourceResponse> {
+  const query = containerIds.length
+    ? `?ids=${containerIds.map((id) => encodeURIComponent(id)).join(',')}`
+    : '';
+  return getApiData<DockerResourceResponse>(`/docker/containers/stats${query}`);
 }
 
 export function fetchDockerImages(): Promise<DockerResourceResponse> {

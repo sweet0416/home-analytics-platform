@@ -81,6 +81,31 @@ def test_docker_service_counts_problematic_containers() -> None:
     assert result["problematic"] == 2
 
 
+def test_docker_service_uses_provided_container_ids_without_listing_again() -> None:
+    class StatsClient:
+        settings = configured_settings()
+        configured = True
+
+        def __init__(self) -> None:
+            self.list_calls = 0
+            self.stats_calls: list[str] = []
+
+        def get_containers(self) -> list[dict[str, Any]]:
+            self.list_calls += 1
+            return [{"Id": "unexpected", "State": "running"}]
+
+        def get_container_stats(self, container_id: str) -> dict[str, Any]:
+            self.stats_calls.append(container_id)
+            return {"cpu_stats": {}, "precpu_stats": {}, "memory_stats": {}, "networks": {}}
+
+    client = StatsClient()
+    result = DockerService(configured_settings(), client=client).container_stats(["abc", "def"])
+
+    assert [item["id"] for item in result] == ["abc", "def"]
+    assert client.list_calls == 0
+    assert client.stats_calls == ["abc", "def"]
+
+
 def test_docker_client_rejects_unconfigured_access() -> None:
     client = DockerApiClient(Settings())
 

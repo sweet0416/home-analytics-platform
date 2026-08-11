@@ -48,10 +48,14 @@ class DockerService:
     def containers(self) -> list[dict[str, Any]]:
         return self.client.get_containers()
 
-    def container_stats(self) -> list[dict[str, Any]]:
-        containers = self.client.get_containers()
-        active = [item for item in containers if item.get("State") == "running"]
-        targets = [str(item.get("Id", "")) for item in active[: self.client.settings.docker_stats_limit]]
+    def container_stats(self, container_ids: list[str] | None = None) -> list[dict[str, Any]]:
+        if container_ids is None:
+            containers = self.client.get_containers()
+            active = [item for item in containers if item.get("State") == "running"]
+            targets = [str(item.get("Id", "")) for item in active]
+        else:
+            targets = container_ids
+        targets = targets[: self.client.settings.docker_stats_limit]
         targets = [item for item in targets if item]
         if not targets:
             return []

@@ -1,7 +1,7 @@
 from collections.abc import Callable
 from typing import Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 
 from app.core.config.settings import Settings, get_settings
 from app.plugins.docker.application.service import DockerService
@@ -38,8 +38,12 @@ def get_docker_containers(service: DockerService = Depends(get_docker_service)) 
 
 
 @router.get("/containers/stats", response_model=ApiResponse[DockerResourceRead])
-def get_docker_container_stats(service: DockerService = Depends(get_docker_service)) -> ApiResponse[DockerResourceRead]:
-    return _read(service.container_stats)
+def get_docker_container_stats(
+    ids: str | None = Query(default=None, description="Comma-separated running container IDs"),
+    service: DockerService = Depends(get_docker_service),
+) -> ApiResponse[DockerResourceRead]:
+    container_ids = [item for item in (ids or "").split(",") if item]
+    return _read(lambda: service.container_stats(container_ids or None))
 
 
 @router.get("/images", response_model=ApiResponse[DockerResourceRead])

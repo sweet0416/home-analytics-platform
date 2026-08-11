@@ -64,7 +64,20 @@ async function loadAll(): Promise<void> {
   void loadContainerStats().finally(() => { statsLoading.value = false; });
 }
 
-async function loadContainerStats(): Promise<void> { try { const response = await fetchDockerContainerStats(); const statsById = new Map(response.data.map((item) => [String(item.id), item])); containers.value = containers.value.map((container) => ({ ...container, stats: statsById.get(String(container.Id)) })); } catch { statsError.value = true; if (!errorMessage.value) errorMessage.value = '容器资源统计读取失败，基础状态仍可用。'; } }
+async function loadContainerStats(): Promise<void> {
+  try {
+    const containerIds = containers.value
+      .filter((container) => container.State === 'running')
+      .map((container) => String(container.Id ?? ''))
+      .filter(Boolean);
+    const response = await fetchDockerContainerStats(containerIds);
+    const statsById = new Map(response.data.map((item) => [String(item.id), item]));
+    containers.value = containers.value.map((container) => ({ ...container, stats: statsById.get(String(container.Id)) }));
+  } catch {
+    statsError.value = true;
+    if (!errorMessage.value) errorMessage.value = '容器资源统计读取失败，基础状态仍可用。';
+  }
+}
 onMounted(loadAll);
 </script>
 
