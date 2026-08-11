@@ -14,7 +14,7 @@ services:
       DATABASE_URL: ${DATABASE_URL:-sqlite:////app/data/sqlite/hap.db}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       LOG_DIR: ${LOG_DIR:-/app/logs}
-      BACKUP_DIR: ${BACKUP_DIR:-/app/data/sqlite/backups}
+      BACKUP_DIR: ${BACKUP_DIR:-/app/data/backups}
       BACKUP_AUTO_ENABLED: ${BACKUP_AUTO_ENABLED:-true}
       BACKUP_CRON: '${BACKUP_CRON:-10 3 * * *}'
       BACKUP_RETENTION_COUNT: ${BACKUP_RETENTION_COUNT:-30}

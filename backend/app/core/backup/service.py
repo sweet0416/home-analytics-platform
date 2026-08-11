@@ -36,7 +36,7 @@ class DatabaseBackupService:
                 status_code=404,
             )
 
-        self._settings.backup_dir.mkdir(parents=True, exist_ok=True)
+        self._prepare_backup_directory()
         target_path = self._settings.backup_dir / self._build_backup_name(label=label)
 
         source = sqlite3.connect(str(source_path))
@@ -151,13 +151,34 @@ class DatabaseBackupService:
         return path
 
     def _list_backup_files(self) -> list[DatabaseBackupRead]:
-        backup_dir = self._settings.backup_dir
-        backup_dir.mkdir(parents=True, exist_ok=True)
+        backup_dir = self._prepare_backup_directory()
         return sorted(
             [self._read_backup_file(path) for path in backup_dir.glob("hap_*.db")],
             key=lambda item: item.created_at,
             reverse=True,
         )
+
+    def _prepare_backup_directory(self) -> Path:
+        backup_dir = self._settings.backup_dir
+        backup_dir.mkdir(parents=True, exist_ok=True)
+
+        # Older deployments stored backups below the SQLite volume. Copy them
+        # once into the dedicated backup volume after the path is upgraded.
+        database_path = self._get_sqlite_database_path()
+        legacy_dir = database_path.parent / "backups"
+        if legacy_dir.resolve() == backup_dir.resolve() or not legacy_dir.is_dir():
+            return backup_dir
+
+        for legacy_path in legacy_dir.glob("hap_*.db"):
+            target_path = backup_dir / legacy_path.name
+            if target_path.exists():
+                continue
+            try:
+                shutil.copy2(legacy_path, target_path)
+                logger.info("Migrated legacy SQLite backup: {} -> {}", legacy_path, target_path)
+            except OSError as exc:
+                logger.warning("Failed to migrate legacy SQLite backup {}: {}", legacy_path, exc)
+        return backup_dir
 
     def _get_sqlite_database_path(self) -> Path:
         database_url = self._settings.database_url
