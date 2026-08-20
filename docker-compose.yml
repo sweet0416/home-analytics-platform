@@ -3,11 +3,15 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+      args:
+        GIT_SHA: ${HAP_GIT_SHA:-unknown}
+        BUILD_TIME: ${HAP_BUILD_TIME:-unknown}
     container_name: hap-backend
     restart: unless-stopped
     environment:
       APP_NAME: ${APP_NAME:-Home Analytics Platform}
       APP_VERSION: ${HAP_RELEASE_VERSION:-1.0.0}
+      APP_DEPLOYMENT_ENVIRONMENT: ${HAP_DEPLOYMENT_ENVIRONMENT:-production}
       HAP_DEPLOYMENT_REVISION: ${HAP_DEPLOYMENT_REVISION:-ttskill-sync-20260807}
       API_V1_PREFIX: ${API_V1_PREFIX:-/api/v1}
       DEBUG: ${DEBUG:-false}
@@ -135,6 +139,9 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        GIT_SHA: ${HAP_GIT_SHA:-unknown}
+        BUILD_TIME: ${HAP_BUILD_TIME:-unknown}
     container_name: hap-frontend
     restart: unless-stopped
     depends_on:
@@ -158,6 +165,9 @@ services:
     build:
       context: ./deploy/ttskill-agent
       dockerfile: Dockerfile
+      args:
+        GIT_SHA: ${HAP_GIT_SHA:-unknown}
+        BUILD_TIME: ${HAP_BUILD_TIME:-unknown}
     container_name: hap-ttskill-agent
     command: ["daemon"]
     restart: unless-stopped

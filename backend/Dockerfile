@@ -1,8 +1,22 @@
+ARG GIT_SHA=unknown
+ARG BUILD_TIME=unknown
+
 FROM python:3.12-slim AS runtime
+
+ARG GIT_SHA
+ARG BUILD_TIME
+
+LABEL org.opencontainers.image.source="https://github.com/sweet0416/home-analytics-platform" \
+      org.opencontainers.image.revision="$GIT_SHA" \
+      org.opencontainers.image.created="$BUILD_TIME"
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PIP_NO_CACHE_DIR=1
+    PIP_NO_CACHE_DIR=1 \
+    APP_BUILD_SHA=$GIT_SHA \
+    APP_BUILD_TIME=$BUILD_TIME \
+    APP_IMAGE_REFERENCE=hap-backend:local \
+    APP_DEPLOYMENT_ENVIRONMENT=unknown
 
 WORKDIR /app
 

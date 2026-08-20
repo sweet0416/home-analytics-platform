@@ -284,7 +284,28 @@ def test_health_check_returns_standard_response(client: TestClient) -> None:
     assert body["success"] is True
     assert body["code"] == "OK"
     assert body["data"]["status"] == "ok"
+    assert body["data"]["git_sha"] == "unknown"
+    assert body["data"]["git_commit"] == "unknown"
+    assert body["data"]["build_time"] == "unknown"
+    assert body["data"]["environment"] == "unknown"
     assert "x-trace-id" in response.headers
+
+
+def test_build_info_returns_runtime_provenance(client: TestClient) -> None:
+    response = client.get("/api/v1/system/build-info")
+
+    assert response.status_code == 200
+    body = response.json()["data"]
+    assert body == {
+        "app": "Home Analytics Platform",
+        "service": "hap-backend",
+        "git_sha": "unknown",
+        "git_commit": "unknown",
+        "build_time": "unknown",
+        "image": "hap-backend:local",
+        "environment": "unknown",
+        "version": "1.0.0",
+    }
 
 
 def test_plugins_endpoint_returns_registered_plugins(client: TestClient) -> None:

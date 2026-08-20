@@ -14,14 +14,11 @@ from app.plugins.fund.infrastructure.persistence import models as fund_models  #
 from app.plugins.lottery.infrastructure.persistence import models  # noqa: F401
 from app.plugins.lottery.infrastructure.persistence.repositories import LotteryRepository
 
-TEST_DB_PATH = Path("data/test/hap_test.db")
-TEST_DATABASE_URL = f"sqlite:///{TEST_DB_PATH}"
-
-
 @pytest.fixture()
-def db_session() -> Generator[Session, None, None]:
-    TEST_DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    engine = create_engine(TEST_DATABASE_URL, connect_args={"check_same_thread": False})
+def db_session(tmp_path: Path) -> Generator[Session, None, None]:
+    test_db_path = tmp_path / "hap_test.db"
+    test_database_url = f"sqlite:///{test_db_path}"
+    engine = create_engine(test_database_url, connect_args={"check_same_thread": False})
     TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)

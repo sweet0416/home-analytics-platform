@@ -8,6 +8,10 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     app_name: str = "Home Analytics Platform"
     app_version: str = "1.0.0"
+    app_build_sha: str = "unknown"
+    app_build_time: str = "unknown"
+    app_image_reference: str = "hap-backend:local"
+    app_deployment_environment: str = "unknown"
     api_v1_prefix: str = "/api/v1"
     debug: bool = False
 

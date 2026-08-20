@@ -45,7 +45,29 @@ def health_check() -> ApiResponse[dict[str, str]]:
         {
             "status": "ok",
             "version": settings.app_version,
+            "git_sha": settings.app_build_sha,
+            "git_commit": settings.app_build_sha,
+            "build_time": settings.app_build_time,
+            "image": settings.app_image_reference,
+            "environment": settings.app_deployment_environment,
             "database": "ok",
+        }
+    )
+
+
+@router.get("/build-info", response_model=ApiResponse[dict[str, str]])
+def build_info() -> ApiResponse[dict[str, str]]:
+    settings = get_settings()
+    return ok(
+        {
+            "app": settings.app_name,
+            "service": "hap-backend",
+            "git_sha": settings.app_build_sha,
+            "git_commit": settings.app_build_sha,
+            "build_time": settings.app_build_time,
+            "image": settings.app_image_reference,
+            "environment": settings.app_deployment_environment,
+            "version": settings.app_version,
         }
     )
 
