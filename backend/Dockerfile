@@ -1,17 +1,20 @@
 ARG GIT_SHA=unknown
 ARG BUILD_TIME=unknown
 ARG IMAGE_REFERENCE=hap-backend:local
+ARG APP_VERSION=1.0.0
 
 FROM python:3.12-slim AS runtime
 
 ARG GIT_SHA
 ARG BUILD_TIME
 ARG IMAGE_REFERENCE
+ARG APP_VERSION
 
 LABEL org.opencontainers.image.source="https://github.com/sweet0416/home-analytics-platform" \
       org.opencontainers.image.revision="$GIT_SHA" \
       org.opencontainers.image.created="$BUILD_TIME" \
-      org.opencontainers.image.ref.name="$IMAGE_REFERENCE"
+      org.opencontainers.image.ref.name="$IMAGE_REFERENCE" \
+      org.opencontainers.image.version="$APP_VERSION"
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
