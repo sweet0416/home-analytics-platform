@@ -1,10 +1,12 @@
 ARG GIT_SHA=unknown
 ARG BUILD_TIME=unknown
+ARG IMAGE_REFERENCE=hap-frontend:local
 
 FROM node:22-alpine AS build
 
 ARG GIT_SHA
 ARG BUILD_TIME
+ARG IMAGE_REFERENCE
 
 WORKDIR /app
 
@@ -22,10 +24,12 @@ FROM nginx:1.27-alpine AS runtime
 
 ARG GIT_SHA
 ARG BUILD_TIME
+ARG IMAGE_REFERENCE
 
 LABEL org.opencontainers.image.source="https://github.com/sweet0416/home-analytics-platform" \
       org.opencontainers.image.revision="$GIT_SHA" \
-      org.opencontainers.image.created="$BUILD_TIME"
+      org.opencontainers.image.created="$BUILD_TIME" \
+      org.opencontainers.image.ref.name="$IMAGE_REFERENCE"
 
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/dist /usr/share/nginx/html

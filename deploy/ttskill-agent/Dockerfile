@@ -1,14 +1,17 @@
 ARG GIT_SHA=unknown
 ARG BUILD_TIME=unknown
+ARG IMAGE_REFERENCE=hap-ttskill-agent:local
 
 FROM debian:bookworm-slim
 
 ARG GIT_SHA
 ARG BUILD_TIME
+ARG IMAGE_REFERENCE
 
 LABEL org.opencontainers.image.source="https://github.com/sweet0416/home-analytics-platform" \
       org.opencontainers.image.revision="$GIT_SHA" \
-      org.opencontainers.image.created="$BUILD_TIME"
+      org.opencontainers.image.created="$BUILD_TIME" \
+      org.opencontainers.image.ref.name="$IMAGE_REFERENCE"
 
 ARG TTSKILL_PACKAGE_URL=https://skills.tiantianfunds.com/ttskill/packages/base/0.1.2/linux/x64/ttskill-base-linux-x64-0.1.2.zip
 ARG TTSKILL_PACKAGE_SHA256=a2a1203ea6e84c7d8af42bd943c2e8b5f8144aa72a75f64e04c44c4e5b44eb12

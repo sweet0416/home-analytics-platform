@@ -125,6 +125,24 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
+    def validate_runtime_provenance(self) -> None:
+        """Reject unverifiable production builds while keeping local development flexible."""
+        if self.app_deployment_environment.strip().lower() != "production":
+            return
+        missing = [
+            name
+            for name, value in (
+                ("APP_BUILD_SHA", self.app_build_sha),
+                ("APP_BUILD_TIME", self.app_build_time),
+            )
+            if not value.strip() or value.strip().lower() == "unknown"
+        ]
+        if missing:
+            raise RuntimeError(
+                "Runtime provenance is required in production; missing or unknown: "
+                + ", ".join(missing)
+            )
+
 
 @lru_cache
 def get_settings() -> Settings:

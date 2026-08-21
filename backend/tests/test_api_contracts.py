@@ -308,6 +308,33 @@ def test_build_info_returns_runtime_provenance(client: TestClient) -> None:
     }
 
 
+def test_production_runtime_requires_build_provenance() -> None:
+    from app.core.config.settings import Settings
+
+    settings = Settings(
+        _env_file=None,
+        app_deployment_environment="production",
+        app_build_sha="unknown",
+        app_build_time="unknown",
+    )
+
+    with pytest.raises(RuntimeError, match="APP_BUILD_SHA, APP_BUILD_TIME"):
+        settings.validate_runtime_provenance()
+
+
+def test_non_production_runtime_allows_unknown_provenance() -> None:
+    from app.core.config.settings import Settings
+
+    settings = Settings(
+        _env_file=None,
+        app_deployment_environment="development",
+        app_build_sha="unknown",
+        app_build_time="unknown",
+    )
+
+    settings.validate_runtime_provenance()
+
+
 def test_plugins_endpoint_returns_registered_plugins(client: TestClient) -> None:
     response = client.get("/api/v1/plugins")
 

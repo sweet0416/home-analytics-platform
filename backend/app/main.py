@@ -25,6 +25,7 @@ from app.shared.exceptions.handlers import register_exception_handlers
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings = get_settings()
+    settings.validate_runtime_provenance()
     configure_logging(settings)
     create_database_schema()
     start_backup_scheduler()
