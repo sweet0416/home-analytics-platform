@@ -66,3 +66,25 @@ Future rollback should select an immutable SHA tag or recorded image digest, rec
 - The `main` convenience tag is mutable by design; production must use the SHA tag and preferably record the digest.
 - Private GHCR packages will require a future Portainer pull credential.
 - This phase does not automatically deploy or verify a running production container.
+
+## Actual GitHub Actions and GHCR validation
+
+Implementation commit: `ad83c74451128d4dfba90b8d3d6279f6c3790e53`
+
+Workflow run: `32435803419` (push to `main`), conclusion `success`.
+
+| Image | Immutable tag | Digest | Build | Push |
+| --- | --- | --- | --- | --- |
+| `ghcr.io/sweet0416/home-analytics-platform-backend` | `sha-ad83c74451128d4dfba90b8d3d6279f6c3790e53` | `sha256:50c442f17e3ff5866d564fb298f37f4ff4226aeb68ba7e0a1ab2ad480518c6c3` | PASS | PASS |
+| `ghcr.io/sweet0416/home-analytics-platform-frontend` | `sha-ad83c74451128d4dfba90b8d3d6279f6c3790e53` | `sha256:a3ec4551432988e1f56b682ce87d4a0988371ad55007351aa50fb3c1c11e5224` | PASS | PASS |
+| `ghcr.io/sweet0416/home-analytics-platform-ttskill-agent` | `sha-ad83c74451128d4dfba90b8d3d6279f6c3790e53` | `sha256:d9a76919df1bedd4f366e38d4aabe7e69e0de8dd831c134f94bdb2f614843e39` | PASS | PASS |
+
+The GHCR API confirmed both `main` and the immutable SHA tag for each package. Pulled image metadata confirmed that all three OCI `org.opencontainers.image.revision` labels equal the full commit SHA, and all source labels point to this repository.
+
+The pulled backend image contained matching `APP_BUILD_SHA`, `APP_BUILD_TIME`, and `APP_IMAGE_REFERENCE` values. The pulled frontend image contained matching `git_commit`, `build_time`, and version fields in `build-info.json`.
+
+GitHub emitted a non-blocking warning that several actions currently target Node.js 20 while the hosted runner is forcing Node.js 24. The run completed successfully; action major-version migration can be handled separately when the official action compatibility guidance requires it.
+
+`GITHUB_RUN_VALIDATION=PASS`
+`PROVENANCE_VALIDATION=PASS`
+`PHASE_2_FINAL_GATE=PASS`
