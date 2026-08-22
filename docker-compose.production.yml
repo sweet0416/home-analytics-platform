@@ -1,0 +1,33 @@
+# Production image overlay.
+# Use together with docker-compose.yml and the same project name (hap).
+# This file is preparation only; it does not deploy or pull images by itself.
+
+services:
+  hap-backend:
+    build: !reset null
+    image: ${HAP_BACKEND_IMAGE:?Set HAP_BACKEND_IMAGE to an immutable GHCR reference}
+    environment:
+      APP_DEPLOYMENT_ENVIRONMENT: production
+      APP_BUILD_SHA: !reset null
+      APP_BUILD_TIME: !reset null
+      APP_IMAGE_REFERENCE: !reset null
+
+  hap-frontend:
+    build: !reset null
+    image: ${HAP_FRONTEND_IMAGE:?Set HAP_FRONTEND_IMAGE to an immutable GHCR reference}
+
+  ttskill-agent:
+    build: !reset null
+    image: ${HAP_TTSKILL_AGENT_IMAGE:-ghcr.io/sweet0416/home-analytics-platform-ttskill-agent:sha-${HAP_IMAGE_REVISION:-missing}}
+
+volumes:
+  hap_sqlite:
+    name: hap_sqlite
+  hap_exports:
+    name: hap_exports
+  hap_backups:
+    name: hap_backups
+  hap_logs:
+    name: hap_logs
+  ttskill_data:
+    name: ttskill_data
