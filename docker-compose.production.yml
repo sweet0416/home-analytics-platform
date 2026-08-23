@@ -1,24 +1,172 @@
-# Production image overlay.
-# Use together with docker-compose.yml and the same project name (hap).
-# This file is preparation only; it does not deploy or pull images by itself.
+# HAP production Compose file.
+# This file is standalone: use it directly in the Portainer stack named hap.
+# Every HAP image must be supplied as an immutable GHCR digest reference.
 
 services:
   hap-backend:
-    build: !reset null
-    image: ${HAP_BACKEND_IMAGE:?Set HAP_BACKEND_IMAGE to an immutable GHCR reference}
+    image: ${HAP_BACKEND_IMAGE:?Set HAP_BACKEND_IMAGE to a verified GHCR digest reference}
+    container_name: hap-backend
+    restart: unless-stopped
     environment:
+      APP_NAME: ${APP_NAME:-Home Analytics Platform}
+      APP_VERSION: ${HAP_RELEASE_VERSION:-1.0.0}
       APP_DEPLOYMENT_ENVIRONMENT: production
-      APP_BUILD_SHA: !reset null
-      APP_BUILD_TIME: !reset null
-      APP_IMAGE_REFERENCE: !reset null
+      HAP_DEPLOYMENT_REVISION: ${HAP_DEPLOYMENT_REVISION:?Set HAP_DEPLOYMENT_REVISION to the deployed Git revision}
+      API_V1_PREFIX: ${API_V1_PREFIX:-/api/v1}
+      DEBUG: ${DEBUG:-false}
+      DATABASE_URL: ${DATABASE_URL:-sqlite:////app/data/sqlite/hap.db}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      LOG_DIR: ${LOG_DIR:-/app/logs}
+      BACKUP_DIR: ${BACKUP_DIR:-/app/data/backups}
+      BACKUP_AUTO_ENABLED: ${BACKUP_AUTO_ENABLED:-true}
+      BACKUP_CRON: '${BACKUP_CRON:-10 3 * * *}'
+      BACKUP_RETENTION_COUNT: ${BACKUP_RETENTION_COUNT:-30}
+      GITHUB_BACKUP_ENABLED: ${GITHUB_BACKUP_ENABLED:-false}
+      GITHUB_BACKUP_REPO: ${GITHUB_BACKUP_REPO:-}
+      GITHUB_BACKUP_TOKEN: ${GITHUB_BACKUP_TOKEN:-}
+      GITHUB_BACKUP_RELEASE_TAG: ${GITHUB_BACKUP_RELEASE_TAG:-hap-backups}
+      GITHUB_BACKUP_ENCRYPTION_PASSPHRASE: ${GITHUB_BACKUP_ENCRYPTION_PASSPHRASE:-}
+      GITHUB_BACKUP_TIMEOUT_SECONDS: ${GITHUB_BACKUP_TIMEOUT_SECONDS:-30}
+      NOTIFICATION_TIMEOUT_SECONDS: ${NOTIFICATION_TIMEOUT_SECONDS:-15}
+      NOTIFICATION_BARK_ENABLED: ${NOTIFICATION_BARK_ENABLED:-false}
+      NOTIFICATION_BARK_SERVER_URL: ${NOTIFICATION_BARK_SERVER_URL:-https://api.day.app}
+      NOTIFICATION_BARK_DEVICE_KEY: ${NOTIFICATION_BARK_DEVICE_KEY:-}
+      NOTIFICATION_BARK_GROUP: ${NOTIFICATION_BARK_GROUP:-HAP}
+      NOTIFICATION_BARK_SOUND: ${NOTIFICATION_BARK_SOUND:-}
+      NOTIFICATION_BARK_LEVEL: ${NOTIFICATION_BARK_LEVEL:-active}
+      NOTIFICATION_WECOM_ENABLED: ${NOTIFICATION_WECOM_ENABLED:-false}
+      NOTIFICATION_WECOM_WEBHOOK_URL: ${NOTIFICATION_WECOM_WEBHOOK_URL:-}
+      NOTIFICATION_WHATSAPP_ENABLED: ${NOTIFICATION_WHATSAPP_ENABLED:-false}
+      NOTIFICATION_WHATSAPP_GRAPH_VERSION: ${NOTIFICATION_WHATSAPP_GRAPH_VERSION:-v20.0}
+      NOTIFICATION_WHATSAPP_PHONE_NUMBER_ID: ${NOTIFICATION_WHATSAPP_PHONE_NUMBER_ID:-}
+      NOTIFICATION_WHATSAPP_ACCESS_TOKEN: ${NOTIFICATION_WHATSAPP_ACCESS_TOKEN:-}
+      NOTIFICATION_WHATSAPP_RECIPIENT_PHONE: ${NOTIFICATION_WHATSAPP_RECIPIENT_PHONE:-}
+      NOTIFICATION_CUSTOM_WEBHOOK_ENABLED: ${NOTIFICATION_CUSTOM_WEBHOOK_ENABLED:-false}
+      NOTIFICATION_CUSTOM_WEBHOOK_URL: ${NOTIFICATION_CUSTOM_WEBHOOK_URL:-}
+      NOTIFICATION_CUSTOM_WEBHOOK_BEARER_TOKEN: ${NOTIFICATION_CUSTOM_WEBHOOK_BEARER_TOKEN:-}
+      INFRASTRUCTURE_HEALTH_NOTIFY_ENABLED: ${INFRASTRUCTURE_HEALTH_NOTIFY_ENABLED:-false}
+      INFRASTRUCTURE_HEALTH_NOTIFY_CRON: '${INFRASTRUCTURE_HEALTH_NOTIFY_CRON:-*/5 * * * *}'
+      INFRASTRUCTURE_HEALTH_NOTIFY_CHANNEL: ${INFRASTRUCTURE_HEALTH_NOTIFY_CHANNEL:-bark}
+      FUND_AI_SUMMARY_ENABLED: ${FUND_AI_SUMMARY_ENABLED:-false}
+      FUND_AI_SUMMARY_PROVIDER: ${FUND_AI_SUMMARY_PROVIDER:-webhook}
+      FUND_AI_SUMMARY_WEBHOOK_URL: ${FUND_AI_SUMMARY_WEBHOOK_URL:-}
+      FUND_AI_SUMMARY_BEARER_TOKEN: ${FUND_AI_SUMMARY_BEARER_TOKEN:-}
+      FUND_AI_SUMMARY_API_URL: ${FUND_AI_SUMMARY_API_URL:-}
+      FUND_AI_SUMMARY_API_KEY: ${FUND_AI_SUMMARY_API_KEY:-}
+      FUND_AI_SUMMARY_MODEL: ${FUND_AI_SUMMARY_MODEL:-}
+      FUND_AI_SUMMARY_TIMEOUT_SECONDS: ${FUND_AI_SUMMARY_TIMEOUT_SECONDS:-30}
+      FUND_AI_AUTO_SUMMARY_ENABLED: ${FUND_AI_AUTO_SUMMARY_ENABLED:-false}
+      FUND_AI_AUTO_SUMMARY_MAX_PER_DAY: ${FUND_AI_AUTO_SUMMARY_MAX_PER_DAY:-1}
+      PVE_ENABLED: ${PVE_ENABLED:-false}
+      PVE_URL: ${PVE_URL:-https://192.168.100.254:8006}
+      PVE_API_TOKEN_ID: ${PVE_API_TOKEN_ID:-}
+      PVE_API_TOKEN_SECRET: ${PVE_API_TOKEN_SECRET:-}
+      PVE_VERIFY_SSL: ${PVE_VERIFY_SSL:-true}
+      PVE_TIMEOUT_SECONDS: ${PVE_TIMEOUT_SECONDS:-10}
+      PVE_TASKS_LIMIT: ${PVE_TASKS_LIMIT:-50}
+      DOCKER_ENABLED: ${DOCKER_ENABLED:-false}
+      DOCKER_URL: ${DOCKER_URL:-http://docker-socket-proxy:2375}
+      DOCKER_TIMEOUT_SECONDS: ${DOCKER_TIMEOUT_SECONDS:-10}
+      DOCKER_STATS_LIMIT: ${DOCKER_STATS_LIMIT:-20}
+      DOCKER_STATS_TIMEOUT_SECONDS: ${DOCKER_STATS_TIMEOUT_SECONDS:-3}
+      CORS_ORIGINS: '${CORS_ORIGINS:-["http://localhost:8088","http://127.0.0.1:8088"]}'
+      BACKEND_WORKERS: ${BACKEND_WORKERS:-1}
+      BACKEND_KEEP_ALIVE: ${BACKEND_KEEP_ALIVE:-5}
+      LOTTERY_DLT_AUTO_SYNC_ENABLED: ${LOTTERY_DLT_AUTO_SYNC_ENABLED:-true}
+      LOTTERY_DLT_SYNC_CRON: '${LOTTERY_DLT_SYNC_CRON:-30 22 * * *}'
+      LOTTERY_DLT_SYNC_PAGE_SIZE: ${LOTTERY_DLT_SYNC_PAGE_SIZE:-100}
+      LOTTERY_DLT_SYNC_TIMEOUT_SECONDS: ${LOTTERY_DLT_SYNC_TIMEOUT_SECONDS:-30}
+      LOTTERY_DLT_FALLBACK_ENABLED: ${LOTTERY_DLT_FALLBACK_ENABLED:-true}
+      LOTTERY_DLT_NOTIFY_ENABLED: ${LOTTERY_DLT_NOTIFY_ENABLED:-true}
+      LOTTERY_DLT_NOTIFY_CHANNEL: ${LOTTERY_DLT_NOTIFY_CHANNEL:-all}
+      LOTTERY_DLT_NOTIFY_ON_NO_CHANGES: ${LOTTERY_DLT_NOTIFY_ON_NO_CHANGES:-false}
+      LOTTERY_DLT_SPORTTERY_URL: ${LOTTERY_DLT_SPORTTERY_URL:-https://webapi.sporttery.cn/gateway/lottery/getHistoryPageListV1.qry}
+      LOTTERY_DLT_500_HISTORY_URL: ${LOTTERY_DLT_500_HISTORY_URL:-https://datachart.500.com/dlt/history/newinc/history.php}
+      FUND_NAV_SYNC_TIMEOUT_SECONDS: ${FUND_NAV_SYNC_TIMEOUT_SECONDS:-20}
+      FUND_NAV_SYNC_MAX_WORKERS: ${FUND_NAV_SYNC_MAX_WORKERS:-4}
+      FUND_NAV_AUTO_SYNC_ENABLED: ${FUND_NAV_AUTO_SYNC_ENABLED:-true}
+      FUND_NAV_SYNC_CRON: '${FUND_NAV_SYNC_CRON:-0 19-22 * * 0-4}'
+      FUND_NAV_HISTORY_AUTO_SYNC_ENABLED: ${FUND_NAV_HISTORY_AUTO_SYNC_ENABLED:-true}
+      FUND_NAV_HISTORY_SYNC_LIMIT: ${FUND_NAV_HISTORY_SYNC_LIMIT:-365}
+      FUND_NAV_NOTIFY_ENABLED: ${FUND_NAV_NOTIFY_ENABLED:-true}
+      FUND_NAV_NOTIFY_CHANNEL: ${FUND_NAV_NOTIFY_CHANNEL:-bark}
+      FUND_TTSKILL_SYNC_ENABLED: ${FUND_TTSKILL_SYNC_ENABLED:-false}
+      FUND_TTSKILL_SYNC_TOKEN: ${FUND_TTSKILL_SYNC_TOKEN:-}
+      FUND_EASTMONEY_PINGZHONGDATA_URL: ${FUND_EASTMONEY_PINGZHONGDATA_URL:-https://fund.eastmoney.com/pingzhongdata/{fund_code}.js}
+      FUND_EASTMONEY_HOLDINGS_URL: ${FUND_EASTMONEY_HOLDINGS_URL:-http://fundf10.eastmoney.com/FundArchivesDatas.aspx?type=jjcc&code={fund_code}&topline=10&year=&month=}
+      FUND_LOOKTHROUGH_TARGET_LINKS_JSON: '${FUND_LOOKTHROUGH_TARGET_LINKS_JSON:-[{"parent_fund_code":"050025","target_fund_code":"513500","target_fund_name":"博时标普500ETF(QDII)","target_allocation_ratio":"0.9402","report_date":"2026-03-31","source_url":"https://pdf.dfcfw.com/pdf/H2_AN202604221821416655_1.pdf"},{"parent_fund_code":"270042","target_fund_code":"159941","target_fund_name":"广发纳指100ETF","target_allocation_ratio":"0.8945","report_date":"2026-06-30","source_url":"https://static.howbuy.com/gkxx/ggfile//2026/2026-7/2026-07-20/5377455.pdf"}]}'
+    volumes:
+      - hap_sqlite:/app/data/sqlite
+      - hap_exports:/app/data/exports
+      - hap_backups:/app/data/backups
+      - hap_logs:/app/logs
+    networks:
+      - hap_internal
+    depends_on:
+      docker-socket-proxy:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/system/health', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
 
   hap-frontend:
-    build: !reset null
-    image: ${HAP_FRONTEND_IMAGE:?Set HAP_FRONTEND_IMAGE to an immutable GHCR reference}
+    image: ${HAP_FRONTEND_IMAGE:?Set HAP_FRONTEND_IMAGE to a verified GHCR digest reference}
+    container_name: hap-frontend
+    restart: unless-stopped
+    depends_on:
+      hap-backend:
+        condition: service_healthy
+    ports:
+      - "${HAP_WEB_PORT:-8088}:80"
+    networks:
+      - hap_internal
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+  docker-socket-proxy:
+    image: ghcr.io/tecnativa/docker-socket-proxy@sha256:1f5038b54f06c3e18422902cf00ba21803d1c97805aae032e5e6673d532d3459
+    container_name: hap-docker-socket-proxy
+    restart: unless-stopped
+    environment:
+      CONTAINERS: 1
+      IMAGES: 1
+      VOLUMES: 1
+      NETWORKS: 1
+      INFO: 1
+      VERSION: 1
+      PINGS: 1
+      POST: 0
+      DELETE: 0
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - hap_internal
 
   ttskill-agent:
-    build: !reset null
-    image: ${HAP_TTSKILL_AGENT_IMAGE:-ghcr.io/sweet0416/home-analytics-platform-ttskill-agent:sha-${HAP_IMAGE_REVISION:-missing}}
+    profiles: [ttskill]
+    image: ${HAP_TTSKILL_AGENT_IMAGE:?Set HAP_TTSKILL_AGENT_IMAGE to a verified GHCR digest reference}
+    container_name: hap-ttskill-agent
+    command: ["daemon"]
+    restart: unless-stopped
+    environment:
+      TTSKILL_HOME: /var/lib/ttskill
+    volumes:
+      - ttskill_data:/var/lib/ttskill
+    ports:
+      - "127.0.0.1:${TTSKILL_LOGIN_PORT:-8765}:8765"
+    networks:
+      - hap_internal
+
+networks:
+  hap_internal:
+    name: hap_internal
 
 volumes:
   hap_sqlite:

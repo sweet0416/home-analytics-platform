@@ -18,19 +18,22 @@ Target model:
 Git Commit -> GitHub Actions -> GHCR immutable image -> Portainer pull/recreate -> runtime verification
 ```
 
-The existing `docker-compose.yml` remains the local development/build model. `docker-compose.production.yml` is an overlay and must be applied together with the base file using the existing project name `hap`.
+The existing `docker-compose.yml` remains the local development/build model. `docker-compose.production.yml` is now a
+standalone production file and should be loaded directly by the Portainer Stack named `hap`.
 
 ## Production image model
 
-The overlay removes the three HAP build paths and requires explicit image references:
+The standalone production file removes all HAP build paths and requires explicit image references:
 
 - `HAP_BACKEND_IMAGE`
 - `HAP_FRONTEND_IMAGE`
 - `HAP_TTSKILL_AGENT_IMAGE` when the `ttskill` profile is enabled
 
-The references should use GHCR digest syntax in production, for example `image@sha256:...`. The deployment manifest also records the human-readable Git SHA tag and digest. Digest references provide immutable rollback and eliminate mutable-tag drift; SHA tags remain easier to read and audit in logs. The digest is the production authority. The optional `ttskill-agent` profile has a revision-derived SHA-tag fallback only so Compose can validate when the profile is disabled; an actual deployment must provide its verified digest reference from the manifest.
+The references should use GHCR digest syntax in production, for example `image@sha256:...`. The deployment manifest also records the human-readable Git SHA tag and digest. Digest references provide immutable rollback and eliminate mutable-tag drift; SHA tags remain easier to read and audit in logs. The digest is the production authority. The optional `ttskill-agent` profile has no tag fallback; if the profile is enabled, a verified digest reference is required explicitly.
 
-The external `docker-socket-proxy` remains outside this phase and keeps its existing image configuration. Its mutable `latest` tag is a future risk, not changed here.
+The external `docker-socket-proxy` keeps its existing security configuration and is pinned to a verified multi-platform
+GHCR index digest in the production file. The development Compose file may continue using its existing convenience
+tag; production does not.
 
 The Phase 2 source record used for this preparation is revision `ad83c74451128d4dfba90b8d3d6279f6c3790e53`, from successful GitHub Actions run `32435803419`:
 
@@ -42,13 +45,16 @@ These are verified build artifacts for the manifest template, not evidence that 
 
 ## Revision and provenance compatibility
 
-`HAP_IMAGE_REVISION` must be the same full Git SHA for the backend, frontend, and enabled agent. The production overlay deliberately resets the base Compose `APP_BUILD_SHA`, `APP_BUILD_TIME`, and `APP_IMAGE_REFERENCE` entries so the container uses the values baked into the verified GHCR image. Frontend provenance remains baked into the image `build-info.json`; it is not replaced by an untrusted runtime value. The image OCI revision and deployment SHA must match. If the optional agent image variable is omitted, its fallback is `sha-${HAP_IMAGE_REVISION}`; `sha-missing` is intentionally unusable and must never be deployed.
+`HAP_IMAGE_REVISION` must be the same full Git SHA for the backend, frontend, and enabled agent. The standalone
+production file does not declare `APP_BUILD_SHA`, `APP_BUILD_TIME`, or `APP_IMAGE_REFERENCE`, so the container uses the
+values baked into the verified GHCR image. Frontend provenance remains baked into the image `build-info.json`; it is
+not replaced by an untrusted runtime value. The image OCI revision and deployment SHA must match.
 
 The checked-in example manifest is intentionally marked `NOT_DEPLOYED` and contains placeholders. It is a template, not a claim about the current production deployment.
 
 ## Stateful volume firewall
 
-The overlay explicitly preserves the existing Docker volume names:
+The standalone file explicitly preserves the existing Docker volume names:
 
 - `hap_sqlite`
 - `hap_exports`
@@ -56,9 +62,11 @@ The overlay explicitly preserves the existing Docker volume names:
 - `hap_logs`
 - `ttskill_data`
 
-The stack must continue to use project name `hap`. Do not rename these volumes, change their driver, use a new project name, or run `docker compose down -v`. The overlay does not migrate or recreate volumes.
+The stack must continue to use project name `hap`. Do not rename these volumes, change their driver, use a new project name, or run `docker compose down -v`. The standalone file does not migrate or recreate volumes.
 
-Static validation of the merged base-plus-production Compose configuration passed with both the normal profile set and the `ttskill` profile. The merged configuration contains no `build:` keys for HAP services and retains all five explicit volume names. Runtime Portainer volume identity remains pending because this phase did not access production.
+Static validation of the standalone production Compose configuration passed with both the normal service set and the
+`ttskill` profile. The configuration contains no `build:` keys for HAP services and retains all five explicit volume
+names. Runtime Portainer volume identity remains pending because this phase did not access production.
 
 ## GHCR credential requirement
 
@@ -71,7 +79,7 @@ Before any real deployment, record or verify:
 1. Target Git SHA and successful Actions run.
 2. Backend, frontend, and optional agent digest references.
 3. OCI revision equals the target full SHA.
-4. Production Compose merged config contains no `build:` for HAP services.
+4. Production Compose config contains no `build:` for HAP services.
 5. Existing Portainer Stack configuration and project name are recorded.
 6. Existing volume identities are recorded.
 7. A usable HAP database backup is confirmed.
@@ -109,7 +117,7 @@ Rollback changes only application image references from revision B to the previo
 
 - Live Portainer Stack configuration and current volume identity require production access.
 - GHCR private-package credentials are not configured.
-- `docker-socket-proxy:latest` remains mutable and is outside this phase.
+- The development Compose file still uses the convenience tag for `docker-socket-proxy`; production is digest-pinned.
 - `frontend/pnpm-workspace.yaml` and frontend lockfile concerns remain outside this phase.
 - GitHub Actions Node.js 20 deprecation warnings remain a future CI maintenance item.
 - Production Compose pull/recreate, health, smoke test, and runtime provenance verification are pending and were not run.
@@ -117,16 +125,17 @@ Rollback changes only application image references from revision B to the previo
 ## Static validation record
 
 - `git diff --check`: PASS
-- `docker compose -f docker-compose.yml -f docker-compose.production.yml config --quiet`: PASS
-- Same Compose validation with `--profile ttskill`: PASS
-- Merged config image/build check: PASS; HAP services have GHCR `image:` references and no `build:` keys
-- Runtime provenance override check: PASS; the production overlay does not replace image-baked build SHA, build time, or image reference
+- `docker compose -f docker-compose.production.yml config --quiet`: PASS
+- Same standalone Compose validation with `--profile ttskill`: PASS
+- Production config image/build check: PASS; HAP services have GHCR `image:` references and no `build:` keys
+- Runtime provenance override check: PASS; the standalone production file does not replace image-baked build SHA, build time, or image reference
 - Immutable image reference check: PASS for the recorded SHA/digest examples
 - Manifest template check: PASS; `DEPLOYMENT_TIME=NOT_DEPLOYED`
 - Secret-like content scan of new Phase 3 files: PASS
 - Production runtime validation: NOT RUN, intentionally prohibited in this phase
 
-The overlay uses Compose's `!reset` tag to remove inherited `build:` fields. It therefore requires a Compose implementation that supports the Compose Specification reset tag; this must be confirmed on the production Portainer host before deployment.
+The production file no longer uses Compose's `!reset` tag. This removes the previous Portainer parser compatibility
+risk. Portainer runtime validation is still required before deployment.
 
 `PORTAINER_CHANGED=NO`
 `PRODUCTION_CONTAINER_CHANGED=NO`

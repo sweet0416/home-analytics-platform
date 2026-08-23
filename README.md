@@ -21,7 +21,39 @@ Reserved plugin areas:
 - AI Lab
 - Automation
 
-## PVE Docker Quick Start
+## Architecture Overview
+
+HAP has two intentionally different Compose models:
+
+### Development Model
+
+Use `docker-compose.yml` for local development, testing, and local image builds.
+
+- Services use `build:` and build from the checked-out source tree.
+- Build-time provenance can use local fallback values.
+- This model is convenient for iteration, but is not the production release source.
+
+### Production Model
+
+Use the standalone `docker-compose.production.yml` for production deployment.
+
+- Services use GHCR prebuilt images pinned by `image@sha256:<digest>`.
+- Production does not build HAP images on the PVE host.
+- Production must not use `latest`, an unverified tag, or a mutable convenience tag as its authority.
+- The production file is independent and does not depend on Compose overlay reset tags such as `!reset`.
+
+The production image source of truth is:
+
+```text
+GitHub Commit
+  -> GitHub Actions
+  -> GHCR Image
+  -> Immutable Digest
+  -> Portainer Stack
+  -> Runtime Provenance Verification
+```
+
+## PVE Docker Development Quick Start
 
 ```bash
 cp .env.example .env
@@ -29,6 +61,9 @@ docker compose build
 docker compose up -d
 docker compose ps
 ```
+
+Do not use this development flow for the production image migration. Production deployment follows
+[the PVE production deployment guide](docs/deployment-pve-docker.md).
 
 Default web URL:
 
@@ -42,6 +77,34 @@ Smoke test:
 curl http://127.0.0.1:8088/api/v1/system/health
 curl http://127.0.0.1:8088/api/v1/lottery/dlt/rules/current
 ```
+
+## Production Deployment Rules
+
+Production deployment must:
+
+- keep the Portainer Stack and Compose project identity as `hap`;
+- use the standalone `docker-compose.production.yml`;
+- pin Backend, Frontend, and enabled `ttskill-agent` images by verified digest;
+- verify runtime provenance after recreation.
+
+Production deployment must not:
+
+- run `docker compose down -v`;
+- delete or rename `hap_*` volumes;
+- deploy `latest` or an unverified image tag;
+- assume a healthy container proves that the expected Git revision is running.
+
+Fixed volumes are data, not image artifacts:
+
+```text
+hap_sqlite
+hap_exports
+hap_backups
+hap_logs
+ttskill_data
+```
+
+They must survive image updates and rollbacks.
 
 ## DLT Data Sync
 
