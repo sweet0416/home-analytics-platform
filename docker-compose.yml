@@ -21,6 +21,8 @@ services:
       API_V1_PREFIX: ${API_V1_PREFIX:-/api/v1}
       DEBUG: ${DEBUG:-false}
       DATABASE_URL: ${DATABASE_URL:-sqlite:////app/data/sqlite/hap.db}
+      HAP_ADMIN_PASSWORD_HASH: ${HAP_ADMIN_PASSWORD_HASH:?Set HAP_ADMIN_PASSWORD_HASH to a PBKDF2 hash}
+      HAP_COOKIE_SECURE: ${HAP_COOKIE_SECURE:-false}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       LOG_DIR: ${LOG_DIR:-/app/logs}
       BACKUP_DIR: ${BACKUP_DIR:-/app/data/backups}

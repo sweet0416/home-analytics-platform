@@ -468,6 +468,7 @@ import { Download, Refresh, SortDown, SortUp } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { computed, onMounted, ref } from 'vue';
 
+import { downloadApiFile } from '@/api/client';
 import EmptyState from '@/components/common/EmptyState.vue';
 import RevealContent from '@/components/common/RevealContent.vue';
 import MetricCard from '@/components/metric/MetricCard.vue';
@@ -1243,7 +1244,9 @@ async function loadOverview(): Promise<void> {
 onMounted(loadOverview);
 
 function downloadPositions(): void {
-  window.location.href = getFundPositionsExportUrl();
+  void downloadApiFile(getFundPositionsExportUrl(), 'hap-fund-positions.csv').catch(() => {
+    ElMessage.error('持仓下载失败');
+  });
 }
 </script>
 

@@ -357,6 +357,7 @@ import { Bell, FolderChecked, Refresh } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { computed, onMounted, ref } from 'vue';
 
+import { downloadApiFile } from '@/api/client';
 import EmptyState from '@/components/common/EmptyState.vue';
 import {
   type NotificationChannel,
@@ -539,7 +540,9 @@ async function createBackup(): Promise<void> {
 }
 
 function downloadBackup(fileName: string): void {
-  window.location.href = `/api/v1/system/backups/${encodeURIComponent(fileName)}/download`;
+  void downloadApiFile(`/api/v1/system/backups/${encodeURIComponent(fileName)}/download`, fileName).catch(() => {
+    ElMessage.error('备份下载失败');
+  });
 }
 
 async function restoreBackup(fileName: string): Promise<void> {

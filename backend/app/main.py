@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.v1.router import api_router
+from app.core.auth import require_auth
 from app.core.backup.scheduler import start_backup_scheduler, stop_backup_scheduler
 from app.core.config.settings import get_settings
 from app.core.database.session import create_database_schema
@@ -26,6 +27,7 @@ from app.shared.exceptions.handlers import register_exception_handlers
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings = get_settings()
     settings.validate_runtime_provenance()
+    settings.validate_auth()
     configure_logging(settings)
     create_database_schema()
     start_backup_scheduler()
@@ -50,6 +52,7 @@ def create_app() -> FastAPI:
         debug=settings.debug,
         lifespan=lifespan,
     )
+    app.middleware("http")(require_auth)
     app.middleware("http")(add_trace_id_middleware)
     app.add_middleware(
         CORSMiddleware,

@@ -14,6 +14,9 @@ class Settings(BaseSettings):
     app_deployment_environment: str = "unknown"
     api_v1_prefix: str = "/api/v1"
     debug: bool = False
+    hap_admin_password_hash: str = ""
+    hap_cookie_secure: bool = False
+    backend_workers: int = Field(default=1, ge=1, le=1)
 
     database_url: str = "sqlite:///./data/sqlite/hap.db"
     log_level: str = "INFO"
@@ -142,6 +145,12 @@ class Settings(BaseSettings):
                 "Runtime provenance is required in production; missing or unknown: "
                 + ", ".join(missing)
             )
+
+    def validate_auth(self) -> None:
+        from app.core.auth import valid_password_hash
+
+        if not valid_password_hash(self.hap_admin_password_hash):
+            raise RuntimeError("HAP_ADMIN_PASSWORD_HASH must be a valid PBKDF2 password hash")
 
 
 @lru_cache

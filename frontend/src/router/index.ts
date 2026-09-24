@@ -5,12 +5,19 @@ import DashboardView from '@/views/DashboardView.vue';
 import PlaceholderView from '@/views/PlaceholderView.vue';
 import ReportsView from '@/views/ReportsView.vue';
 import SettingsView from '@/views/SettingsView.vue';
+import LoginView from '@/views/LoginView.vue';
+import { getApiData, setCsrfToken } from '@/api/client';
 import { dockerRoutes } from '@/plugins/docker/routes';
 import { fundRoutes } from '@/plugins/fund/routes';
 import { lotteryRoutes } from '@/plugins/lottery/routes';
 import { pveRoutes } from '@/plugins/pve/routes';
 
 const routes: RouteRecordRaw[] = [
+  {
+    path: '/login',
+    name: 'login',
+    component: LoginView,
+  },
   {
     path: '/',
     component: MainLayout,
@@ -65,4 +72,16 @@ const routes: RouteRecordRaw[] = [
 export const router = createRouter({
   history: createWebHistory(),
   routes,
+});
+
+router.beforeEach(async (to) => {
+  if (to.name === 'login') return true;
+  try {
+    const session = await getApiData<{ csrf_token: string }>('/auth/me');
+    setCsrfToken(session.csrf_token);
+    return true;
+  } catch {
+    setCsrfToken('');
+    return { name: 'login', query: { redirect: to.fullPath } };
+  }
 });

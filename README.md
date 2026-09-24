@@ -21,6 +21,23 @@ Reserved plugin areas:
 - AI Lab
 - Automation
 
+## Administrator login
+
+HAP requires one administrator password. Generate its PBKDF2 hash locally with
+`python scripts/hash_admin_password.py`, then put the printed hash in
+`HAP_ADMIN_PASSWORD_HASH` in your private `.env` or Portainer Stack variables.
+In a Compose `.env` file, wrap the hash in single quotes so its `$` separators
+are not expanded. Set `HAP_COOKIE_SECURE=true` when the browser uses HTTPS.
+Never commit the hash or plaintext password. The backend refuses to start when
+the hash is absent or invalid. Use HTTPS when accessing HAP outside a trusted
+local network.
+
+All API routes require the admin session except the health check, login, and
+six Tiantian Skills integration routes that retain their dedicated sync token.
+Sessions expire after eight hours, logout revokes the session, and service
+restarts log everyone out. HAP currently runs with one backend worker so these
+short-lived sessions can be held in memory.
+
 ## Architecture Overview
 
 HAP has two intentionally different Compose models:

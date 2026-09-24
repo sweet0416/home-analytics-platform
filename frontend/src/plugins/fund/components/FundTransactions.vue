@@ -255,6 +255,7 @@ import { Delete, Download, Refresh, Search } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { computed, onMounted, ref, watch } from 'vue';
 
+import { downloadApiFile } from '@/api/client';
 import EmptyState from '@/components/common/EmptyState.vue';
 import RevealContent from '@/components/common/RevealContent.vue';
 import {
@@ -371,7 +372,9 @@ async function loadTransactions(): Promise<void> {
 }
 
 function downloadTransactions(): void {
-  window.location.href = getFundTransactionsExportUrl();
+  void downloadApiFile(getFundTransactionsExportUrl(), 'hap-fund-transactions.csv').catch(() => {
+    ElMessage.error('流水下载失败');
+  });
 }
 
 async function lookupFund(): Promise<void> {

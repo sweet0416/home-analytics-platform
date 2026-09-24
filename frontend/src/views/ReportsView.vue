@@ -52,6 +52,9 @@
 </template>
 
 <script setup lang="ts">
+import { ElMessage } from 'element-plus';
+
+import { downloadApiFile } from '@/api/client';
 import RevealContent from '@/components/common/RevealContent.vue';
 import FundDailyReport from '@/plugins/fund/components/FundDailyReport.vue';
 import { getFundDailySnapshotsExportUrl } from '@/plugins/fund/api';
@@ -59,7 +62,9 @@ import { getFundDailySnapshotsExportUrl } from '@/plugins/fund/api';
 const refreshKey = 0;
 
 function downloadSnapshotCsv(): void {
-  window.location.href = getFundDailySnapshotsExportUrl();
+  void downloadApiFile(getFundDailySnapshotsExportUrl(), 'hap-fund-daily-snapshots.csv').catch(() => {
+    ElMessage.error('快照下载失败');
+  });
 }
 
 function printReport(): void {

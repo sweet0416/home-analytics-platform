@@ -35,7 +35,10 @@ def register_exception_handlers(app: FastAPI) -> None:
                 "message": "Validation error",
                 "details": {
                     "errors": jsonable_encoder(
-                        exc.errors(),
+                        [
+                            {key: value for key, value in error.items() if key != "input"}
+                            for error in exc.errors()
+                        ],
                         custom_encoder={Exception: str},
                     )
                 },

@@ -68,6 +68,13 @@ hap_logs     -> /app/logs
 
 Before a real production deployment:
 
+Generate an administrator password hash with `python scripts/hash_admin_password.py`
+and configure `HAP_ADMIN_PASSWORD_HASH` in the private Portainer Stack variables.
+The new backend will refuse to start without it. Keep the plaintext password
+and the hash out of Git. Set `HAP_COOKIE_SECURE=true` when the browser reaches
+HAP over HTTPS. This login prerequisite must be in place before switching to
+an image built from the authentication change.
+
 1. Confirm the GitHub Actions build succeeded.
 2. Record the target full Git SHA and each GHCR digest.
 3. Confirm the database backup gate is PASS.
