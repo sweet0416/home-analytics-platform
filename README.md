@@ -58,7 +58,7 @@ The existing Portainer `hap` Git Stack uses the root `docker-compose.yml` for pr
 - Production does not build HAP images on the PVE host.
 - Production must not use `latest`, an unverified tag, or a mutable convenience tag as its authority.
 - GitOps/automatic updates remain off; deployment is a controlled manual Portainer operation.
-- The pinned images report source revision `283bd97c84aee1a0f1cc9e5671ec4d351e3f2e37`.
+- Emergency rollback: the currently pinned images report pre-auth source revision `4c5a17b3d6987fc6de66108fc5969be14e34b175`; the Phase 1 cutover failed backend health acceptance and is not complete.
 
 The production image source of truth is:
 

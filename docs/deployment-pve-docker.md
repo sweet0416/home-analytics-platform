@@ -37,10 +37,11 @@ GitHub Commit
   -> Runtime Provenance Verification
 ```
 
-The production file is standalone and does not use Compose overlay merge behavior or `!reset`. Its backend,
-frontend, and optional agent images are pinned to the verified source revision
-`283bd97c84aee1a0f1cc9e5671ec4d351e3f2e37`. The later deployment-configuration commit is not the image
-source revision. GitOps and automatic updates remain off; pushing a configuration commit does not redeploy HAP.
+The production file is standalone and does not use Compose overlay merge behavior or `!reset`. Following a failed
+Phase 1 backend health acceptance, the backend and frontend are temporarily pinned to the pre-auth rollback source
+revision `4c5a17b3d6987fc6de66108fc5969be14e34b175`. The optional agent remains disabled. The deployment-
+configuration commit is not the application source revision. GitOps and automatic updates remain off; pushing a
+configuration commit does not redeploy HAP.
 
 The PVE host must not build the production HAP images.
 

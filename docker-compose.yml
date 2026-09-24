@@ -1,17 +1,17 @@
 # HAP production Compose for the existing Portainer stack named hap.
-# Source revision: 283bd97c84aee1a0f1cc9e5671ec4d351e3f2e37.
+# Emergency rollback source revision: 4c5a17b3d6987fc6de66108fc5969be14e34b175.
 # This file pins verified GHCR digests; do not use it for local builds.
 
 services:
   hap-backend:
-    image: ghcr.io/sweet0416/home-analytics-platform-backend@sha256:5fe9a557e8c967877a859c1f84352514fd6143036a3df6b6e5b514081cf7cf5b
+    image: ghcr.io/sweet0416/home-analytics-platform-backend@sha256:3ad050a8433b1c44e4442b6732d31221b00e0840982aa2a5491f0ae59fc5957f
     container_name: hap-backend
     restart: unless-stopped
     environment:
       APP_NAME: ${APP_NAME:-Home Analytics Platform}
       APP_VERSION: ${HAP_RELEASE_VERSION:-1.0.0}
       APP_DEPLOYMENT_ENVIRONMENT: production
-      HAP_DEPLOYMENT_REVISION: 283bd97c84aee1a0f1cc9e5671ec4d351e3f2e37
+      HAP_DEPLOYMENT_REVISION: 4c5a17b3d6987fc6de66108fc5969be14e34b175
       API_V1_PREFIX: ${API_V1_PREFIX:-/api/v1}
       DEBUG: ${DEBUG:-false}
       DATABASE_URL: ${DATABASE_URL:-sqlite:////app/data/sqlite/hap.db}
@@ -115,7 +115,7 @@ services:
       start_period: 20s
 
   hap-frontend:
-    image: ghcr.io/sweet0416/home-analytics-platform-frontend@sha256:77e36e9c5ab1c19a736fad2ee8fa0d8cdeef81db3e74d53ef4c030825420bb0b
+    image: ghcr.io/sweet0416/home-analytics-platform-frontend@sha256:bc86d14ea975d246ddf53eadfdaf402b7c97f261877eb1fcff5d84de2a70c7b9
     container_name: hap-frontend
     restart: unless-stopped
     depends_on:
