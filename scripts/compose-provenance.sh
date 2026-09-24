@@ -7,4 +7,4 @@ export HAP_BACKEND_IMAGE="${HAP_BACKEND_IMAGE:-hap-backend:local}"
 export HAP_FRONTEND_IMAGE="${HAP_FRONTEND_IMAGE:-hap-frontend:local}"
 export HAP_TTSKILL_IMAGE="${HAP_TTSKILL_IMAGE:-hap-ttskill-agent:local}"
 
-exec docker compose "$@"
+exec docker compose -f docker-compose.development.yml "$@"

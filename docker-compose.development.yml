@@ -1,17 +1,24 @@
-# HAP production Compose file.
-# This file is standalone: use it directly in the Portainer stack named hap.
-# Every HAP image must be supplied as an immutable GHCR digest reference.
-
+# Local development only. The Portainer hap Stack uses docker-compose.yml.
 services:
   hap-backend:
-    image: ${HAP_BACKEND_IMAGE:?Set HAP_BACKEND_IMAGE to a verified GHCR digest reference}
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      args:
+        GIT_SHA: ${HAP_GIT_SHA:-unknown}
+        BUILD_TIME: ${HAP_BUILD_TIME:-unknown}
+        IMAGE_REFERENCE: ${HAP_BACKEND_IMAGE:-hap-backend:local}
+    image: ${HAP_BACKEND_IMAGE:-hap-backend:local}
     container_name: hap-backend
     restart: unless-stopped
     environment:
       APP_NAME: ${APP_NAME:-Home Analytics Platform}
       APP_VERSION: ${HAP_RELEASE_VERSION:-1.0.0}
-      APP_DEPLOYMENT_ENVIRONMENT: production
-      HAP_DEPLOYMENT_REVISION: ${HAP_DEPLOYMENT_REVISION:?Set HAP_DEPLOYMENT_REVISION to the deployed Git revision}
+      APP_DEPLOYMENT_ENVIRONMENT: ${HAP_DEPLOYMENT_ENVIRONMENT:-development}
+      APP_BUILD_SHA: ${HAP_GIT_SHA:-unknown}
+      APP_BUILD_TIME: ${HAP_BUILD_TIME:-unknown}
+      APP_IMAGE_REFERENCE: ${HAP_BACKEND_IMAGE:-hap-backend:local}
+      HAP_DEPLOYMENT_REVISION: ${HAP_DEPLOYMENT_REVISION:-ttskill-sync-20260807}
       API_V1_PREFIX: ${API_V1_PREFIX:-/api/v1}
       DEBUG: ${DEBUG:-false}
       DATABASE_URL: ${DATABASE_URL:-sqlite:////app/data/sqlite/hap.db}
@@ -104,36 +111,21 @@ services:
       - hap_logs:/app/logs
     networks:
       - hap_internal
-    depends_on:
-      docker-socket-proxy:
-        condition: service_started
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/system/health', timeout=3)"]
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/system/health', timeout=3)",
+        ]
       interval: 30s
       timeout: 5s
       retries: 3
       start_period: 20s
 
-  hap-frontend:
-    image: ${HAP_FRONTEND_IMAGE:?Set HAP_FRONTEND_IMAGE to a verified GHCR digest reference}
-    container_name: hap-frontend
-    restart: unless-stopped
-    depends_on:
-      hap-backend:
-        condition: service_healthy
-    ports:
-      - "${HAP_WEB_PORT:-8088}:80"
-    networks:
-      - hap_internal
-    healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/healthz"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 5s
-
   docker-socket-proxy:
-    image: ghcr.io/tecnativa/docker-socket-proxy@sha256:1f5038b54f06c3e18422902cf00ba21803d1c97805aae032e5e6673d532d3459
+    image: ghcr.io/tecnativa/docker-socket-proxy:latest
     container_name: hap-docker-socket-proxy
     restart: unless-stopped
     environment:
@@ -151,9 +143,43 @@ services:
     networks:
       - hap_internal
 
+  hap-frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        GIT_SHA: ${HAP_GIT_SHA:-unknown}
+        BUILD_TIME: ${HAP_BUILD_TIME:-unknown}
+        IMAGE_REFERENCE: ${HAP_FRONTEND_IMAGE:-hap-frontend:local}
+    image: ${HAP_FRONTEND_IMAGE:-hap-frontend:local}
+    container_name: hap-frontend
+    restart: unless-stopped
+    depends_on:
+      hap-backend:
+        condition: service_healthy
+    ports:
+      - "${HAP_WEB_PORT:-8088}:80"
+    networks:
+      - hap_internal
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+  # Bootstrap-only sidecar for the official Tiantian Fund Skills CLI.
+  # It is opt-in so normal HAP deployments remain unchanged.
   ttskill-agent:
     profiles: [ttskill]
-    image: ${HAP_TTSKILL_AGENT_IMAGE:?Set HAP_TTSKILL_AGENT_IMAGE to a verified GHCR digest reference}
+    build:
+      context: ./deploy/ttskill-agent
+      dockerfile: Dockerfile
+      args:
+        GIT_SHA: ${HAP_GIT_SHA:-unknown}
+        BUILD_TIME: ${HAP_BUILD_TIME:-unknown}
+        IMAGE_REFERENCE: ${HAP_TTSKILL_IMAGE:-hap-ttskill-agent:local}
+    image: ${HAP_TTSKILL_IMAGE:-hap-ttskill-agent:local}
     container_name: hap-ttskill-agent
     command: ["daemon"]
     restart: unless-stopped

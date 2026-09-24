@@ -19,12 +19,14 @@ HAP has separate deployment models.
 
 ### Development
 
-`docker-compose.yml` is the development and testing model. It uses `build:` and builds HAP images from the local
-checkout. Use it when iterating on source code or validating local changes.
+`docker-compose.development.yml` is the local development and testing model. It uses `build:` and builds HAP
+images from the checkout. It retains the old container and explicit volume names, so run it only on an isolated
+development Docker engine, never beside the production Stack on the same host.
 
 ### Production
 
-`docker-compose.production.yml` is the production model. It uses prebuilt GHCR images pinned by immutable digest:
+The root `docker-compose.yml` is the production model used by the existing Portainer Git Stack named `hap`.
+It uses prebuilt GHCR images pinned by immutable digest:
 
 ```text
 GitHub Commit
@@ -35,8 +37,10 @@ GitHub Commit
   -> Runtime Provenance Verification
 ```
 
-The production Compose file is standalone. It does not depend on Compose overlay merge behavior or the `!reset` tag,
-because Portainer deployments may use a different Compose parser than local Docker Compose.
+The production file is standalone and does not use Compose overlay merge behavior or `!reset`. Its backend,
+frontend, and optional agent images are pinned to the verified source revision
+`283bd97c84aee1a0f1cc9e5671ec4d351e3f2e37`. The later deployment-configuration commit is not the image
+source revision. GitOps and automatic updates remain off; pushing a configuration commit does not redeploy HAP.
 
 The PVE host must not build the production HAP images.
 
@@ -79,9 +83,13 @@ an image built from the authentication change.
 2. Record the target full Git SHA and each GHCR digest.
 3. Confirm the database backup gate is PASS.
 4. Keep the Portainer Stack name and Compose project identity as `hap`.
-5. Use the standalone production Compose file with digest-pinned images.
-6. Pull/recreate only the application containers through the approved Portainer procedure.
-7. Run the health, data-preservation, and provenance checks below.
+5. Confirm the root production Compose file retains the existing volumes, network, port, and services.
+6. In the existing `hap` Stack, perform one approved manual Pull and redeploy; do not create a second Stack.
+7. Run the health, login, protected-route, data-preservation, and provenance checks below.
+
+Release order: source commit -> successful CI/GHCR build -> verified digest -> deployment-config commit ->
+manual Portainer redeploy -> runtime and data acceptance. Before the manual step, record the previous running
+image IDs and confirm a usable database backup. This repository preparation does not perform that step.
 
 Never use a mutable `latest` tag, an unverified tag, or a different Stack/project name for production.
 
@@ -101,20 +109,22 @@ Copy the project folder to the PVE Docker host, then run:
 
 ```bash
 cp .env.example .env
-docker compose build
-docker compose up -d
-docker compose ps
+docker compose -f docker-compose.development.yml build
+docker compose -f docker-compose.development.yml up -d
+docker compose -f docker-compose.development.yml ps
 ```
 
-For production, do not run `docker compose build`. Use `docker-compose.production.yml` directly and provide verified
-GHCR digest references for all enabled HAP images.
+For production, do not run `docker compose build`; the existing Portainer Stack reads the root
+`docker-compose.yml`, which already pins all HAP images by digest.
 
 ## Verify
 
 ```bash
 curl http://127.0.0.1:8088/api/v1/system/health
-curl http://127.0.0.1:8088/api/v1/lottery/dlt/rules/current
 ```
+
+The health endpoint is public; protected API calls should return 401 before login. Verify login and protected
+pages through the browser without exposing credentials in command history.
 
 Browser:
 
@@ -152,24 +162,26 @@ Also confirm the login page, core pages, holdings, transactions, NAV data, and s
 
 ## Rollback
 
-Rollback is an image operation:
+Rollback stays within the same `hap` Stack and preserves the same named volumes, network, port, and environment
+variables. For an image rollback, pin a new root Compose configuration to the verified pre-auth source revision
+`4c5a17b3d6987fc6de66108fc5969be14e34b175` and these immutable GHCR digests:
 
-1. Select the previous known-good GHCR digest.
-2. Update the production image references.
-3. Pull/recreate the application containers.
-4. Repeat health and provenance verification.
+- Backend: `ghcr.io/sweet0416/home-analytics-platform-backend@sha256:3ad050a8433b1c44e4442b6732d31221b00e0840982aa2a5491f0ae59fc5957f`
+- Frontend: `ghcr.io/sweet0416/home-analytics-platform-frontend@sha256:bc86d14ea975d246ddf53eadfdaf402b7c97f261877eb1fcff5d84de2a70c7b9`
 
-Rollback must not use `main` as the authority and must not delete the database volume. Code-image rollback is not a
-database rollback.
+Set `HAP_DEPLOYMENT_REVISION` to that same pre-auth SHA, commit and push the rollback configuration, then perform
+one controlled manual redeploy of the existing Stack. Verify health, login behavior, build info, and existing data.
+This is a prepared rollback candidate, not proof that its older application will accept every future database
+schema. Check database-migration compatibility and a usable backup before the initial cutover or rollback.
 
-## Stop
+The current pre-cutover runtime uses local Docker image IDs, not registry digests: backend
+`sha256:d0f83acf6bebae8efe9f6f8f2ee7d3f636336478fc6095f133a4226a98df6c55` and frontend
+`sha256:22cead0f6d36baffe439e4107bc88fc0a5494556d1180c585701915af48c61ec`. Do not prune them before
+cutover acceptance; they cannot be assumed pullable again. The original local-build Compose is preserved in the
+pre-cutover Git commit, but merely restoring that file and rebuilding newer source does **not** recreate these
+exact images. Image rollback is not database rollback; never delete or recreate the data volumes.
 
-```bash
-docker compose down
-```
-
-Do not use `docker compose down -v` unless you intentionally want to delete SQLite data, exports,
-backups, and logs.
+Do not use `docker compose down` as a production cutover or rollback step. Never use `down -v` on HAP data.
 
 ## Backup
 
@@ -184,16 +196,10 @@ docker run --rm \
 
 ## Upgrade
 
-```bash
-docker compose build --pull
-docker compose up -d
-docker compose ps
-```
-
-Before upgrading, create a backup of `hap_sqlite`.
-
-For the production model, replace the local build/upgrade commands with the manual Portainer procedure described
-above. Record the image digest, Git SHA, Compose revision, and backup gate result before recreating containers.
+For local development only, use `docker compose -f docker-compose.development.yml build --pull` and the same
+`-f` file for `up`/`ps`. For production, first back up `hap_sqlite`, verify new source SHA and image digests, then
+follow the manual Portainer procedure above. Record image digests, source SHA, deployment-config commit, and backup
+gate result before recreating containers.
 
 ## Troubleshooting
 

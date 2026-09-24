@@ -73,11 +73,12 @@ Manual smoke checks:
 
 ## Docker Smoke Test
 
-On the PVE Docker host:
+On an isolated development Docker engine, not the production PVE host (the development Compose retains the
+historical HAP container and volume names):
 
 ```bash
-docker compose build
-docker compose up -d
-docker compose ps
+docker compose -f docker-compose.development.yml build
+docker compose -f docker-compose.development.yml up -d
+docker compose -f docker-compose.development.yml ps
 curl http://127.0.0.1:8088/api/v1/system/health
 ```

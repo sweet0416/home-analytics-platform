@@ -1,23 +1,17 @@
+# HAP production Compose for the existing Portainer stack named hap.
+# Source revision: 283bd97c84aee1a0f1cc9e5671ec4d351e3f2e37.
+# This file pins verified GHCR digests; do not use it for local builds.
+
 services:
   hap-backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-      args:
-        GIT_SHA: ${HAP_GIT_SHA:-unknown}
-        BUILD_TIME: ${HAP_BUILD_TIME:-unknown}
-        IMAGE_REFERENCE: ${HAP_BACKEND_IMAGE:-hap-backend:local}
-    image: ${HAP_BACKEND_IMAGE:-hap-backend:local}
+    image: ghcr.io/sweet0416/home-analytics-platform-backend@sha256:5fe9a557e8c967877a859c1f84352514fd6143036a3df6b6e5b514081cf7cf5b
     container_name: hap-backend
     restart: unless-stopped
     environment:
       APP_NAME: ${APP_NAME:-Home Analytics Platform}
       APP_VERSION: ${HAP_RELEASE_VERSION:-1.0.0}
-      APP_DEPLOYMENT_ENVIRONMENT: ${HAP_DEPLOYMENT_ENVIRONMENT:-production}
-      APP_BUILD_SHA: ${HAP_GIT_SHA:-unknown}
-      APP_BUILD_TIME: ${HAP_BUILD_TIME:-unknown}
-      APP_IMAGE_REFERENCE: ${HAP_BACKEND_IMAGE:-hap-backend:local}
-      HAP_DEPLOYMENT_REVISION: ${HAP_DEPLOYMENT_REVISION:-ttskill-sync-20260807}
+      APP_DEPLOYMENT_ENVIRONMENT: production
+      HAP_DEPLOYMENT_REVISION: 283bd97c84aee1a0f1cc9e5671ec4d351e3f2e37
       API_V1_PREFIX: ${API_V1_PREFIX:-/api/v1}
       DEBUG: ${DEBUG:-false}
       DATABASE_URL: ${DATABASE_URL:-sqlite:////app/data/sqlite/hap.db}
@@ -110,21 +104,36 @@ services:
       - hap_logs:/app/logs
     networks:
       - hap_internal
+    depends_on:
+      docker-socket-proxy:
+        condition: service_started
     healthcheck:
-      test:
-        [
-          "CMD",
-          "python",
-          "-c",
-          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/system/health', timeout=3)",
-        ]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/system/health', timeout=3)"]
       interval: 30s
       timeout: 5s
       retries: 3
       start_period: 20s
 
+  hap-frontend:
+    image: ghcr.io/sweet0416/home-analytics-platform-frontend@sha256:77e36e9c5ab1c19a736fad2ee8fa0d8cdeef81db3e74d53ef4c030825420bb0b
+    container_name: hap-frontend
+    restart: unless-stopped
+    depends_on:
+      hap-backend:
+        condition: service_healthy
+    ports:
+      - "${HAP_WEB_PORT:-8088}:80"
+    networks:
+      - hap_internal
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
   docker-socket-proxy:
-    image: ghcr.io/tecnativa/docker-socket-proxy:latest
+    image: ghcr.io/tecnativa/docker-socket-proxy@sha256:1f5038b54f06c3e18422902cf00ba21803d1c97805aae032e5e6673d532d3459
     container_name: hap-docker-socket-proxy
     restart: unless-stopped
     environment:
@@ -142,43 +151,9 @@ services:
     networks:
       - hap_internal
 
-  hap-frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-      args:
-        GIT_SHA: ${HAP_GIT_SHA:-unknown}
-        BUILD_TIME: ${HAP_BUILD_TIME:-unknown}
-        IMAGE_REFERENCE: ${HAP_FRONTEND_IMAGE:-hap-frontend:local}
-    image: ${HAP_FRONTEND_IMAGE:-hap-frontend:local}
-    container_name: hap-frontend
-    restart: unless-stopped
-    depends_on:
-      hap-backend:
-        condition: service_healthy
-    ports:
-      - "${HAP_WEB_PORT:-8088}:80"
-    networks:
-      - hap_internal
-    healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/healthz"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 5s
-
-  # Bootstrap-only sidecar for the official Tiantian Fund Skills CLI.
-  # It is opt-in so normal HAP deployments remain unchanged.
   ttskill-agent:
     profiles: [ttskill]
-    build:
-      context: ./deploy/ttskill-agent
-      dockerfile: Dockerfile
-      args:
-        GIT_SHA: ${HAP_GIT_SHA:-unknown}
-        BUILD_TIME: ${HAP_BUILD_TIME:-unknown}
-        IMAGE_REFERENCE: ${HAP_TTSKILL_IMAGE:-hap-ttskill-agent:local}
-    image: ${HAP_TTSKILL_IMAGE:-hap-ttskill-agent:local}
+    image: ghcr.io/sweet0416/home-analytics-platform-ttskill-agent@sha256:4e9ec53ce134f07bf8222552fa5d16274c97c83948327cad62b5be01b2cd8f34
     container_name: hap-ttskill-agent
     command: ["daemon"]
     restart: unless-stopped

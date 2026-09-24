@@ -19,5 +19,5 @@ if ([string]::IsNullOrWhiteSpace($env:HAP_TTSKILL_IMAGE)) {
     $env:HAP_TTSKILL_IMAGE = "hap-ttskill-agent:local"
 }
 
-& docker compose @ComposeArgs
+& docker compose -f docker-compose.development.yml @ComposeArgs
 exit $LASTEXITCODE

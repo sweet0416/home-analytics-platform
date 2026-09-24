@@ -44,7 +44,7 @@ HAP has two intentionally different Compose models:
 
 ### Development Model
 
-Use `docker-compose.yml` for local development, testing, and local image builds.
+Use `docker-compose.development.yml` for local development, testing, and local image builds.
 
 - Services use `build:` and build from the checked-out source tree.
 - Build-time provenance can use local fallback values.
@@ -52,12 +52,13 @@ Use `docker-compose.yml` for local development, testing, and local image builds.
 
 ### Production Model
 
-Use the standalone `docker-compose.production.yml` for production deployment.
+The existing Portainer `hap` Git Stack uses the root `docker-compose.yml` for production.
 
-- Services use GHCR prebuilt images pinned by `image@sha256:<digest>`.
+- Services use GHCR prebuilt images pinned directly by `image@sha256:<digest>`.
 - Production does not build HAP images on the PVE host.
 - Production must not use `latest`, an unverified tag, or a mutable convenience tag as its authority.
-- The production file is independent and does not depend on Compose overlay reset tags such as `!reset`.
+- GitOps/automatic updates remain off; deployment is a controlled manual Portainer operation.
+- The pinned images report source revision `283bd97c84aee1a0f1cc9e5671ec4d351e3f2e37`.
 
 The production image source of truth is:
 
@@ -74,12 +75,13 @@ GitHub Commit
 
 ```bash
 cp .env.example .env
-docker compose build
-docker compose up -d
-docker compose ps
+docker compose -f docker-compose.development.yml build
+docker compose -f docker-compose.development.yml up -d
+docker compose -f docker-compose.development.yml ps
 ```
 
-Do not use this development flow for the production image migration. Production deployment follows
+Use an isolated development Docker engine: the development file retains the historical HAP container and volume
+names and must not run alongside the production Stack on the same host. Production deployment follows
 [the PVE production deployment guide](docs/deployment-pve-docker.md).
 
 Default web URL:
@@ -92,16 +94,18 @@ Smoke test:
 
 ```bash
 curl http://127.0.0.1:8088/api/v1/system/health
-curl http://127.0.0.1:8088/api/v1/lottery/dlt/rules/current
 ```
+
+The health endpoint is public; protected API calls should return 401 until login.
 
 ## Production Deployment Rules
 
 Production deployment must:
 
 - keep the Portainer Stack and Compose project identity as `hap`;
-- use the standalone `docker-compose.production.yml`;
+- use the root `docker-compose.yml` in the existing `hap` Stack;
 - pin Backend, Frontend, and enabled `ttskill-agent` images by verified digest;
+- keep GitOps off and deploy manually only after a database backup and final review;
 - verify runtime provenance after recreation.
 
 Production deployment must not:

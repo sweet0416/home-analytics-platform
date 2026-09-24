@@ -1,5 +1,8 @@
 # HAP Release v1.0.0
 
+Historical release record. The commands below predate the current Portainer image-based deployment; do not use
+them for production updates. Follow [the current deployment guide](deployment-pve-docker.md) instead.
+
 Release date: 2026-07-14
 
 ## Scope
