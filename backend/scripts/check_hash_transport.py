@@ -30,6 +30,7 @@ def check(password_hash: str) -> None:
     env = os.environ.copy()
     env.pop("HAP_ADMIN_PASSWORD_HASH", None)
     env["HAP_ADMIN_PASSWORD_HASH_B64"] = encoded
+    env["HAP_TEST_PASSWORD_B64"] = base64.b64encode(PASSWORD.encode()).decode("ascii")
     result = subprocess.run(
         ["docker", "compose", "-f", str(COMPOSE), "config", "--format", "json"],
         env=env,

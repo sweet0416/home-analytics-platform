@@ -162,6 +162,21 @@ def test_invalid_encoded_hash_fails_closed(bad: str) -> None:
         Settings(hap_admin_password_hash_b64=bad).validate_auth()
 
 
+@pytest.mark.parametrize(
+    "bad_hash",
+    [
+        "pbkdf2_sha256$600000$aa",
+        "pbkdf2_sha256$600000$" + "aa" * 16 + "$" + "bb" * 32 + "$extra",
+        "pbkdf2_sha256$600000$" + "zz" * 16 + "$" + "bb" * 32,
+        "pbkdf2_sha256$599999$" + "aa" * 16 + "$" + "bb" * 32,
+        "pbkdf2_sha256$2000001$" + "aa" * 16 + "$" + "bb" * 32,
+    ],
+)
+def test_encoded_hash_rejects_malformed_pbkdf2(bad_hash: str) -> None:
+    with pytest.raises(RuntimeError, match="HAP_ADMIN_PASSWORD_HASH"):
+        Settings(hap_admin_password_hash_b64=b64encode(bad_hash.encode()).decode()).validate_auth()
+
+
 def test_raw_and_encoded_hash_conflict_fails_closed() -> None:
     with pytest.raises(RuntimeError, match="HAP_ADMIN_PASSWORD_HASH"):
         Settings(

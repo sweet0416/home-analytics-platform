@@ -6,6 +6,7 @@ services:
     restart: "no"
     environment:
       HAP_ADMIN_PASSWORD_HASH_B64: ${HAP_ADMIN_PASSWORD_HASH_B64:?Set synthetic test hash only}
+      HAP_TEST_PASSWORD_B64: ${HAP_TEST_PASSWORD_B64:?Set synthetic test password only}
       APP_DEPLOYMENT_ENVIRONMENT: testing
       DATABASE_URL: sqlite:////app/data/sqlite/hap.db
       BACKUP_AUTO_ENABLED: "false"
