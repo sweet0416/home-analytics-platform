@@ -1,0 +1,32 @@
+# Isolated Portainer Git Stack fixture. Never use as the production hap Stack.
+services:
+  hash-probe:
+    image: ghcr.io/sweet0416/home-analytics-platform-backend@sha256:5fe9a557e8c967877a859c1f84352514fd6143036a3df6b6e5b514081cf7cf5b
+    container_name: hap-hash-probe-20260925
+    restart: "no"
+    env_file:
+      - path: ../../stack.env
+        format: raw
+    environment:
+      APP_DEPLOYMENT_ENVIRONMENT: testing
+      DATABASE_URL: sqlite:////app/data/sqlite/hap.db
+      BACKUP_AUTO_ENABLED: "false"
+      FUND_NAV_AUTO_SYNC_ENABLED: "false"
+      FUND_NAV_HISTORY_AUTO_SYNC_ENABLED: "false"
+      LOTTERY_DLT_AUTO_SYNC_ENABLED: "false"
+      NOTIFICATION_BARK_ENABLED: "false"
+      FUND_AI_SUMMARY_ENABLED: "false"
+      DOCKER_ENABLED: "false"
+      PVE_ENABLED: "false"
+    volumes:
+      - hap_hash_probe_sqlite_20260925:/app/data/sqlite
+    networks:
+      - hap_hash_probe_net_20260925
+
+networks:
+  hap_hash_probe_net_20260925:
+    name: hap_hash_probe_net_20260925
+
+volumes:
+  hap_hash_probe_sqlite_20260925:
+    name: hap_hash_probe_sqlite_20260925
