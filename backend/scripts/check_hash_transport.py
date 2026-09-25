@@ -23,7 +23,8 @@ def check(password_hash: str) -> None:
     assert valid_password_hash(password_hash)
     encoded = base64.b64encode(password_hash.encode()).decode("ascii")
     settings = Settings(hap_admin_password_hash_b64=encoded)
-    assert settings.admin_password_hash() == password_hash
+    if settings.admin_password_hash() != password_hash:
+        raise RuntimeError("Application hash differs from generated value")
     assert verify_password(PASSWORD, settings.admin_password_hash())
     assert not verify_password("wrong", settings.admin_password_hash())
 
@@ -45,8 +46,8 @@ def check(password_hash: str) -> None:
     actual = json.loads(result.stdout)["services"]["hash-probe"]["environment"][
         "HAP_ADMIN_PASSWORD_HASH_B64"
     ]
-    assert actual == encoded, "Compose changed the encoded value"
-    assert base64.b64decode(actual, validate=True).decode() == password_hash
+    if actual != encoded or base64.b64decode(actual, validate=True).decode() != password_hash:
+        raise RuntimeError("Compose changed the encoded or decoded value")
 
 
 def main() -> None:

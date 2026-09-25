@@ -151,7 +151,8 @@ def test_encoded_hash_preserves_full_value_and_authenticates(salt_first: str) ->
     encoded = b64encode(password_hash.encode()).decode()
     settings = Settings(hap_admin_password_hash_b64=encoded)
     settings.validate_auth()
-    assert settings.admin_password_hash() == password_hash
+    if settings.admin_password_hash() != password_hash:
+        pytest.fail("Decoded hash differs from generated value", pytrace=False)
     assert auth.verify_password(password, settings.admin_password_hash())
     assert not auth.verify_password("incorrect", settings.admin_password_hash())
 
@@ -192,7 +193,8 @@ def test_encoded_hash_content_mutation_is_not_accepted() -> None:
     mutated = password_hash[:-1] + ("0" if password_hash[-1] != "0" else "1")
     settings = Settings(hap_admin_password_hash_b64=b64encode(mutated.encode()).decode())
     settings.validate_auth()
-    assert settings.admin_password_hash() != password_hash
+    if settings.admin_password_hash() == password_hash:
+        pytest.fail("Mutated hash unexpectedly equals source", pytrace=False)
     assert not auth.verify_password(password, settings.admin_password_hash())
 
 
@@ -203,7 +205,8 @@ def test_unscreened_random_valid_hashes_round_trip() -> None:
         digest = pbkdf2_hmac("sha256", password.encode(), salt, 600_000).hex()
         password_hash = f"pbkdf2_sha256$600000${salt.hex()}${digest}"
         settings = Settings(hap_admin_password_hash_b64=b64encode(password_hash.encode()).decode())
-        assert settings.admin_password_hash() == password_hash
+        if settings.admin_password_hash() != password_hash:
+            pytest.fail("Random hash changed during decode", pytrace=False)
         assert auth.verify_password(password, settings.admin_password_hash())
         assert not auth.verify_password("incorrect", settings.admin_password_hash())
 
