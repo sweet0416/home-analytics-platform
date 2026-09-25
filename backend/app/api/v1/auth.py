@@ -25,12 +25,14 @@ class LoginRequest(BaseModel):
 
 
 @router.post("/login", response_model=ApiResponse[dict[str, str]])
-def login(payload: LoginRequest, request: Request, response: Response) -> ApiResponse[dict[str, str]]:
+def login(
+    payload: LoginRequest, request: Request, response: Response
+) -> ApiResponse[dict[str, str]]:
     address = request.client.host if request.client else "unknown"
     if not login_allowed(address):
         raise AppError(ErrorCode.validation_error, "Too many login attempts", status_code=429)
     if payload.username != "admin" or not verify_password(
-        payload.password, get_settings().hap_admin_password_hash
+        payload.password, get_settings().admin_password_hash()
     ):
         record_login_failure(address)
         raise AppError(ErrorCode.validation_error, "Invalid credentials", status_code=401)
@@ -40,7 +42,9 @@ def login(payload: LoginRequest, request: Request, response: Response) -> ApiRes
         session_id,
         max_age=SESSION_SECONDS,
         httponly=True,
-        secure=get_settings().hap_cookie_secure or request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https",
+        secure=get_settings().hap_cookie_secure
+        or request.url.scheme == "https"
+        or request.headers.get("x-forwarded-proto") == "https",
         samesite="strict",
         path="/",
     )

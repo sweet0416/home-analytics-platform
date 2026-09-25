@@ -1,13 +1,11 @@
 # Isolated Portainer Git Stack fixture. Never use as the production hap Stack.
 services:
   hash-probe:
-    image: ghcr.io/sweet0416/home-analytics-platform-backend@sha256:5fe9a557e8c967877a859c1f84352514fd6143036a3df6b6e5b514081cf7cf5b
+    image: hap-hash-hardening-candidate:20260925
     container_name: hap-hash-probe-20260925
     restart: "no"
-    env_file:
-      - path: ../../stack.env
-        format: raw
     environment:
+      HAP_ADMIN_PASSWORD_HASH_B64: ${HAP_ADMIN_PASSWORD_HASH_B64:?Set synthetic test hash only}
       APP_DEPLOYMENT_ENVIRONMENT: testing
       DATABASE_URL: sqlite:////app/data/sqlite/hap.db
       BACKUP_AUTO_ENABLED: "false"

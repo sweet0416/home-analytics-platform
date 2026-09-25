@@ -1,3 +1,5 @@
+from base64 import b64decode, b64encode
+from binascii import Error as Base64Error
 from functools import lru_cache
 from pathlib import Path
 
@@ -15,6 +17,7 @@ class Settings(BaseSettings):
     api_v1_prefix: str = "/api/v1"
     debug: bool = False
     hap_admin_password_hash: str = ""
+    hap_admin_password_hash_b64: str | None = None
     hap_cookie_secure: bool = False
     backend_workers: int = Field(default=1, ge=1, le=1)
 
@@ -65,9 +68,7 @@ class Settings(BaseSettings):
     lottery_dlt_sporttery_url: str = (
         "https://webapi.sporttery.cn/gateway/lottery/getHistoryPageListV1.qry"
     )
-    lottery_dlt_500_history_url: str = (
-        "https://datachart.500.com/dlt/history/newinc/history.php"
-    )
+    lottery_dlt_500_history_url: str = "https://datachart.500.com/dlt/history/newinc/history.php"
     fund_nav_sync_timeout_seconds: int = Field(default=20, ge=5, le=120)
     fund_nav_sync_max_workers: int = Field(default=4, ge=1, le=10)
     fund_nav_auto_sync_enabled: bool = True
@@ -147,10 +148,36 @@ class Settings(BaseSettings):
             )
 
     def validate_auth(self) -> None:
+        self.admin_password_hash()
+
+    def admin_password_hash(self) -> str:
         from app.core.auth import valid_password_hash
 
-        if not valid_password_hash(self.hap_admin_password_hash):
-            raise RuntimeError("HAP_ADMIN_PASSWORD_HASH must be a valid PBKDF2 password hash")
+        error = RuntimeError("HAP_ADMIN_PASSWORD_HASH or HAP_ADMIN_PASSWORD_HASH_B64 is invalid")
+        if self.hap_admin_password_hash_b64 is not None:
+            if self.hap_admin_password_hash:
+                raise error
+            encoded = self.hap_admin_password_hash_b64
+            if not encoded or len(encoded) > 4096 or not encoded.isascii():
+                raise error
+            try:
+                raw = b64decode(encoded, validate=True)
+                if b64encode(raw).decode("ascii") != encoded or len(raw) > 2048:
+                    raise error
+                password_hash = raw.decode("utf-8")
+                if (
+                    password_hash != password_hash.strip()
+                    or "\n" in password_hash
+                    or "\r" in password_hash
+                ):
+                    raise error
+            except (Base64Error, UnicodeError, ValueError):
+                raise error from None
+        else:
+            password_hash = self.hap_admin_password_hash
+        if not valid_password_hash(password_hash):
+            raise error
+        return password_hash
 
 
 @lru_cache
