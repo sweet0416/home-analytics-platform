@@ -1,99 +1,125 @@
 <template>
-  <div>
-    <RevealContent as="section" class="page-header" :delay="20">
+  <div class="home-overview">
+    <header class="home-intro">
       <div>
-        <h1 class="page-title">Dashboard</h1>
-        <div class="page-subtitle">服务器、数据插件和任务状态的统一入口</div>
+        <h1 class="page-title">Home overview</h1>
+        <p class="page-subtitle">Your systems and data, in one private place.</p>
       </div>
-    </RevealContent>
+      <span class="home-system-state" :class="{ 'is-online': system.health?.status === 'ok' }">
+        <span class="status-dot" :class="{ online: system.health?.status === 'ok' }" aria-hidden="true" />
+        {{ system.health?.status === 'ok' ? 'System available' : system.error ? 'Connection unavailable' : 'Checking system' }}
+      </span>
+    </header>
 
-    <div class="grid metrics">
-      <MetricCard label="API" :value="system.health?.status ?? '--'" meta="Backend health" :delay="80" />
-      <MetricCard label="Database" :value="system.health?.database ?? '--'" meta="SQLite first" :delay="140" />
-      <MetricCard label="Version" :value="system.health?.version ?? '--'" meta="Backend release" :delay="200" />
-      <MetricCard label="Deploy" value="PVE Docker" meta="192.168.100.249" :delay="260" />
-    </div>
+    <section class="home-highlight" aria-label="System overview">
+      <div class="home-highlight-copy">
+        <h2>Everything in view.</h2>
+        <p>Track the services and records you already use. Open a module for the full picture.</p>
+      </div>
+      <div class="home-highlight-readouts">
+        <div><span>API</span><strong>{{ system.health?.status ?? '—' }}</strong></div>
+        <div><span>Database</span><strong>{{ system.health?.database ?? '—' }}</strong></div>
+        <div><span>Backend</span><strong>v{{ system.health?.version ?? '—' }}</strong></div>
+      </div>
+    </section>
+
     <el-alert v-if="infraAlerts.length" type="warning" :closable="false" show-icon :title="infraAlerts.join('；')" />
 
-    <div class="dashboard-grid">
-      <RevealContent as="section" class="panel" :delay="320">
-        <div class="panel-header">
-          <h2 class="panel-title">大乐透摘要</h2>
-          <RouterLink to="/lottery/dlt" class="panel-link">打开</RouterLink>
-        </div>
-        <div class="panel-body">
-          <div class="summary-row"><span>当前规则</span><strong>{{ lottery.rule?.rule_name ?? '未加载' }}</strong></div>
-          <div class="summary-row"><span>最新期号</span><strong>{{ latestIssue }}</strong></div>
-          <div class="summary-row"><span>开奖数据</span><strong>{{ lottery.draws?.pagination.total ?? 0 }}</strong></div>
-          <div class="summary-row"><span>同步状态</span><strong>{{ syncStatus }}</strong></div>
-        </div>
-      </RevealContent>
-
-      <RevealContent as="section" class="panel" :delay="380">
-        <div class="panel-header"><h2 class="panel-title">基础设施</h2></div>
-        <div class="panel-body infra-list">
-          <div>
-            <span>Docker</span>
-            <span class="infra-actions">
-              <strong :class="dockerStatusClass">{{ dockerSummary }}</strong>
-              <RouterLink to="/docker" class="panel-link">查看</RouterLink>
-            </span>
-          </div>
-          <div><span>PVE</span><span class="infra-actions"><strong :class="pveStatusClass">{{ pveSummary }}</strong><RouterLink to="/pve" class="panel-link">查看</RouterLink></span></div>
-          <div><span>Scheduler</span><strong>{{ schedulerStatus }}</strong></div>
-        </div>
-      </RevealContent>
+    <div class="home-section-heading">
+      <h2>At a glance</h2>
+      <span>Live from your configured services</span>
     </div>
+    <section class="home-metrics" aria-label="Current metrics">
+      <article class="home-metric">
+        <span class="home-metric-label">Latest draw</span>
+        <strong>{{ latestIssue }}</strong>
+        <span>{{ drawDetail }}</span>
+      </article>
+      <article class="home-metric">
+        <span class="home-metric-label">Draw sync</span>
+        <strong>{{ syncStatus }}</strong>
+        <span>Latest lottery update</span>
+      </article>
+      <article class="home-metric">
+        <span class="home-metric-label">Docker</span>
+        <strong>{{ dockerSummary }}</strong>
+        <span>Configured infrastructure</span>
+      </article>
+      <article class="home-metric">
+        <span class="home-metric-label">PVE</span>
+        <strong>{{ pveSummary }}</strong>
+        <span>Configured infrastructure</span>
+      </article>
+    </section>
+
+    <div class="home-section-heading">
+      <h2>Explore your system</h2>
+      <span>Choose a workspace</span>
+    </div>
+    <nav class="home-modules" aria-label="Product modules">
+      <RouterLink to="/fund" class="home-module home-module--fund">
+        <span class="home-module-icon"><Coin aria-hidden="true" /></span>
+        <strong>Fund</strong><span>Holdings, NAV and performance</span><ArrowRight aria-hidden="true" class="home-module-arrow" />
+      </RouterLink>
+      <RouterLink to="/lottery/dlt" class="home-module home-module--lottery">
+        <span class="home-module-icon"><DataAnalysis aria-hidden="true" /></span>
+        <strong>Lottery</strong><span>Draws, signals and data health</span><ArrowRight aria-hidden="true" class="home-module-arrow" />
+      </RouterLink>
+      <RouterLink to="/reports" class="home-module home-module--reports">
+        <span class="home-module-icon"><Document aria-hidden="true" /></span>
+        <strong>Reports</strong><span>Daily fund reporting</span><ArrowRight aria-hidden="true" class="home-module-arrow" />
+      </RouterLink>
+      <RouterLink to="/settings" class="home-module home-module--settings">
+        <span class="home-module-icon"><Setting aria-hidden="true" /></span>
+        <strong>Settings</strong><span>Backups and notifications</span><ArrowRight aria-hidden="true" class="home-module-arrow" />
+      </RouterLink>
+    </nav>
   </div>
 </template>
 
 <script setup lang="ts">
+import { ArrowRight, Coin, DataAnalysis, Document, Setting } from '@element-plus/icons-vue';
 import { computed, onMounted, ref } from 'vue';
 
 import { fetchInfrastructureHealth, type InfrastructureHealth } from '@/api/system';
-import RevealContent from '@/components/common/RevealContent.vue';
-import MetricCard from '@/components/metric/MetricCard.vue';
 import { useLotteryStore } from '@/plugins/lottery/store';
 import { useSystemStore } from '@/stores/system';
 
 const system = useSystemStore();
 const lottery = useLotteryStore();
 const infrastructureHealth = ref<InfrastructureHealth | null>(null);
+const infrastructureLoading = ref(true);
+const infrastructureError = ref(false);
 const dockerStatus = computed(() => infrastructureHealth.value?.docker ?? null);
 const pveStatus = computed(() => infrastructureHealth.value?.pve ?? null);
-
-const latestIssue = computed(() => lottery.draws?.items[0]?.issue_no ?? '--');
+const latestIssue = computed(() => lottery.error ? 'Unavailable' : lottery.loading ? 'Loading' : lottery.draws?.items[0]?.issue_no ?? '—');
+const drawDetail = computed(() => lottery.error ? 'Could not load draw data' : lottery.draws ? `${lottery.draws.pagination.total} draws on record` : 'Waiting for lottery data');
 const syncStatus = computed(() => {
+  if (lottery.error) return 'Unavailable';
+  if (lottery.loading) return 'Loading';
+  if (!lottery.syncStatus) return 'Status unavailable';
   const status = lottery.latestSyncRun?.status;
-  if (!status) return '未同步';
+  if (!status) return 'No run yet';
   const labels: Record<string, string> = {
-    running: '同步中',
-    success: '成功',
-    partial_success: '部分成功',
-    failed: '失败',
+    running: 'Running', success: 'Up to date', partial_success: 'Partial', failed: 'Failed',
   };
   return labels[status] ?? status;
 });
-const schedulerStatus = computed(() => (lottery.latestSyncRun ? '已启用' : '等待首次运行'));
 const dockerSummary = computed(() => {
-  if (!dockerStatus.value?.configured) return '未配置';
-  if (!dockerStatus.value.reachable) return '连接异常';
+  if (infrastructureLoading.value) return 'Loading';
+  if (infrastructureError.value || !infrastructureHealth.value) return 'Unavailable';
+  if (!dockerStatus.value?.configured) return 'Not configured';
+  if (!dockerStatus.value.reachable) return 'Unavailable';
   return dockerStatus.value.problematic
-    ? `${dockerStatus.value.problematic} 个异常`
-    : `${dockerStatus.value.running}/${dockerStatus.value.containers} 运行中`;
+    ? `${dockerStatus.value.problematic} need attention`
+    : `${dockerStatus.value.running}/${dockerStatus.value.containers} running`;
 });
-const dockerStatusClass = computed(() => ({
-  'is-online': Boolean(dockerStatus.value?.reachable && !dockerStatus.value.problematic),
-  'is-warning': Boolean(dockerStatus.value?.configured && !dockerStatus.value?.reachable),
-}));
 const pveSummary = computed(() => {
-  if (!pveStatus.value?.configured) return '未配置';
-  return pveStatus.value.reachable ? '已连接' : '连接异常';
+  if (infrastructureLoading.value) return 'Loading';
+  if (infrastructureError.value || !infrastructureHealth.value) return 'Unavailable';
+  if (!pveStatus.value?.configured) return 'Not configured';
+  return pveStatus.value.reachable ? 'Connected' : 'Unavailable';
 });
-const pveStatusClass = computed(() => ({
-  'is-online': Boolean(pveStatus.value?.reachable),
-  'is-warning': Boolean(pveStatus.value?.configured && !pveStatus.value?.reachable),
-}));
 const infraAlerts = computed(() => infrastructureHealth.value?.alerts ?? []);
 
 onMounted(() => {
@@ -101,20 +127,7 @@ onMounted(() => {
   void lottery.loadOverview();
   void fetchInfrastructureHealth()
     .then((value) => { infrastructureHealth.value = value; })
-    .catch(() => { infrastructureHealth.value = null; });
+    .catch(() => { infrastructureError.value = true; })
+    .finally(() => { infrastructureLoading.value = false; });
 });
 </script>
-
-<style scoped>
-.dashboard-grid { display: grid; grid-template-columns: 1.4fr 1fr; gap: 16px; margin-top: 16px; }
-.panel-link { color: var(--color-primary); font-size: 13px; }
-.summary-row, .infra-list div { display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(148, 163, 184, 0.12); padding: 11px 0; }
-.summary-row:first-child, .infra-list div:first-child { padding-top: 0; }
-.summary-row:last-child, .infra-list div:last-child { border-bottom: 0; padding-bottom: 0; }
-.summary-row span, .infra-list span { color: var(--color-muted); }
-.summary-row strong, .infra-list strong { text-align: right; }
-.infra-actions { display: inline-flex; align-items: center; gap: 12px; }
-.infra-actions strong.is-online { color: var(--color-success); }
-.infra-actions strong.is-warning { color: var(--color-warning); }
-@media (max-width: 900px) { .dashboard-grid { grid-template-columns: 1fr; } }
-</style>
