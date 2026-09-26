@@ -64,7 +64,7 @@ The existing Portainer `hap` Git Stack uses the root `docker-compose.yml` for pr
 - Production does not build HAP images on the PVE host.
 - Production must not use `latest`, an unverified tag, or a mutable convenience tag as its authority.
 - GitOps/automatic updates remain off; deployment is a controlled manual Portainer operation.
-- Phase 1 authentication was accepted in production on 2026-09-25. Running application source is `283bd97c84aee1a0f1cc9e5671ec4d351e3f2e37`; the successful deployment-configuration commit is `ef800d5f4a7a0656112923ec63d6153a9c6c4e21`. Backend digest: `sha256:5fe9a557e8c967877a859c1f84352514fd6143036a3df6b6e5b514081cf7cf5b`; frontend digest: `sha256:77e36e9c5ab1c19a736fad2ee8fa0d8cdeef81db3e74d53ef4c030825420bb0b`. The old pre-auth images are only historical emergency references and would remove unified API authentication.
+- Phase 1 authentication was accepted in production on 2026-09-25. The backend remains pinned to source `283bd97c84aee1a0f1cc9e5671ec4d351e3f2e37` and digest `sha256:5fe9a557e8c967877a859c1f84352514fd6143036a3df6b6e5b514081cf7cf5b`. The frontend-only login release targets source `fa9adeea2b9bea3d39316c5a1ac2a574b686506f` and digest `sha256:a8e08cc64e168dc847c875e3b6583cf2e046e0787faafa68f1718a21f3516884`. Verify each service independently after manual deployment; a configuration commit is not a runtime acceptance result. See the deployment guide for the previous frontend rollback pin. The old pre-auth images are only historical emergency references and would remove unified API authentication.
 
 The production image source of truth is:
 

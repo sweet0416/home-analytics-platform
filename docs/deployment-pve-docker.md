@@ -38,12 +38,17 @@ GitHub Commit
 ```
 
 The production file is standalone and does not use Compose overlay merge behavior or `!reset`. Phase 1
-authentication was accepted in production on 2026-09-25. The running application source is
-`283bd97c84aee1a0f1cc9e5671ec4d351e3f2e37`; the successful deployment-configuration commit is
-`ef800d5f4a7a0656112923ec63d6153a9c6c4e21` (not the image source revision). Running backend and frontend
-digests are `sha256:5fe9a557e8c967877a859c1f84352514fd6143036a3df6b6e5b514081cf7cf5b` and
-`sha256:77e36e9c5ab1c19a736fad2ee8fa0d8cdeef81db3e74d53ef4c030825420bb0b` respectively. The optional
-agent remains disabled. GitOps and automatic updates remain off; pushing a configuration commit does not redeploy HAP.
+authentication was accepted in production on 2026-09-25 with deployment-configuration commit
+`ef800d5f4a7a0656112923ec63d6153a9c6c4e21` (not an image source revision). The frontend-only login release
+keeps the backend at source `283bd97c84aee1a0f1cc9e5671ec4d351e3f2e37` and digest
+`sha256:5fe9a557e8c967877a859c1f84352514fd6143036a3df6b6e5b514081cf7cf5b`.
+The new frontend target is source `fa9adeea2b9bea3d39316c5a1ac2a574b686506f`, digest
+`sha256:a8e08cc64e168dc847c875e3b6583cf2e046e0787faafa68f1718a21f3516884`.
+Each service must be verified against its own source SHA after manual deployment; do not change the backend
+deployment revision to the frontend SHA. These pins describe the release target, not completed runtime acceptance.
+For a frontend-only rollback, retain the backend and restore the previous authenticated frontend digest
+`sha256:77e36e9c5ab1c19a736fad2ee8fa0d8cdeef81db3e74d53ef4c030825420bb0b`.
+The optional agent remains disabled. GitOps and automatic updates remain off; pushing a configuration commit does not redeploy HAP.
 
 The PVE host must not build the production HAP images.
 
