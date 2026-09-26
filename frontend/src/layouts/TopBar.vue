@@ -4,19 +4,19 @@
       <span class="topbar-title">{{ pageTitle }}</span>
       <span class="topbar-subtitle">Private home intelligence</span>
     </div>
-    <div class="topbar-status" role="status" aria-live="polite">
-      <span class="status-dot" :class="{ online: system.health?.status === 'ok' }" aria-hidden="true" />
-      <span>{{ statusText }}</span>
-      <span v-if="frontendBuild" class="topbar-version" :title="frontendBuild.git_commit">
-        {{ frontendBuild.git_commit.slice(0, 7) }}
+    <div class="topbar-actions">
+      <span class="topbar-status" role="status" aria-live="polite">
+        <span class="status-dot" :class="{ online: system.health?.status === 'ok' }" aria-hidden="true" />
+        <span>{{ statusText }}</span>
       </span>
+      <span class="topbar-divider" aria-hidden="true" />
       <el-button text size="small" class="topbar-logout" @click="logout">退出</el-button>
     </div>
   </header>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted } from 'vue';
 import { ElMessage } from 'element-plus';
 import { useRoute, useRouter } from 'vue-router';
 
@@ -26,8 +26,7 @@ import { useSystemStore } from '@/stores/system';
 const system = useSystemStore();
 const route = useRoute();
 const router = useRouter();
-const frontendBuild = ref<{ git_commit: string; build_time: string } | null>(null);
-const statusText = computed(() => system.health?.status === 'ok' ? 'System online' : system.error ? 'Connection unavailable' : 'Checking');
+const statusText = computed(() => system.health?.status === 'ok' ? 'System online' : system.health?.status || system.error ? 'System unavailable' : 'Checking system');
 const pageTitle = computed(() => {
   if (route.path === '/') return 'Overview';
   if (route.path.startsWith('/fund')) return 'Fund';
@@ -49,13 +48,7 @@ async function logout(): Promise<void> {
   }
 }
 
-onMounted(async () => {
+onMounted(() => {
   void system.fetchHealth();
-  try {
-    const response = await fetch('/build-info.json', { cache: 'no-store' });
-    if (response.ok) frontendBuild.value = await response.json();
-  } catch {
-    frontendBuild.value = null;
-  }
 });
 </script>

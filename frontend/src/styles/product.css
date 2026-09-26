@@ -67,11 +67,14 @@
   border-bottom-color: var(--hap-border);
   padding-inline: clamp(24px, 3vw, 48px);
 }
-.topbar-context { display: grid; gap: 2px; min-width: 0; }
-.app-shell .topbar-title { font-size: 16px; font-weight: 660; color: var(--hap-text-primary); }
-.app-shell .topbar-subtitle { margin: 0; color: var(--hap-text-muted); }
-.app-shell .topbar-status { color: var(--hap-text-secondary); }
-.app-shell .topbar-logout { min-height: 38px; margin-left: 4px; }
+.topbar-context { display: grid; gap: 4px; min-width: 0; }
+.app-shell .topbar-title { font-size: 17px; font-weight: 660; letter-spacing: -.015em; color: var(--hap-text-primary); }
+.app-shell .topbar-subtitle { margin: 0; color: var(--hap-text-muted); font-size: 11px; }
+.topbar-actions { display: flex; align-items: center; gap: 17px; flex: 0 0 auto; }
+.app-shell .topbar-status { gap: 9px; color: var(--hap-text-secondary); font-weight: 570; white-space: nowrap; }
+.topbar-divider { width: 1px; height: 20px; background: var(--hap-border); }
+.app-shell .topbar-logout { min-height: 44px; padding-inline: 8px; color: var(--hap-text-muted); font-weight: 500; }
+.app-shell .topbar-logout:hover { color: var(--hap-text-primary); }
 .app-shell .content-shell { padding: 38px clamp(24px, 3vw, 48px) 72px; }
 .app-shell .page-header { margin-bottom: 28px; }
 .app-shell .page-title { font-size: clamp(30px, 2.4vw, 40px); font-weight: 730; letter-spacing: -0.035em; line-height: 1.15; }
@@ -115,7 +118,6 @@
 .home-overview { display: grid; gap: 0; }
 .home-intro { display: flex; align-items: end; justify-content: space-between; gap: 24px; margin-bottom: 28px; }
 .home-intro .page-subtitle { margin-bottom: 0; }
-.home-system-state { display: inline-flex; align-items: center; gap: 11px; padding: 9px 13px; border: 1px solid var(--hap-border); border-radius: 999px; color: var(--hap-text-secondary); white-space: nowrap; }
 .home-highlight { min-height: 245px; display: flex; align-items: end; justify-content: space-between; gap: 36px; overflow: hidden; position: relative; border: 1px solid rgba(90, 174, 231, .25); border-radius: 22px; padding: clamp(26px, 3vw, 44px); background: radial-gradient(circle at 80% -20%, rgba(79, 91, 172, .31), transparent 48%), radial-gradient(circle at 8% 100%, rgba(24, 132, 161, .21), transparent 51%), linear-gradient(120deg, #122b47, #0c1c34 70%, #151d3b); box-shadow: var(--hap-shadow-floating); }
 .home-highlight::after { content: ''; position: absolute; pointer-events: none; width: 400px; height: 160px; right: -60px; top: -50px; border: 1px solid rgba(100, 188, 234, .15); border-radius: 50%; transform: rotate(-15deg); box-shadow: 0 0 0 38px rgba(111, 175, 227, .03), 0 0 0 78px rgba(111, 175, 227, .02); }
 .home-highlight-copy { z-index: 1; max-width: 520px; }
@@ -146,17 +148,38 @@
 .home-module-arrow { position: absolute; right: 19px; top: 20px; width: 17px; color: var(--hap-text-muted); }
 
 /* Settings is a control surface; status and restore actions retain their meaning. */
-.app-shell .settings-grid { gap: 22px; }
-.app-shell .settings-grid > .panel .panel-body { padding: 24px; }
-.app-shell .backup-summary-item, .app-shell .notification-card { border-color: var(--hap-border); background: rgba(7, 20, 38, .55); border-radius: var(--hap-radius-md); padding: 17px; }
+.app-shell .settings-grid { gap: 30px; }
+.app-shell .settings-grid > .panel .panel-body { padding: 26px; }
+.app-shell .backup-summary { gap: 18px; margin-bottom: 8px; }
+.app-shell .backup-summary-item { border: 0; border-bottom: 1px solid var(--hap-border); border-radius: 0; background: transparent; padding: 6px 0 17px; }
 .app-shell .backup-summary-item strong { font-size: 21px; font-variant-numeric: tabular-nums; }
-.app-shell .explain-box, .app-shell .scheduler-box, .app-shell .remote-box, .app-shell .restore-box, .app-shell .notification-summary, .app-shell .notification-scheduler, .app-shell .notification-test-form, .app-shell .notification-history { border-radius: var(--hap-radius-md); padding: 17px 18px; }
-.app-shell .restore-box { margin-top: 22px; border-color: rgba(245, 143, 159, .28); background: rgba(110, 44, 65, .1); }
-.app-shell .explain-box { cursor: pointer; }
+.app-shell .explain-box { cursor: pointer; margin: 0; padding: 11px 0; border: 0; border-radius: 0; background: transparent; }
 .app-shell .explain-box summary { list-style-position: inside; }
+.settings-status-list { margin: 16px 0 24px; border-top: 1px solid var(--hap-border); border-bottom: 1px solid var(--hap-border); }
+.app-shell .settings-status-list > div { margin: 0; padding: 17px 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+.app-shell .settings-status-list > div + div { border-top: 1px solid var(--hap-border); }
+.app-shell .settings-status-list .restore-box { border-left: 1px solid rgba(245, 143, 159, .45); padding-left: 16px; }
+.settings-status-label { margin-right: auto; color: var(--hap-text-primary); font-size: 14px; font-weight: 630; }
+.app-shell .settings-status-list .scheduler-status strong, .app-shell .notification-summary .scheduler-status strong { color: var(--hap-text-secondary); font-size: 12px; font-weight: 600; }
+.app-shell .settings-status-list .scheduler-meta { padding-left: 16px; }
+.settings-row-help { color: var(--hap-text-muted); font-size: 12px; }
+.settings-row-help summary { cursor: pointer; }
+.settings-row-help p { margin-top: 8px; }
 .settings-backup-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin: 22px 0 12px; border-top: 1px solid var(--hap-border); padding-top: 19px; }
 .settings-backup-heading h3 { margin: 0; font-size: 15px; }
 .settings-backup-heading p { margin: 0; color: var(--hap-text-muted); font-size: 12px; }
+.app-shell .notification-summary, .app-shell .notification-scheduler { margin: 0; padding: 13px 0 17px; border: 0; border-bottom: 1px solid var(--hap-border); border-radius: 0; background: transparent; }
+.app-shell .notification-summary .scheduler-status { margin-bottom: 8px; }
+.app-shell .notification-scheduler { padding-top: 20px; }
+.settings-subsection-title { margin: 27px 0 14px; color: var(--hap-text-primary); font-size: 15px; font-weight: 650; }
+.app-shell .notification-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-bottom: 0; }
+.app-shell .notification-card { display: flex; flex-direction: column; border-color: var(--hap-border); border-radius: var(--hap-radius-md); background: rgba(7, 20, 38, .32); padding: 17px 18px; }
+.app-shell .notification-card p { min-height: 0; margin: 9px 0 12px; }
+.app-shell .notification-target { margin-top: auto; padding: 0; background: transparent; color: var(--hap-text-muted); }
+.app-shell .notification-test-form, .app-shell .notification-history { margin: 26px 0 0; padding: 21px 0 0; border: 0; border-top: 1px solid var(--hap-border); border-radius: 0; background: transparent; }
+.app-shell .notification-test-form .settings-subsection-title { margin: 0 0 16px; }
+.app-shell .notification-history { gap: 17px; }
+.app-shell .notification-result-item { border-color: var(--hap-border); background: transparent; }
 .app-shell .backup-table, .app-shell .restore-table, .app-shell .notification-history-table { width: 100%; }
 .app-shell .panel-link, .app-shell .back-link { color: #83d8f4; text-underline-offset: 3px; }
 .app-shell .empty-state { border-color: var(--hap-border); background: rgba(12, 30, 50, .42); }
@@ -181,11 +204,12 @@
   .app-shell .nav-item { min-height: 44px; min-width: 44px; padding: 0 11px; }
   .app-shell .nav-item span { display: inline; }
   .app-shell .topbar { padding-inline: 16px; }
-  .app-shell .topbar-subtitle, .app-shell .topbar-version { display: none; }
+  .app-shell .topbar-subtitle { display: none; }
+  .topbar-actions { gap: 10px; }
   .app-shell .topbar-status { gap: 6px; font-size: 11px; }
+  .app-shell .topbar-logout { min-height: 44px; padding-inline: 4px; }
   .app-shell .content-shell { padding: 26px 16px 48px; }
   .home-intro { display: grid; gap: 15px; }
-  .home-system-state { justify-self: start; }
   .home-highlight { display: grid; gap: 30px; padding: 27px 23px; }
   .home-highlight-readouts { min-width: 0; }
   .home-metrics, .home-modules { grid-template-columns: 1fr; }
@@ -196,6 +220,7 @@
   .home-module { min-height: 126px; }
   .app-shell .settings-grid > .panel .panel-body { padding: 16px; }
   .app-shell .panel-header { padding-inline: 16px; }
+  .app-shell .notification-grid { grid-template-columns: 1fr; }
   .settings-backup-heading { display: block; }
   .settings-backup-heading p { margin-top: 5px; }
 }

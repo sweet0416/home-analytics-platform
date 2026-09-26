@@ -5,10 +5,6 @@
         <h1 class="page-title">Home overview</h1>
         <p class="page-subtitle">Your systems and data, in one private place.</p>
       </div>
-      <span class="home-system-state" :class="{ 'is-online': system.health?.status === 'ok' }">
-        <span class="status-dot" :class="{ online: system.health?.status === 'ok' }" aria-hidden="true" />
-        {{ system.health?.status === 'ok' ? 'System available' : system.error ? 'Connection unavailable' : 'Checking system' }}
-      </span>
     </header>
 
     <section class="home-highlight" aria-label="System overview">
@@ -17,8 +13,8 @@
         <p>Track the services and records you already use. Open a module for the full picture.</p>
       </div>
       <div class="home-highlight-readouts">
-        <div><span>API</span><strong>{{ system.health?.status ?? '—' }}</strong></div>
-        <div><span>Database</span><strong>{{ system.health?.database ?? '—' }}</strong></div>
+        <div><span>API</span><strong>{{ system.health?.status === 'ok' ? 'Healthy' : system.health?.status || system.error ? 'Unavailable' : 'Checking' }}</strong></div>
+        <div><span>Database</span><strong>{{ system.health?.database === 'ok' ? 'Healthy' : system.health?.database || system.error ? 'Unavailable' : 'Checking' }}</strong></div>
         <div><span>Backend</span><strong>v{{ system.health?.version ?? '—' }}</strong></div>
       </div>
     </section>
