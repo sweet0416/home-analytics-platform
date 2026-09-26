@@ -29,6 +29,22 @@ References: [Compose interpolation](https://docs.docker.com/reference/compose-fi
 
 On 2026-09-25 the candidate was tested against Portainer CE 2.27.9 in the isolated Git Stack `hap-hash-transport-test-20260925` (ID 32), using a separately built local backend image from candidate code commit `52899c327cf5b77ce09ef1498dcbcbbd56da20b2`. Stack creation and a later manual Git pull/redeploy both succeeded. A synthetic letter-leading hash matched the generated value exactly in the container; the backend was healthy, anonymous access returned 401, bad login 401, correct login 200, and the authenticated route 200. The test Stack, container, network, volume, and local candidate image were removed afterwards. Production `hap` was not redeployed. This confirms the tested Portainer route, not a production release of the candidate.
 
+### Local preflight from a clean checkout
+
+Run in PowerShell from the repository root with Python 3.12 and the Docker Compose CLI installed:
+
+```powershell
+py -3.12 -m venv backend/.venv
+& ./backend/.venv/Scripts/python.exe -m pip install -r backend/requirements-dev.txt
+docker compose version
+$env:PYTHONPATH = (Resolve-Path backend).Path
+& ./backend/.venv/Scripts/python.exe backend/scripts/check_hash_transport.py
+```
+
+The script needs the backend Python dependencies for `app.core.*` imports and Docker Compose for **local config parsing only**; it does not start containers. It generates synthetic values, disables `Settings` environment/dotenv sources for its check, and passes a controlled environment plus an explicit empty env file to Compose. A local PASS is not a new Portainer integration result; the dated 2026-09-25 isolated Portainer acceptance above remains historical evidence.
+
 ## HTTP capture rule for any future *test-stack-only* redeploy
 
 Arm response capture **before** the UI click. Filter by method, API path, endpoint ID, and the freshly resolved isolated Stack ID; associate the observed request with its own response rather than presuming a request was issued. Record status and a redacted response category only. If the request is not observed, report `REQUEST_NOT_OBSERVED`. If it is observed but no response arrives before the deadline, report `CAPTURE_TIMEOUT` with no invented status or deployment conclusion. A network disconnect is `CONNECTION_INTERRUPTED`, also without a fabricated status. Never automatically retry a redeploy POST after a timeout. Scope any server-log and Docker-event windows to the isolated Stack and redact values before display or persistence. This procedure was not retroactively applied to the final successful production attempt.
+
+This is a procedure, **not** an implemented HTTP capture tool. Simulated capture and a test-Stack failure-response exercise remain a separate follow-up; neither is required to retain the accepted Phase 1 production conclusion. Do not redeploy production to recover the historical status code.

@@ -1,6 +1,9 @@
+import os
 from base64 import b64encode
 from hashlib import pbkdf2_hmac
+from pathlib import Path
 from secrets import token_bytes
+from unittest.mock import patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -9,6 +12,11 @@ from app.core import auth
 from app.core.auth import COOKIE_NAME
 from app.core.config.settings import Settings, get_settings
 from app.main import create_app
+
+
+def _synthetic_settings(**values: str) -> Settings:
+    with patch.dict(os.environ, {}, clear=True):
+        return Settings(_env_file=None, **values)
 
 
 def test_api_requires_login_and_machine_token(client: TestClient) -> None:
@@ -133,13 +141,13 @@ def test_secure_cookie_when_https_is_configured(
 
 def test_missing_admin_hash_is_rejected() -> None:
     with pytest.raises(RuntimeError, match="HAP_ADMIN_PASSWORD_HASH"):
-        Settings(hap_admin_password_hash="").validate_auth()
+        _synthetic_settings(hap_admin_password_hash="").validate_auth()
 
 
 def test_plaintext_or_malformed_admin_hash_is_rejected() -> None:
     for invalid_value in ("example-password", "pbkdf2_sha256$600000$bad$not-a-hash"):
         with pytest.raises(RuntimeError, match="HAP_ADMIN_PASSWORD_HASH"):
-            Settings(hap_admin_password_hash=invalid_value).validate_auth()
+            _synthetic_settings(hap_admin_password_hash=invalid_value).validate_auth()
 
 
 @pytest.mark.parametrize("salt_first", ["0", "a", "b", "c", "d", "e", "f"])
@@ -149,7 +157,7 @@ def test_encoded_hash_preserves_full_value_and_authenticates(salt_first: str) ->
     digest = pbkdf2_hmac("sha256", password.encode(), salt, 600_000).hex()
     password_hash = f"pbkdf2_sha256$600000${salt.hex()}${digest}"
     encoded = b64encode(password_hash.encode()).decode()
-    settings = Settings(hap_admin_password_hash_b64=encoded)
+    settings = _synthetic_settings(hap_admin_password_hash_b64=encoded)
     settings.validate_auth()
     if settings.admin_password_hash() != password_hash:
         pytest.fail("Decoded hash differs from generated value", pytrace=False)
@@ -160,7 +168,7 @@ def test_encoded_hash_preserves_full_value_and_authenticates(salt_first: str) ->
 @pytest.mark.parametrize("bad", ["", "not-base64", "AA== ", "AAAA", "\ufeffAAAA"])
 def test_invalid_encoded_hash_fails_closed(bad: str) -> None:
     with pytest.raises(RuntimeError, match="HAP_ADMIN_PASSWORD_HASH"):
-        Settings(hap_admin_password_hash_b64=bad).validate_auth()
+        _synthetic_settings(hap_admin_password_hash_b64=bad).validate_auth()
 
 
 @pytest.mark.parametrize(
@@ -175,12 +183,14 @@ def test_invalid_encoded_hash_fails_closed(bad: str) -> None:
 )
 def test_encoded_hash_rejects_malformed_pbkdf2(bad_hash: str) -> None:
     with pytest.raises(RuntimeError, match="HAP_ADMIN_PASSWORD_HASH"):
-        Settings(hap_admin_password_hash_b64=b64encode(bad_hash.encode()).decode()).validate_auth()
+        _synthetic_settings(
+            hap_admin_password_hash_b64=b64encode(bad_hash.encode()).decode()
+        ).validate_auth()
 
 
 def test_raw_and_encoded_hash_conflict_fails_closed() -> None:
     with pytest.raises(RuntimeError, match="HAP_ADMIN_PASSWORD_HASH"):
-        Settings(
+        _synthetic_settings(
             hap_admin_password_hash="legacy", hap_admin_password_hash_b64="AAAA"
         ).validate_auth()
 
@@ -191,7 +201,7 @@ def test_encoded_hash_content_mutation_is_not_accepted() -> None:
     digest = pbkdf2_hmac("sha256", password.encode(), salt, 600_000).hex()
     password_hash = f"pbkdf2_sha256$600000${salt.hex()}${digest}"
     mutated = password_hash[:-1] + ("0" if password_hash[-1] != "0" else "1")
-    settings = Settings(hap_admin_password_hash_b64=b64encode(mutated.encode()).decode())
+    settings = _synthetic_settings(hap_admin_password_hash_b64=b64encode(mutated.encode()).decode())
     settings.validate_auth()
     if settings.admin_password_hash() == password_hash:
         pytest.fail("Mutated hash unexpectedly equals source", pytrace=False)
@@ -204,7 +214,9 @@ def test_unscreened_random_valid_hashes_round_trip() -> None:
         salt = token_bytes(16)
         digest = pbkdf2_hmac("sha256", password.encode(), salt, 600_000).hex()
         password_hash = f"pbkdf2_sha256$600000${salt.hex()}${digest}"
-        settings = Settings(hap_admin_password_hash_b64=b64encode(password_hash.encode()).decode())
+        settings = _synthetic_settings(
+            hap_admin_password_hash_b64=b64encode(password_hash.encode()).decode()
+        )
         if settings.admin_password_hash() != password_hash:
             pytest.fail("Random hash changed during decode", pytrace=False)
         assert auth.verify_password(password, settings.admin_password_hash())
@@ -217,7 +229,7 @@ def test_encoded_hash_rejects_boundary_or_extra_delimiter(suffix: str) -> None:
     digest = pbkdf2_hmac("sha256", b"synthetic", salt, 600_000).hex()
     password_hash = f"pbkdf2_sha256$600000${salt.hex()}${digest}{suffix}"
     with pytest.raises(RuntimeError, match="HAP_ADMIN_PASSWORD_HASH"):
-        Settings(
+        _synthetic_settings(
             hap_admin_password_hash_b64=b64encode(password_hash.encode()).decode()
         ).validate_auth()
 
@@ -247,8 +259,12 @@ def test_encoded_hash_login_and_protected_route(
 
 @pytest.mark.parametrize("password_hash", ["", "plaintext"])
 def test_startup_rejects_invalid_admin_hash(
-    monkeypatch: pytest.MonkeyPatch, password_hash: str
+    monkeypatch: pytest.MonkeyPatch, password_hash: str, tmp_path: Path
 ) -> None:
+    monkeypatch.chdir(tmp_path)
+    for key in tuple(os.environ):
+        if key.casefold() in Settings.model_fields:
+            monkeypatch.delenv(key)
     monkeypatch.setenv("HAP_ADMIN_PASSWORD_HASH", password_hash)
     get_settings.cache_clear()
     try:

@@ -8,9 +8,13 @@ import base64
 import json
 import os
 import secrets
+import shutil
 import subprocess
+import tempfile
+from binascii import Error as Base64Error
 from hashlib import pbkdf2_hmac
 from pathlib import Path
+from unittest.mock import patch
 
 from app.core.auth import valid_password_hash, verify_password
 from app.core.config.settings import Settings
@@ -20,34 +24,72 @@ PASSWORD = "synthetic-hash-transport-test-only"
 
 
 def check(password_hash: str) -> None:
-    assert valid_password_hash(password_hash)
+    if not valid_password_hash(password_hash):
+        raise RuntimeError("INVALID_SYNTHETIC_HASH")
     encoded = base64.b64encode(password_hash.encode()).decode("ascii")
-    settings = Settings(hap_admin_password_hash_b64=encoded)
-    if settings.admin_password_hash() != password_hash:
-        raise RuntimeError("Application hash differs from generated value")
-    assert verify_password(PASSWORD, settings.admin_password_hash())
-    assert not verify_password("wrong", settings.admin_password_hash())
+    # Settings normally reads both the caller's environment and .env.
+    with patch.dict(os.environ, {}, clear=True):
+        settings = Settings(_env_file=None, hap_admin_password_hash_b64=encoded)
+    actual_hash = settings.admin_password_hash()
+    if actual_hash != password_hash:
+        raise RuntimeError("APPLICATION_VALUE_CHANGED")
+    if not verify_password(PASSWORD, actual_hash):
+        raise RuntimeError("CORRECT_PASSWORD_REJECTED")
+    if verify_password("wrong", actual_hash):
+        raise RuntimeError("WRONG_PASSWORD_ACCEPTED")
 
-    env = os.environ.copy()
-    env.pop("HAP_ADMIN_PASSWORD_HASH", None)
-    env["HAP_ADMIN_PASSWORD_HASH_B64"] = encoded
-    env["HAP_TEST_PASSWORD_B64"] = base64.b64encode(PASSWORD.encode()).decode("ascii")
-    result = subprocess.run(
-        ["docker", "compose", "-f", str(COMPOSE), "config", "--format", "json"],
-        env=env,
-        capture_output=True,
-        text=True,
-        timeout=30,
-        check=False,
-    )
+    compose = shutil.which("docker-compose")
+    docker = shutil.which("docker") if compose is None else None
+    if compose is None and docker is None:
+        raise RuntimeError("DOCKER_COMPOSE_UNAVAILABLE")
+    with tempfile.TemporaryDirectory(prefix="hap-hash-preflight-") as temporary:
+        empty_env = Path(temporary) / "empty.env"
+        empty_env.write_text("", encoding="utf-8")
+        env = {
+            key.upper(): value
+            for key, value in os.environ.items()
+            if key.upper() in {"PATH", "SYSTEMROOT", "WINDIR", "COMSPEC", "PATHEXT"}
+        }
+        env.update(
+            HOME=temporary,
+            USERPROFILE=temporary,
+            DOCKER_CONFIG=temporary,
+            HAP_ADMIN_PASSWORD_HASH_B64=encoded,
+            HAP_TEST_PASSWORD_B64=base64.b64encode(PASSWORD.encode()).decode("ascii"),
+        )
+        try:
+            result = subprocess.run(
+                [
+                    *([compose] if compose is not None else [docker, "compose"]),
+                    "--env-file",
+                    str(empty_env),
+                    "-f",
+                    str(COMPOSE),
+                    "config",
+                    "--format",
+                    "json",
+                ],
+                env=env,
+                cwd=temporary,
+                capture_output=True,
+                text=True,
+                timeout=30,
+                check=False,
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            raise RuntimeError("COMPOSE_EXECUTION_FAILED") from None
     # Compose output may contain the synthetic hash. Never print stdout/stderr.
     if result.returncode:
-        raise RuntimeError("Local Compose preflight failed (details intentionally suppressed)")
-    actual = json.loads(result.stdout)["services"]["hash-probe"]["environment"][
-        "HAP_ADMIN_PASSWORD_HASH_B64"
-    ]
-    if actual != encoded or base64.b64decode(actual, validate=True).decode() != password_hash:
-        raise RuntimeError("Compose changed the encoded or decoded value")
+        raise RuntimeError("COMPOSE_CONFIG_FAILED")
+    try:
+        actual = json.loads(result.stdout)["services"]["hash-probe"]["environment"][
+            "HAP_ADMIN_PASSWORD_HASH_B64"
+        ]
+        decoded = base64.b64decode(actual, validate=True).decode("utf-8")
+    except (Base64Error, KeyError, TypeError, ValueError):
+        raise RuntimeError("COMPOSE_OUTPUT_INVALID") from None
+    if actual != encoded or decoded != password_hash:
+        raise RuntimeError("COMPOSE_VALUE_CHANGED")
 
 
 def main() -> None:

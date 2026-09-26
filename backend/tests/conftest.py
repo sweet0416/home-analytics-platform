@@ -1,3 +1,4 @@
+import os
 from collections.abc import Generator
 from hashlib import pbkdf2_hmac
 from pathlib import Path
@@ -9,7 +10,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.auth import COOKIE_NAME, create_session
 from app.core.backup import models as backup_models  # noqa: F401
-from app.core.config.settings import get_settings
+from app.core.config.settings import Settings, get_settings
 from app.core.database.base import Base
 from app.core.database.session import get_db
 from app.main import create_app
@@ -20,6 +21,7 @@ from app.plugins.lottery.infrastructure.persistence.repositories import LotteryR
 _TEST_SALT = bytes(16)
 _TEST_DIGEST = pbkdf2_hmac("sha256", b"test-admin-password", _TEST_SALT, 600_000)
 _TEST_PASSWORD_HASH = f"pbkdf2_sha256$600000${_TEST_SALT.hex()}${_TEST_DIGEST.hex()}"
+
 
 @pytest.fixture()
 def db_session(tmp_path: Path) -> Generator[Session, None, None]:
@@ -39,7 +41,13 @@ def db_session(tmp_path: Path) -> Generator[Session, None, None]:
 
 
 @pytest.fixture()
-def client(db_session: Session, monkeypatch: pytest.MonkeyPatch) -> Generator[TestClient, None, None]:
+def client(
+    db_session: Session, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> Generator[TestClient, None, None]:
+    monkeypatch.chdir(tmp_path)  # No checkout .env can participate in test settings.
+    for key in tuple(os.environ):
+        if key.casefold() in Settings.model_fields:
+            monkeypatch.delenv(key)
     monkeypatch.setenv("HAP_ADMIN_PASSWORD_HASH", _TEST_PASSWORD_HASH)
     get_settings.cache_clear()
     app = create_app()
