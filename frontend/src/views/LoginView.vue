@@ -34,42 +34,43 @@
         </div>
 
         <div class="login-telemetry" aria-hidden="true">
-          <div class="login-telemetry-label">INSIGHTS FOR A<br />BRIGHTER TOMORROW<span></span></div>
           <svg viewBox="0 0 840 430" preserveAspectRatio="none" fill="none">
             <defs>
               <linearGradient id="login-wave-cyan"><stop stop-color="#10DCEB" stop-opacity="0"/><stop offset=".27" stop-color="#33E5F2"/><stop offset=".7" stop-color="#38A8FF"/><stop offset="1" stop-color="#7652FF" stop-opacity=".3"/></linearGradient>
               <linearGradient id="login-wave-violet"><stop stop-color="#3AA7FF" stop-opacity="0"/><stop offset=".5" stop-color="#657FFF"/><stop offset="1" stop-color="#A748F8"/></linearGradient>
-              <filter id="login-wave-glow"><feGaussianBlur stdDeviation="7"/></filter>
+              <filter id="login-wave-glow"><feGaussianBlur stdDeviation="8"/></filter>
             </defs>
             <path class="login-wave-grid" d="M0 94h840M0 178h840M0 262h840M0 346h840M126 0v430M252 0v430M378 0v430M504 0v430M630 0v430M756 0v430"/>
-            <path d="M0 336C92 367 111 269 182 282c67 12 94 91 170 2 56-65 90-168 177-141 85 26 84 132 175 60 63-50 81-158 136-165" stroke="url(#login-wave-cyan)" stroke-width="7" filter="url(#login-wave-glow)" opacity=".65"/>
-            <path class="login-wave-flow" d="M0 336C92 367 111 269 182 282c67 12 94 91 170 2 56-65 90-168 177-141 85 26 84 132 175 60 63-50 81-158 136-165" stroke="url(#login-wave-cyan)" stroke-width="2.3"/>
-            <path d="M0 391c105-20 134-135 224-113 62 14 91 85 162 18 62-58 102-129 167-86 96 65 102 170 188 105 53-40 72-120 99-131" stroke="url(#login-wave-violet)" stroke-width="1.4" opacity=".75"/>
+            <path d="M0 336C92 367 111 269 182 282c67 12 94 91 170 2 56-65 90-168 177-141 85 26 84 132 175 60 63-50 81-158 136-165" stroke="url(#login-wave-cyan)" stroke-width="9" filter="url(#login-wave-glow)" opacity=".65"/>
+            <path class="login-wave-flow" d="M0 336C92 367 111 269 182 282c67 12 94 91 170 2 56-65 90-168 177-141 85 26 84 132 175 60 63-50 81-158 136-165" stroke="url(#login-wave-cyan)" stroke-width="2.8"/>
+            <path d="M0 391c105-20 134-135 224-113 62 14 91 85 162 18 62-58 102-129 167-86 96 65 102 170 188 105 53-40 72-120 99-131" stroke="url(#login-wave-violet)" stroke-width="1.8" opacity=".8"/>
             <path d="M0 413c126-36 163-139 248-115 81 23 102 103 183 43 72-53 108-102 175-60 102 64 134 79 234 7" stroke="#299EE9" opacity=".35"/>
             <path d="M0 308c120-27 159-112 227-97 84 18 91 96 171 30 68-57 105-136 178-96 97 53 112 91 178 45 44-30 67-97 86-104" stroke="#3FD4F7" opacity=".26"/>
-            <circle cx="351" cy="284" r="4.5" fill="#48EDFA"/><circle cx="529" cy="143" r="4.5" fill="#48EDFA"/><circle cx="704" cy="203" r="3.5" fill="#A66AFF"/>
+            <circle cx="351" cy="284" r="5.5" fill="#48EDFA"/><circle cx="529" cy="143" r="5.5" fill="#48EDFA"/><circle cx="704" cy="203" r="4.5" fill="#A66AFF"/>
             <path d="M351 284v-77M529 143V67M704 203V119" stroke="#50BDFB" opacity=".47"/>
           </svg>
           <div class="login-readout login-readout--comfort"><strong>72°</strong><small>Comfort</small></div>
           <div class="login-readout login-readout--energy"><strong>436 <em>kWh</em></strong><small>Energy</small></div>
           <div class="login-readout login-readout--health"><strong>98%</strong><small>System health</small></div>
-          <span class="login-telemetry-disclaimer">ILLUSTRATIVE TELEMETRY</span>
+          <span class="login-telemetry-disclaimer">AMBIENT HOME SIGNALS</span>
         </div>
 
         <svg class="login-architecture" viewBox="0 0 1000 490" preserveAspectRatio="xMidYMax slice" fill="none" aria-hidden="true">
           <defs>
             <linearGradient id="login-mountain" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#183452"/><stop offset="1" stop-color="#071323"/></linearGradient>
-            <linearGradient id="login-house" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#274460"/><stop offset="1" stop-color="#060D18"/></linearGradient>
-            <linearGradient id="login-glass"><stop stop-color="#B5D7E7" stop-opacity=".09"/><stop offset=".5" stop-color="#E4B179" stop-opacity=".65"/><stop offset="1" stop-color="#A4D7ED" stop-opacity=".17"/></linearGradient>
+            <linearGradient id="login-house" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#1A334A"/><stop offset=".52" stop-color="#091B2D"/><stop offset="1" stop-color="#040C16"/></linearGradient>
+            <linearGradient id="login-glass"><stop stop-color="#0E2A3F" stop-opacity=".72"/><stop offset=".48" stop-color="#1C4559" stop-opacity=".48"/><stop offset="1" stop-color="#061522" stop-opacity=".86"/></linearGradient>
           </defs>
           <path d="M0 175 84 128l62 34 99-110 126 123 82-52 114 108 94-115 100 80 84-50 155 88v256H0Z" fill="url(#login-mountain)" opacity=".65"/>
           <path d="M0 243 117 178l82 56 111-84 153 112 111-57 127 62 143-92 156 84v231H0Z" fill="#0A1D36" opacity=".8"/>
-          <path d="M0 328 87 306l255-37 317 29 79 43-40 41H0Z" fill="#091320"/>
-          <path d="M79 317 412 252l297 54-49 20-259-37-294 55Z" fill="#020913"/>
-          <path d="M106 343 402 289l257 37v129H106Z" fill="url(#login-house)"/>
-          <path d="M402 289v166M539 310v145M106 343v112" stroke="#49738E" stroke-width="3" opacity=".5"/>
-          <path d="M126 359 385 310v118H126ZM416 310l110 18v100H416Zm130 22 94 14v82h-94Z" fill="url(#login-glass)" stroke="#A3CEE1" stroke-opacity=".23" stroke-width="2"/>
-          <path d="M126 428h514M127 356l258-46M401 296l257 36" stroke="#C2A37B" stroke-opacity=".65" stroke-width="3"/>
+          <path d="M0 348 164 316l244-48 333 50 46 35-35 38H0Z" fill="#030A14"/>
+          <path d="M103 342 413 272l298 49-38 14-262-39-294 60Z" fill="#010711"/>
+          <path d="M117 358 411 297l262 39v122H117Z" fill="url(#login-house)"/>
+          <path d="M136 368 394 318v108H136ZM425 318l226 32v76H425Z" fill="url(#login-glass)"/>
+          <path d="M118 355 410 297l262 39M130 432h532" stroke="#93C9D6" stroke-opacity=".15" stroke-width="2"/>
+          <path d="M136 420h258m31-1h226" stroke="#DBA870" stroke-opacity=".52" stroke-width="2.5"/>
+          <path d="M403 299v151M661 337v113" stroke="#7DB2C4" stroke-opacity=".14" stroke-width="2"/>
+          <path d="M166 385h170m104-28h182" stroke="#F2C28A" stroke-opacity=".16" stroke-width="15"/>
           <path d="M0 451h788l131 39H0Z" fill="#050C16"/>
           <path d="M0 470c240-12 442-13 714-11 51 0 104 9 175 31H0Z" fill="#0D2E46" opacity=".68"/>
           <path d="M0 469c218-12 492-12 742-5" stroke="#2E9AC7" stroke-opacity=".32" stroke-width="2"/>
