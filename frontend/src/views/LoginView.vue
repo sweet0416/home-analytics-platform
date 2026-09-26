@@ -52,7 +52,7 @@
           <div class="login-readout login-readout--comfort"><strong>72°</strong><small>Comfort</small></div>
           <div class="login-readout login-readout--energy"><strong>436 <em>kWh</em></strong><small>Energy</small></div>
           <div class="login-readout login-readout--health"><strong>98%</strong><small>System health</small></div>
-          <span class="login-telemetry-disclaimer">AMBIENT HOME SIGNALS</span>
+          <span class="login-telemetry-disclaimer">ILLUSTRATIVE TELEMETRY</span>
         </div>
 
         <svg class="login-architecture" viewBox="0 0 1000 490" preserveAspectRatio="xMidYMax slice" fill="none" aria-hidden="true">

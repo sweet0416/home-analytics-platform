@@ -77,3 +77,5 @@ Accessibility and behavior: Username/Password labels still target their inputs. 
 Findings: no remaining actionable P0/P1/P2 issue in the scoped login page. The mechanical design detector reports two gradient-text warnings already present in V2; the gradient is explicitly approved and required by this task, so these are intentional exceptions, not new regressions. Comparison history: the V2.1 first capture already showed the intended fade and no new collision or overflow, so no second visual repair was needed. Edison final visual approval remains pending. No merge, deployment, or production interaction occurred.
 
 final result: passed
+
+PR finalization: the small decorative readout caption was clarified to “ILLUSTRATIVE TELEMETRY” so its sample values cannot be mistaken for live household data. No telemetry request, layout, or auth behavior changed. The six V2.1 screenshots above predate this copy-only clarification.
