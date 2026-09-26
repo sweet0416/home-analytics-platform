@@ -37,8 +37,8 @@
             </div>
           </div>
 
-          <div class="explain-box">
-            <div class="explain-title">这是什么意思？</div>
+          <details class="explain-box">
+            <summary class="explain-title">关于数据库备份</summary>
             <p>
               备份会把当前 SQLite 数据库复制一份到 Docker 的备份卷里，路径是
               <code>{{ backupDirectory }}</code>。如果 GitHub 远程备份已配置，会同时上传一份加密副本。
@@ -51,7 +51,7 @@
             <p>
               当前建议最多保留 {{ retentionCount }} 份备份；后续会增加自动清理和恢复审计。
             </p>
-          </div>
+          </details>
 
           <div class="scheduler-box">
             <div class="scheduler-status">
@@ -130,6 +130,11 @@
               创建当前数据库备份
             </el-button>
             <span v-if="system.backupError" class="error-text">{{ system.backupError }}</span>
+          </div>
+
+          <div class="settings-backup-heading">
+            <h3>可用备份</h3>
+            <p>恢复会覆盖当前数据库；请先下载备份核对。执行前仍需输入确认短语。</p>
           </div>
 
           <el-table
@@ -337,17 +342,6 @@
         </div>
       </div>
 
-      <div class="panel">
-        <div class="panel-header">
-          <div>
-            <h2 class="panel-title">后续配置中心</h2>
-            <div class="panel-hint">插件配置、数据源、同步策略会逐步放到这里</div>
-          </div>
-        </div>
-        <div class="panel-body">
-          <EmptyState title="设置项待接入" description="后续会由 Core 和各插件共同提供配置 schema。" />
-        </div>
-      </div>
     </section>
   </div>
 </template>
