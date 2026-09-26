@@ -25,9 +25,15 @@ Reserved plugin areas:
 
 HAP requires one administrator password. Generate its PBKDF2 hash locally with
 `python scripts/hash_admin_password.py`, then put the printed hash in
-`HAP_ADMIN_PASSWORD_HASH` in your private `.env` or Portainer Stack variables.
-In a Compose `.env` file, wrap the hash in single quotes so its `$` separators
-are not expanded. Set `HAP_COOKIE_SECURE=true` when the browser uses HTTPS.
+`HAP_ADMIN_PASSWORD_HASH` in private configuration. The currently deployed Phase 1
+release uses that raw value; do not change its production configuration during
+candidate review. A separate, **not yet deployed** backend candidate accepts
+`HAP_ADMIN_PASSWORD_HASH_B64` (Base64 of the complete UTF-8 hash) instead. Base64
+is transport encoding, not encryption: protect it like the original hash. Do
+not set both inputs. This avoids Compose interpreting `$` within the hash. In
+a local Compose `.env`, single quotes have specific interpolation behavior, but
+that rule must not be assumed for Portainer Stack variables. Set
+`HAP_COOKIE_SECURE=true` when the browser uses HTTPS.
 Never commit the hash or plaintext password. The backend refuses to start when
 the hash is absent or invalid. Use HTTPS when accessing HAP outside a trusted
 local network.
@@ -58,7 +64,7 @@ The existing Portainer `hap` Git Stack uses the root `docker-compose.yml` for pr
 - Production does not build HAP images on the PVE host.
 - Production must not use `latest`, an unverified tag, or a mutable convenience tag as its authority.
 - GitOps/automatic updates remain off; deployment is a controlled manual Portainer operation.
-- Emergency rollback: the currently pinned images report pre-auth source revision `4c5a17b3d6987fc6de66108fc5969be14e34b175`; the Phase 1 cutover failed backend health acceptance and is not complete.
+- Phase 1 authentication was accepted in production on 2026-09-25. Running application source is `283bd97c84aee1a0f1cc9e5671ec4d351e3f2e37`; the successful deployment-configuration commit is `ef800d5f4a7a0656112923ec63d6153a9c6c4e21`. Backend digest: `sha256:5fe9a557e8c967877a859c1f84352514fd6143036a3df6b6e5b514081cf7cf5b`; frontend digest: `sha256:77e36e9c5ab1c19a736fad2ee8fa0d8cdeef81db3e74d53ef4c030825420bb0b`. The old pre-auth images are only historical emergency references and would remove unified API authentication.
 
 The production image source of truth is:
 

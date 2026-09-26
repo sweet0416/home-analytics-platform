@@ -37,11 +37,13 @@ GitHub Commit
   -> Runtime Provenance Verification
 ```
 
-The production file is standalone and does not use Compose overlay merge behavior or `!reset`. Following a failed
-Phase 1 backend health acceptance, the backend and frontend are temporarily pinned to the pre-auth rollback source
-revision `4c5a17b3d6987fc6de66108fc5969be14e34b175`. The optional agent remains disabled. The deployment-
-configuration commit is not the application source revision. GitOps and automatic updates remain off; pushing a
-configuration commit does not redeploy HAP.
+The production file is standalone and does not use Compose overlay merge behavior or `!reset`. Phase 1
+authentication was accepted in production on 2026-09-25. The running application source is
+`283bd97c84aee1a0f1cc9e5671ec4d351e3f2e37`; the successful deployment-configuration commit is
+`ef800d5f4a7a0656112923ec63d6153a9c6c4e21` (not the image source revision). Running backend and frontend
+digests are `sha256:5fe9a557e8c967877a859c1f84352514fd6143036a3df6b6e5b514081cf7cf5b` and
+`sha256:77e36e9c5ab1c19a736fad2ee8fa0d8cdeef81db3e74d53ef4c030825420bb0b` respectively. The optional
+agent remains disabled. GitOps and automatic updates remain off; pushing a configuration commit does not redeploy HAP.
 
 The PVE host must not build the production HAP images.
 
@@ -71,14 +73,14 @@ hap_logs     -> /app/logs
 
 ## Production Deployment Rules
 
-Before a real production deployment:
-
-Generate an administrator password hash with `python scripts/hash_admin_password.py`
-and configure `HAP_ADMIN_PASSWORD_HASH` in the private Portainer Stack variables.
-The new backend will refuse to start without it. Keep the plaintext password
-and the hash out of Git. Set `HAP_COOKIE_SECURE=true` when the browser reaches
-HAP over HTTPS. This login prerequisite must be in place before switching to
-an image built from the authentication change.
+The current accepted production release already has a working private
+`HAP_ADMIN_PASSWORD_HASH`. Do not rotate or alter it merely for this candidate.
+For a future approved release, generate a hash locally with
+`python scripts/hash_admin_password.py`; keep the plaintext password and hash
+out of Git. The candidate `HAP_ADMIN_PASSWORD_HASH_B64` transport is not
+deployed and requires a newly built, verified backend image. Base64 is not
+encryption and its value is equally sensitive. Never set both hash inputs.
+Set `HAP_COOKIE_SECURE=true` for HTTPS access.
 
 1. Confirm the GitHub Actions build succeeded.
 2. Record the target full Git SHA and each GHCR digest.
@@ -164,21 +166,22 @@ Also confirm the login page, core pages, holdings, transactions, NAV data, and s
 ## Rollback
 
 Rollback stays within the same `hap` Stack and preserves the same named volumes, network, port, and environment
-variables. For an image rollback, pin a new root Compose configuration to the verified pre-auth source revision
-`4c5a17b3d6987fc6de66108fc5969be14e34b175` and these immutable GHCR digests:
+variables. The preferred baseline for a future release rollback is the accepted Phase 1 source and digests above,
+subject to database/schema compatibility and a verified backup. The pre-auth source revision
+`4c5a17b3d6987fc6de66108fc5969be14e34b175` and these older immutable GHCR digests are historical
+emergency references only; returning to them removes unified API authentication and is a security downgrade:
 
 - Backend: `ghcr.io/sweet0416/home-analytics-platform-backend@sha256:3ad050a8433b1c44e4442b6732d31221b00e0840982aa2a5491f0ae59fc5957f`
 - Frontend: `ghcr.io/sweet0416/home-analytics-platform-frontend@sha256:bc86d14ea975d246ddf53eadfdaf402b7c97f261877eb1fcff5d84de2a70c7b9`
 
-Set `HAP_DEPLOYMENT_REVISION` to that same pre-auth SHA, commit and push the rollback configuration, then perform
-one controlled manual redeploy of the existing Stack. Verify health, login behavior, build info, and existing data.
-This is a prepared rollback candidate, not proof that its older application will accept every future database
-schema. Check database-migration compatibility and a usable backup before the initial cutover or rollback.
+Any exceptional pre-auth rollback requires an explicit security decision, restricted network exposure, a
+database-compatibility check, a usable backup, and a controlled manual redeploy with fresh acceptance checks.
+It is not an automatic/default rollback target.
 
-The current pre-cutover runtime uses local Docker image IDs, not registry digests: backend
+The former pre-cutover runtime used local Docker image IDs, not registry digests: backend
 `sha256:d0f83acf6bebae8efe9f6f8f2ee7d3f636336478fc6095f133a4226a98df6c55` and frontend
-`sha256:22cead0f6d36baffe439e4107bc88fc0a5494556d1180c585701915af48c61ec`. Do not prune them before
-cutover acceptance; they cannot be assumed pullable again. The original local-build Compose is preserved in the
+`sha256:22cead0f6d36baffe439e4107bc88fc0a5494556d1180c585701915af48c61ec`. They cannot be assumed
+pullable again. The original local-build Compose is preserved in the
 pre-cutover Git commit, but merely restoring that file and rebuilding newer source does **not** recreate these
 exact images. Image rollback is not database rollback; never delete or recreate the data volumes.
 
@@ -186,14 +189,13 @@ Do not use `docker compose down` as a production cutover or rollback step. Never
 
 ## Backup
 
-For a quick volume backup:
-
-```bash
-docker run --rm \
-  -v hap_sqlite:/data/sqlite \
-  -v hap_backups:/backup \
-  alpine sh -c "tar czf /backup/hap_sqlite_$(date +%Y%m%d_%H%M%S).tar.gz -C /data sqlite"
-```
+For an online backup while HAP is running, use its authenticated database-backup operation. It uses
+SQLite's Online Backup API (`sqlite3.Connection.backup`) to produce a consistent database copy;
+verify the resulting backup and keep it separate from the live volume. Directly archiving the
+active `hap_sqlite` directory with `tar` is **not** a guaranteed consistent backup: SQLite may
+be writing the main file or WAL at the same time. The `scripts/backup-sqlite.sh` volume archive
+is only a cold-backup option after all database writers are stopped and the database is closed.
+Never restore or replace production data as part of a configuration-only change.
 
 ## Upgrade
 
