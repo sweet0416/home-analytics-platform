@@ -58,8 +58,8 @@
         <svg class="login-architecture" viewBox="0 0 1000 490" preserveAspectRatio="xMidYMax slice" fill="none" aria-hidden="true">
           <defs>
             <linearGradient id="login-mountain" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#183452"/><stop offset="1" stop-color="#071323"/></linearGradient>
-            <linearGradient id="login-house" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#1A334A"/><stop offset=".52" stop-color="#091B2D"/><stop offset="1" stop-color="#040C16"/></linearGradient>
-            <linearGradient id="login-glass"><stop stop-color="#0E2A3F" stop-opacity=".72"/><stop offset=".48" stop-color="#1C4559" stop-opacity=".48"/><stop offset="1" stop-color="#061522" stop-opacity=".86"/></linearGradient>
+            <linearGradient id="login-house" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#1D374E"/><stop offset=".52" stop-color="#0B2032"/><stop offset="1" stop-color="#040C16"/></linearGradient>
+            <linearGradient id="login-glass"><stop stop-color="#102E43" stop-opacity=".72"/><stop offset=".48" stop-color="#204B5D" stop-opacity=".5"/><stop offset="1" stop-color="#061522" stop-opacity=".86"/></linearGradient>
           </defs>
           <path d="M0 175 84 128l62 34 99-110 126 123 82-52 114 108 94-115 100 80 84-50 155 88v256H0Z" fill="url(#login-mountain)" opacity=".65"/>
           <path d="M0 243 117 178l82 56 111-84 153 112 111-57 127 62 143-92 156 84v231H0Z" fill="#0A1D36" opacity=".8"/>
@@ -67,10 +67,10 @@
           <path d="M103 342 413 272l298 49-38 14-262-39-294 60Z" fill="#010711"/>
           <path d="M117 358 411 297l262 39v122H117Z" fill="url(#login-house)"/>
           <path d="M136 368 394 318v108H136ZM425 318l226 32v76H425Z" fill="url(#login-glass)"/>
-          <path d="M118 355 410 297l262 39M130 432h532" stroke="#93C9D6" stroke-opacity=".15" stroke-width="2"/>
-          <path d="M136 420h258m31-1h226" stroke="#DBA870" stroke-opacity=".52" stroke-width="2.5"/>
+          <path d="M118 355 410 297l262 39M130 432h532" stroke="#93C9D6" stroke-opacity=".18" stroke-width="2"/>
+          <path d="M136 420h258m31-1h226" stroke="#DBA870" stroke-opacity=".56" stroke-width="2.5"/>
           <path d="M403 299v151M661 337v113" stroke="#7DB2C4" stroke-opacity=".14" stroke-width="2"/>
-          <path d="M166 385h170m104-28h182" stroke="#F2C28A" stroke-opacity=".16" stroke-width="15"/>
+          <path d="M166 385h170m104-28h182" stroke="#E5BC91" stroke-opacity=".18" stroke-width="15"/>
           <path d="M0 451h788l131 39H0Z" fill="#050C16"/>
           <path d="M0 470c240-12 442-13 714-11 51 0 104 9 175 31H0Z" fill="#0D2E46" opacity=".68"/>
           <path d="M0 469c218-12 492-12 742-5" stroke="#2E9AC7" stroke-opacity=".32" stroke-width="2"/>
