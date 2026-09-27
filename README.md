@@ -3,21 +3,22 @@
 HAP is a modular HomeLab analytics platform designed for long-term maintenance and Docker
 deployment on a PVE host.
 
-Current release: `1.0.0`
+Current release: `1.0.0` (tag `v1.0.0`). Later UI and deployment updates have not been
+assigned a new release version.
 
 ## Modules
 
 - Dashboard
+- Fund
 - Lottery
 - Reports
 - Settings
-
-Reserved plugin areas:
-
-- Fund
-- Stocks
 - Docker Monitor
 - PVE Monitor
+
+Reserved routes (placeholders only):
+
+- Stocks
 - AI Lab
 - Automation
 
@@ -25,14 +26,14 @@ Reserved plugin areas:
 
 HAP requires one administrator password. Generate its PBKDF2 hash locally with
 `python scripts/hash_admin_password.py`, then put the printed hash in
-`HAP_ADMIN_PASSWORD_HASH` in private configuration. The currently deployed Phase 1
-release uses that raw value; do not change its production configuration during
-candidate review. A separate, **not yet deployed** backend candidate accepts
-`HAP_ADMIN_PASSWORD_HASH_B64` (Base64 of the complete UTF-8 hash) instead. Base64
-is transport encoding, not encryption: protect it like the original hash. Do
-not set both inputs. This avoids Compose interpreting `$` within the hash. In
-a local Compose `.env`, single quotes have specific interpolation behavior, but
-that rule must not be assumed for Portainer Stack variables. Set
+`HAP_ADMIN_PASSWORD_HASH` in private configuration. The current production backend
+uses this raw hash variable. Current main also supports
+`HAP_ADMIN_PASSWORD_HASH_B64` (Base64 of the complete UTF-8 hash), but the deployed
+backend source does not include that support; production has not switched to it.
+Base64 is transport encoding, not encryption, and must be protected like the
+original hash. Do not set both inputs. The Base64 option avoids Compose interpreting
+`$` within the hash. Do not assume local `.env` quoting behavior applies to Portainer
+Stack variables. Set
 `HAP_COOKIE_SECURE=true` when the browser uses HTTPS.
 Never commit the hash or plaintext password. The backend refuses to start when
 the hash is absent or invalid. Use HTTPS when accessing HAP outside a trusted
@@ -64,7 +65,21 @@ The existing Portainer `hap` Git Stack uses the root `docker-compose.yml` for pr
 - Production does not build HAP images on the PVE host.
 - Production must not use `latest`, an unverified tag, or a mutable convenience tag as its authority.
 - GitOps/automatic updates remain off; deployment is a controlled manual Portainer operation.
-- Phase 1 authentication was accepted in production on 2026-09-25. The backend remains pinned to source `283bd97c84aee1a0f1cc9e5671ec4d351e3f2e37` and digest `sha256:5fe9a557e8c967877a859c1f84352514fd6143036a3df6b6e5b514081cf7cf5b`. The frontend-only login release targets source `fa9adeea2b9bea3d39316c5a1ac2a574b686506f` and digest `sha256:a8e08cc64e168dc847c875e3b6583cf2e046e0787faafa68f1718a21f3516884`. Verify each service independently after manual deployment; a configuration commit is not a runtime acceptance result. See the deployment guide for the previous frontend rollback pin. The old pre-auth images are only historical emergency references and would remove unified API authentication.
+- GitOps and automatic updates are off; deployment is a controlled manual Portainer operation.
+
+#### Current Production Provenance
+
+The running backend and frontend have independent source revisions and immutable image digests:
+
+| Service | Source SHA | Image digest |
+| --- | --- | --- |
+| Backend | `283bd97c84aee1a0f1cc9e5671ec4d351e3f2e37` | `sha256:5fe9a557e8c967877a859c1f84352514fd6143036a3df6b6e5b514081cf7cf5b` |
+| Frontend | `ad4397d56ae580d579c311254a6c821228be3079` | `sha256:2bc71e461135d37167f9561b448dc19e80d110b0233c5a2c843a1ba396bc2559` |
+
+The production frontend includes the Product UI System V1.2, login focus-state polish,
+and host-wide Docker health scope clarification. These are product milestones, not
+software release version numbers. Verify each service independently after deployment;
+a configuration commit alone does not prove runtime acceptance.
 
 The production image source of truth is:
 
@@ -104,6 +119,11 @@ curl http://127.0.0.1:8088/api/v1/system/health
 
 The health endpoint is public; protected API calls should return 401 until login.
 
+## Docker Host Monitoring Scope
+
+The Docker Monitor reports host-wide container status, including stopped containers.
+This is separate from HAP's own API and database health indicators.
+
 ## Production Deployment Rules
 
 Production deployment must:
@@ -121,17 +141,18 @@ Production deployment must not:
 - deploy `latest` or an unverified image tag;
 - assume a healthy container proves that the expected Git revision is running.
 
-Fixed volumes are data, not image artifacts:
+The production data volumes are data, not image artifacts:
 
 ```text
 hap_sqlite
 hap_exports
 hap_backups
 hap_logs
-ttskill_data
 ```
 
-They must survive image updates and rollbacks.
+They must survive image updates and rollbacks. The optional `ttskill-agent` profile
+uses a separate `ttskill_data` volume when enabled; the profile is not enabled in the
+current production stack.
 
 ## DLT Data Sync
 
