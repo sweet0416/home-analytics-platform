@@ -297,7 +297,9 @@ watch(
 .benchmark-actions {
   align-items: center;
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
+  min-width: 0;
 }
 
 .benchmark-select {
@@ -358,6 +360,17 @@ watch(
 @media (max-width: 1120px) {
   .benchmark-summary {
     grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1200px) {
+  .panel-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .benchmark-select {
+    max-width: 100%;
   }
 }
 

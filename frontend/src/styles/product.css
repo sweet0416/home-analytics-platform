@@ -187,6 +187,7 @@
 
 @media (max-width: 1200px) {
   .home-metrics, .home-modules { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .app-shell .nav-item { min-height: 44px; }
 }
 @media (max-width: 960px) {
   .app-shell .sidebar { width: 74px; flex-basis: 74px; padding-inline: 10px; }
@@ -199,10 +200,12 @@
   .app-shell .sidebar { width: 100%; flex-basis: auto; padding: calc(12px + env(safe-area-inset-top)) 14px 11px; }
   .app-shell .brand { margin: 0 0 10px; justify-content: start; }
   .brand-wordmark { font-size: 25px; }
-  .app-shell .nav-list { display: flex; overflow-x: auto; gap: 5px; padding-bottom: 3px; }
+  .app-shell .nav-list { display: flex; overflow-x: auto; gap: 5px; padding: 2px 16px 3px 0; scroll-padding-inline: 14px; }
   .nav-scroll-hint { display: block; margin-top: 3px; padding-right: 5px; color: var(--hap-text-muted); font-size: 10px; text-align: right; }
   .app-shell .nav-item { min-height: 44px; min-width: 44px; padding: 0 11px; }
   .app-shell .nav-item span { display: inline; }
+  .app-shell .el-button { min-height: 44px; }
+  .app-shell .el-input__inner, .app-shell .el-textarea__inner, .app-shell .el-select__selected-item { font-size: 16px; }
   .app-shell .topbar { padding-inline: 16px; }
   .app-shell .topbar-subtitle { display: none; }
   .topbar-actions { gap: 10px; }
@@ -220,6 +223,9 @@
   .home-module { min-height: 126px; }
   .app-shell .settings-grid > .panel .panel-body { padding: 16px; }
   .app-shell .panel-header { padding-inline: 16px; }
+  .app-shell .settings-grid > .panel .panel-header { flex-wrap: wrap; gap: 12px; }
+  .app-shell .settings-grid > .panel .panel-header > div { min-width: 0; flex: 1 1 180px; }
+  .app-shell .settings-grid > .panel .panel-header .el-button { min-height: 44px; }
   .app-shell .notification-grid { grid-template-columns: 1fr; }
   .settings-backup-heading { display: block; }
   .settings-backup-heading p { margin-top: 5px; }

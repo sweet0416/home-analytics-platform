@@ -1303,6 +1303,12 @@ function downloadPositions(): void {
 .watchlist-form label {
   display: grid;
   gap: 7px;
+  min-width: 0;
+}
+
+.position-form .el-date-editor,
+.nav-form .el-date-editor {
+  width: 100%;
 }
 
 .position-form label span,
@@ -1527,11 +1533,22 @@ function downloadPositions(): void {
   color: #fca5a5;
 }
 
-@media (max-width: 920px) {
+@media (max-width: 1200px) {
   .position-form,
   .nav-form,
-  .watchlist-form,
+  .watchlist-form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .watchlist-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .position-form,
+  .nav-form,
+  .watchlist-form {
     grid-template-columns: 1fr;
   }
 
@@ -1540,9 +1557,6 @@ function downloadPositions(): void {
   .watchlist-form .wide {
     grid-column: auto;
   }
-}
-
-@media (max-width: 720px) {
   .auto-sync-status {
     align-items: flex-start;
     flex-direction: column;
