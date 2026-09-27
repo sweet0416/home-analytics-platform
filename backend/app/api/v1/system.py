@@ -10,6 +10,7 @@ from app.core.backup.schemas import (
 )
 from app.core.backup.service import DatabaseBackupService
 from app.core.config.settings import get_settings
+from app.core.database.maintenance import database_maintenance
 from app.core.infrastructure_health.scheduler import get_infrastructure_health_scheduler_status
 from app.core.infrastructure_health.schemas import InfrastructureHealthRead
 from app.core.infrastructure_health.service import InfrastructureHealthService
@@ -25,6 +26,11 @@ from app.shared.exceptions.codes import ErrorCode
 from app.shared.responses.schemas import ApiResponse, ok
 
 router = APIRouter()
+
+
+@router.get("/restore-status", response_model=ApiResponse[dict[str, object]])
+def get_restore_status() -> ApiResponse[dict[str, object]]:
+    return ok(database_maintenance.status())
 
 
 @router.get("/infrastructure-health", response_model=ApiResponse[InfrastructureHealthRead])

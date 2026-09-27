@@ -7,6 +7,7 @@ from apscheduler.triggers.cron import CronTrigger
 from loguru import logger
 
 from app.core.config.settings import get_settings
+from app.core.database.maintenance import guarded_job
 from app.core.database.session import SessionLocal
 from app.core.notification.schemas import NotificationChannel
 from app.core.time import utcnow
@@ -104,6 +105,7 @@ def get_fund_scheduler_status() -> dict[str, object]:
     }
 
 
+@guarded_job
 def _run_scheduled_fund_nav_sync() -> None:
     global _completed_date, _last_run
     now = datetime.now(ZoneInfo(TIMEZONE))

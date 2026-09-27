@@ -1,5 +1,6 @@
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -8,7 +9,8 @@ from app.api.v1.router import api_router
 from app.core.auth import require_auth
 from app.core.backup.scheduler import start_backup_scheduler, stop_backup_scheduler
 from app.core.config.settings import get_settings
-from app.core.database.session import create_database_schema
+from app.core.database.maintenance import DatabaseMaintenanceMiddleware, require_recovered_database
+from app.core.database.session import create_database_schema, engine
 from app.core.infrastructure_health.scheduler import (
     start_infrastructure_health_scheduler,
     stop_infrastructure_health_scheduler,
@@ -28,6 +30,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings = get_settings()
     settings.validate_runtime_provenance()
     settings.validate_auth()
+    if engine.url.get_backend_name() == "sqlite" and engine.url.database:
+        require_recovered_database(Path(engine.url.database))
     configure_logging(settings)
     create_database_schema()
     start_backup_scheduler()
@@ -52,6 +56,7 @@ def create_app() -> FastAPI:
         debug=settings.debug,
         lifespan=lifespan,
     )
+    app.add_middleware(DatabaseMaintenanceMiddleware, prefix=settings.api_v1_prefix)
     app.middleware("http")(require_auth)
     app.middleware("http")(add_trace_id_middleware)
     app.add_middleware(

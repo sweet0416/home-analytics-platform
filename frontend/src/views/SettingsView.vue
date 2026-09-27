@@ -160,7 +160,7 @@
                 <el-button text type="primary" @click="downloadBackup(row.file_name)">
                   下载
                 </el-button>
-                <el-button text type="danger" @click="restoreBackup(row.file_name)">
+                <el-button text type="danger" :disabled="system.backupLoading" @click="restoreBackup(row.file_name)">
                   恢复
                 </el-button>
               </template>
@@ -347,6 +347,7 @@
 
 <script setup lang="ts">
 import { Bell, FolderChecked, Refresh } from '@element-plus/icons-vue';
+import { isAxiosError } from 'axios';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { computed, onMounted, ref } from 'vue';
 
@@ -551,7 +552,7 @@ function downloadBackup(fileName: string): void {
 async function restoreBackup(fileName: string): Promise<void> {
   try {
     const promptMessage = [
-      `恢复会先创建安全备份，然后用 ${fileName} 替换当前 SQLite 数据库。`,
+      `恢复期间将暂停数据库访问，先创建安全备份，再恢复 ${fileName}、执行迁移并校验；失败时会尝试回滚。`,
       `请输入 ${RESTORE_CONFIRMATION} 确认。`,
     ].join('');
     const { value } = await ElMessageBox.prompt(
@@ -572,7 +573,26 @@ async function restoreBackup(fileName: string): Promise<void> {
     if (error === 'cancel' || error === 'close') {
       return;
     }
-    ElMessage.error('数据库恢复失败，请查看后端日志。');
+    if (isAxiosError(error)) {
+      const details = error.response?.data?.details;
+      if (details?.maintenance || details?.rollback === 'failed') {
+        ElMessage.error('恢复未完成，系统保持维护状态，需要人工检查。请勿重复提交。');
+        return;
+      }
+      if (details?.rollback === 'success') {
+        ElMessage.error('恢复失败，已回滚并验证原数据库可用。');
+        return;
+      }
+      if (!error.response) {
+        ElMessage.warning('请求结果尚未确认，恢复可能仍在进行。请检查恢复状态，勿重复提交。');
+        return;
+      }
+      if ([409, 503].includes(error.response.status)) {
+        ElMessage.warning('数据库繁忙或处于恢复维护状态，请检查恢复状态后再操作。');
+        return;
+      }
+    }
+    ElMessage.error('恢复未通过校验或执行失败，请检查恢复记录和后端日志。');
   }
 }
 

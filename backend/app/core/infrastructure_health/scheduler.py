@@ -5,6 +5,7 @@ from apscheduler.triggers.cron import CronTrigger
 from loguru import logger
 
 from app.core.config.settings import get_settings
+from app.core.database.maintenance import guarded_job
 from app.core.infrastructure_health.schemas import InfrastructureHealthRead
 from app.core.infrastructure_health.service import InfrastructureHealthService
 from app.core.notification.schemas import NotificationChannel
@@ -76,6 +77,7 @@ def get_infrastructure_health_scheduler_status() -> dict[str, object]:
     }
 
 
+@guarded_job
 def _run_scheduled_health_check() -> None:
     global _last_delivery_status, _last_message, _last_run_at, _last_status
     _last_run_at = datetime.now()

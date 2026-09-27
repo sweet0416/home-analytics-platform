@@ -1,7 +1,7 @@
 from collections.abc import Generator
 from pathlib import Path
 
-from sqlalchemy import create_engine
+from sqlalchemy import Engine, create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.config.settings import get_settings
@@ -28,10 +28,10 @@ def get_db() -> Generator[Session, None, None]:
         db.close()
 
 
-def create_database_schema() -> None:
+def create_database_schema(bind: Engine | None = None) -> None:
     from app.core.backup import models as backup_models  # noqa: F401
     from app.core.notification import models as notification_models  # noqa: F401
     from app.plugins.fund.infrastructure.persistence import models as fund_models  # noqa: F401
     from app.plugins.lottery.infrastructure.persistence import models  # noqa: F401
 
-    Base.metadata.create_all(bind=engine)
+    Base.metadata.create_all(bind=bind if bind is not None else engine)
