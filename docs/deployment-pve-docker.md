@@ -38,16 +38,19 @@ GitHub Commit
 ```
 
 The production file is standalone and does not use Compose overlay merge behavior or `!reset`. Phase 1
-authentication was accepted in production on 2026-09-25 with deployment-configuration commit
-`ef800d5f4a7a0656112923ec63d6153a9c6c4e21` (not an image source revision). The frontend-only login release
-keeps the backend at source `283bd97c84aee1a0f1cc9e5671ec4d351e3f2e37` and digest
-`sha256:5fe9a557e8c967877a859c1f84352514fd6143036a3df6b6e5b514081cf7cf5b`.
-The new frontend target is source `fa9adeea2b9bea3d39316c5a1ac2a574b686506f`, digest
-`sha256:a8e08cc64e168dc847c875e3b6583cf2e046e0787faafa68f1718a21f3516884`.
-Each service must be verified against its own source SHA after manual deployment; do not change the backend
-deployment revision to the frontend SHA. These pins describe the release target, not completed runtime acceptance.
-For a frontend-only rollback, retain the backend and restore the previous authenticated frontend digest
-`sha256:77e36e9c5ab1c19a736fad2ee8fa0d8cdeef81db3e74d53ef4c030825420bb0b`.
+authentication was accepted in production on 2026-09-25 with historical deployment-configuration commit
+`ef800d5f4a7a0656112923ec63d6153a9c6c4e21` (not an image source revision). The current production Compose
+pins the backend at source `283bd97c84aee1a0f1cc9e5671ec4d351e3f2e37` and digest
+`sha256:5fe9a557e8c967877a859c1f84352514fd6143036a3df6b6e5b514081cf7cf5b`, and the frontend at source
+`ad4397d56ae580d579c311254a6c821228be3079` and digest
+`sha256:2bc71e461135d37167f9561b448dc19e80d110b0233c5a2c843a1ba396bc2559`.
+Backend and frontend are pinned independently; different source SHAs are valid. The current frontend includes
+Product UI System V1.2, login focus polish, and host-wide Docker health scope clarification.
+For a frontend-only rollback, retain the backend and restore the previous verified frontend Compose pin
+`sha256:d3cde0afd9b929fff691643e1d052ef422233594cfead66085d80c2062d5ab96` after compatibility checks.
+The older authenticated Phase 1 frontend digest
+`sha256:77e36e9c5ab1c19a736fad2ee8fa0d8cdeef81db3e74d53ef4c030825420bb0b` is a historical reference,
+not the default rollback target.
 The optional agent remains disabled. GitOps and automatic updates remain off; pushing a configuration commit does not redeploy HAP.
 
 The PVE host must not build the production HAP images.
@@ -78,13 +81,14 @@ hap_logs     -> /app/logs
 
 ## Production Deployment Rules
 
-The current accepted production release already has a working private
-`HAP_ADMIN_PASSWORD_HASH`. Do not rotate or alter it merely for this candidate.
+The current production backend uses a private `HAP_ADMIN_PASSWORD_HASH`.
+Do not rotate or alter it for a documentation update.
 For a future approved release, generate a hash locally with
 `python scripts/hash_admin_password.py`; keep the plaintext password and hash
-out of Git. The candidate `HAP_ADMIN_PASSWORD_HASH_B64` transport is not
-deployed and requires a newly built, verified backend image. Base64 is not
-encryption and its value is equally sensitive. Never set both hash inputs.
+out of Git. Current main supports `HAP_ADMIN_PASSWORD_HASH_B64`, but the deployed
+backend source does not; production still uses raw `HAP_ADMIN_PASSWORD_HASH`.
+Switching transport requires a verified backend image and a controlled release.
+Base64 is not encryption and its value is equally sensitive. Never set both hash inputs.
 Set `HAP_COOKIE_SECURE=true` for HTTPS access.
 
 1. Confirm the GitHub Actions build succeeded.
@@ -163,16 +167,19 @@ Frontend:
 /build-info.json
 ```
 
-Confirm that Backend and Frontend report the same Git SHA, and that the reported image reference and OCI revision
-match the deployment manifest and selected image digest. A healthy container alone is not sufficient evidence.
+Verify each service independently: its runtime source SHA and image OCI revision must match that service's expected
+source SHA, while the running image digest must match that service's selected digest. Check the backend and frontend
+separately; different source SHAs are valid during independent releases. A healthy container alone is not sufficient evidence.
 
 Also confirm the login page, core pages, holdings, transactions, NAV data, and scheduled services remain usable.
 
 ## Rollback
 
 Rollback stays within the same `hap` Stack and preserves the same named volumes, network, port, and environment
-variables. The preferred baseline for a future release rollback is the accepted Phase 1 source and digests above,
-subject to database/schema compatibility and a verified backup. The pre-auth source revision
+variables. By default, restore only the affected service to its immediately previous verified image pin, keeping
+the other service unchanged. A frontend-only failure uses the previous frontend pin above; a backend-only failure
+uses its previous verified backend pin, subject to compatibility, database/schema checks, and a usable backup.
+Do not automatically roll both services back to Phase 1. The pre-auth source revision
 `4c5a17b3d6987fc6de66108fc5969be14e34b175` and these older immutable GHCR digests are historical
 emergency references only; returning to them removes unified API authentication and is a security downgrade:
 
