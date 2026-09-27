@@ -1,5 +1,10 @@
+from pathlib import Path
+
 from fastapi import APIRouter, Query
 from fastapi.responses import FileResponse
+from loguru import logger
+from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.core.backup.scheduler import get_backup_scheduler_status, upload_remote_backup
 from app.core.backup.schemas import (
@@ -10,6 +15,7 @@ from app.core.backup.schemas import (
 )
 from app.core.backup.service import DatabaseBackupService
 from app.core.config.settings import get_settings
+from app.core.database import session as database
 from app.core.database.maintenance import database_maintenance
 from app.core.infrastructure_health.scheduler import get_infrastructure_health_scheduler_status
 from app.core.infrastructure_health.schemas import InfrastructureHealthRead
@@ -47,18 +53,40 @@ def get_infrastructure_health_scheduler() -> ApiResponse[dict[str, object]]:
 @router.get("/health", response_model=ApiResponse[dict[str, str]])
 def health_check() -> ApiResponse[dict[str, str]]:
     settings = get_settings()
+    database_status = _database_readiness()
     return ok(
         {
-            "status": "ok",
+            "status": "ok" if database_status == "ok" else "degraded",
             "version": settings.app_version,
             "git_sha": settings.app_build_sha,
             "git_commit": settings.app_build_sha,
             "build_time": settings.app_build_time,
             "image": settings.app_image_reference,
             "environment": settings.app_deployment_environment,
-            "database": "ok",
+            "database": database_status,
         }
     )
+
+
+def _database_readiness() -> str:
+    # Health bypasses the middleware gate, but its DB access must still drain before restore.
+    with database_maintenance.activity() as admitted:
+        if not admitted:
+            return "maintenance"
+        try:
+            engine = database.engine
+            if engine.url.get_backend_name() == "sqlite":
+                path = engine.url.database
+                if path and path != ":memory:" and not Path(path).is_file():
+                    # SQLite's default connect would silently create a missing database.
+                    logger.bind(reason="DB_FILE_UNAVAILABLE").warning("Health database probe: DB_FILE_UNAVAILABLE")
+                    return "error"
+            with engine.connect() as connection:
+                connection.execute(text("SELECT 1")).scalar_one()
+            return "ok"
+        except (SQLAlchemyError, OSError):
+            logger.bind(reason="DB_PROBE_FAILED").warning("Health database probe: DB_PROBE_FAILED")
+            return "error"
 
 
 @router.get("/build-info", response_model=ApiResponse[dict[str, str]])

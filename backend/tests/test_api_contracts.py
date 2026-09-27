@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.database import session as database
 from app.plugins.fund.infrastructure.persistence.models import (
     FundDailyReportSnapshotModel,
 )
@@ -276,7 +277,11 @@ def test_fund_nav_history_sync_persists_ordered_series(
     assert risk["calculation_available"] is True
 
 
-def test_health_check_returns_standard_response(client: TestClient) -> None:
+def test_health_check_returns_standard_response(
+    client: TestClient, db_session: Session, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # The health route probes the engine directly, not the overridden get_db dependency.
+    monkeypatch.setattr(database, "engine", db_session.get_bind())
     response = client.get("/api/v1/system/health")
 
     assert response.status_code == 200
