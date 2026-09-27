@@ -167,6 +167,13 @@ rollback requires operator recovery; it must not be retried blindly. See the
 [restore safety runbook](docs/restore-safety.md) for the precise boundary and local test command.
 This does not change the production image pins or claim that a production restore was tested.
 
+### SQLite concurrency candidate (not deployed)
+
+The concurrency candidate keeps the current SQLite connection settings and moves fund-profile
+provider reads before the update batch, avoiding a reproduced network-held write lock. It does not
+enable WAL, foreign keys, or a global write coordinator. See the [isolated concurrency evidence](docs/sqlite-concurrency.md)
+for DELETE/WAL experiments, the foreign-key gap, writer inventory and future read-only preflight.
+
 ## DLT Data Sync
 
 DLT synchronization always tries the China Sports Lottery source first. When that source is

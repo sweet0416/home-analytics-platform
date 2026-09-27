@@ -370,11 +370,22 @@ class FundService:
         source = self.nav_source or self._build_default_nav_source()
         items: list[FundProfileSyncItemRead] = []
 
+        # Finish provider I/O before the first flush acquires SQLite's writer lock.
+        # Keep the existing single commit and per-fund provider-error reporting.
+        profiles: dict[int, str | Exception] = {}
+        for fund_id in sorted(funds_by_id):
+            try:
+                profiles[fund_id] = source.fetch_profile_type(funds_by_id[fund_id].code)
+            except Exception as exc:
+                profiles[fund_id] = exc
+
         for fund_id in sorted(funds_by_id):
             fund = funds_by_id[fund_id]
             previous_type = fund.fund_type
             try:
-                detected_type = source.fetch_profile_type(fund.code)
+                detected_type = profiles[fund_id]
+                if isinstance(detected_type, Exception):
+                    raise detected_type
                 current_type = self._normalize_profile_fund_type(
                     detected_type,
                     previous_type,
