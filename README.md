@@ -125,6 +125,11 @@ This is separate from HAP's own API and database health indicators.
 
 ## Production Deployment Rules
 
+The PVE TLS candidate supports `PVE_CA_BUNDLE` for a PEM CA bundle together with
+`PVE_VERIFY_SSL=true`. Both CA trust and a URL matching the certificate SAN are required.
+This candidate is not deployed; see [PVE TLS configuration](docs/deployment-pve-docker.md#pve-api-tls-candidate-not-deployed)
+for configuration behavior and the separate production cutover prerequisites.
+
 Production deployment must:
 
 - keep the Portainer Stack and Compose project identity as `hap`;

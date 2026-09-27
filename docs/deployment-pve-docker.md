@@ -173,6 +173,49 @@ separately; different source SHAs are valid during independent releases. A healt
 
 Also confirm the login page, core pages, holdings, transactions, NAV data, and scheduled services remain usable.
 
+## PVE API TLS (candidate, not deployed)
+
+The TLS candidate adds `PVE_CA_BUNDLE` without changing the production configuration.
+Production verification remains disabled until a separately approved backend release and cutover.
+
+| Configuration | Request behavior |
+| --- | --- |
+| `PVE_VERIFY_SSL=false` | Existing compatibility mode (`verify=False`); `PVE_CA_BUNDLE` is ignored and urllib3 warnings remain. |
+| `PVE_VERIFY_SSL=true`, bundle unset | Requests default CA trust and normal hostname/IP verification. |
+| `PVE_VERIFY_SSL=true`, bundle set | Verify using the supplied readable PEM CA bundle and normal hostname/IP verification. |
+
+When verification is enabled, the URL must use HTTPS. A configured CA file is checked before each request;
+missing, unreadable, empty, or malformed files fail closed with a configuration error. The client never retries
+with verification disabled. API redirects are not followed. TLS failures report a fixed error without tokens,
+certificate contents, or local paths. A CA file alone cannot fix a hostname/IP mismatch.
+
+Example for a future approved configuration (the hostname is a placeholder, not a verified DNS entry):
+
+```dotenv
+PVE_URL=https://pve.example.internal:8006
+PVE_VERIFY_SSL=true
+PVE_CA_BUNDLE=/run/secrets/pve-ca.pem
+```
+
+Obtain the **public** cluster CA certificate through an authenticated administrative channel and confirm its
+fingerprint independently before trusting it. Proxmox documents the public CA at `/etc/pve/pve-root-ca.pem`;
+never copy the CA private key. A certificate collected through an unverified TLS connection is not by itself
+an authenticated trust anchor. Do not commit live certificate material or credentials.
+
+A future deployment may mount the approved CA file read-only into the backend and pass `PVE_CA_BUNDLE` to that
+container. The file must be readable by the image's non-root `hap` user. An image containing this candidate is
+required first; later CA file rotations do not require baking the CA into an image. The current root production
+Compose does not pass this new variable or mount a CA file; changing only a host `.env` is insufficient.
+
+Before cutover, verify DNS/routing **from the backend network**, URL-to-SAN identity, CA chain, expiry, and the
+container's access to the mounted file. Candidate development did not establish a usable production hostname
+or obtain an independently authenticated production CA; no secure production path is claimed yet. Reissuing
+a certificate, changing DNS, installing trust, or changing the live URL requires a separate approved task.
+Keep the prior image and configuration available for a controlled rollback. This task performs no cutover.
+
+References: [Requests TLS verification](https://requests.readthedocs.io/en/stable/user/advanced/#ssl-cert-verification),
+[Proxmox certificate management](https://pve.proxmox.com/pve-docs/chapter-sysadmin.html#sysadmin_certs_api_gui).
+
 ## Rollback
 
 Rollback stays within the same `hap` Stack and preserves the same named volumes, network, port, and environment
