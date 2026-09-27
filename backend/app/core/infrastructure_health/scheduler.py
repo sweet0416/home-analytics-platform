@@ -6,7 +6,10 @@ from loguru import logger
 
 from app.core.config.settings import get_settings
 from app.core.database.maintenance import guarded_job
-from app.core.infrastructure_health.schemas import InfrastructureHealthRead
+from app.core.infrastructure_health.schemas import (
+    InfrastructureHealthRead,
+    InfrastructureNotificationState,
+)
 from app.core.infrastructure_health.service import InfrastructureHealthService
 from app.core.notification.schemas import NotificationChannel
 from app.core.notification.service import NotificationService
@@ -96,7 +99,7 @@ def _run_scheduled_health_check() -> None:
             channel=channel,
             title=("HAP 基础设施恢复" if health.healthy else "HAP 基础设施异常"),
             message=message,
-            healthy=health.healthy,
+            state=InfrastructureNotificationState.from_health(health),
         )
         statuses = ", ".join(f"{item.channel.value} {item.status}" for item in result.results)
         _last_status = "healthy" if health.healthy else "unhealthy"
