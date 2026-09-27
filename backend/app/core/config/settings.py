@@ -1,7 +1,9 @@
+import ssl
 from base64 import b64decode, b64encode
 from binascii import Error as Base64Error
 from functools import lru_cache
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -108,6 +110,7 @@ class Settings(BaseSettings):
     pve_api_token_id: str = ""
     pve_api_token_secret: str = ""
     pve_verify_ssl: bool = True
+    pve_ca_bundle: str = ""
     pve_timeout_seconds: int = Field(default=10, ge=3, le=60)
     pve_tasks_limit: int = Field(default=50, ge=1, le=200)
     docker_enabled: bool = False
@@ -128,6 +131,25 @@ class Settings(BaseSettings):
         case_sensitive=False,
         extra="ignore",
     )
+
+    def pve_tls_verify(self) -> bool | str:
+        """Resolve Requests verification without falling back to insecure TLS."""
+        if not self.pve_verify_ssl:
+            return False  # An optional bundle is deliberately ignored in compatibility mode.
+        if urlsplit(self.pve_url).scheme.lower() != "https":
+            raise ValueError("PVE_URL must use HTTPS when PVE_VERIFY_SSL=true.")
+        if not self.pve_ca_bundle:
+            return True
+        try:
+            path = Path(self.pve_ca_bundle)
+            if not path.is_file():
+                raise ValueError
+            ssl.create_default_context(cafile=str(path))
+        except (OSError, ValueError):
+            raise ValueError(
+                "PVE_CA_BUNDLE must be a readable PEM CA bundle when PVE_VERIFY_SSL=true."
+            ) from None
+        return str(path)
 
     def validate_runtime_provenance(self) -> None:
         """Reject unverifiable production builds while keeping local development flexible."""

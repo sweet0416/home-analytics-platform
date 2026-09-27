@@ -58,37 +58,34 @@ class ProxmoxApiClient:
             normalized["total"] = normalized["maxdisk"]
         return normalized
 
-    def _get(self, path: str) -> dict[str, Any]:
+    def _request(self, path: str) -> Any:
         if not self.configured:
             raise ProxmoxApiError("PVE monitoring is not configured.")
         try:
             response = self.session.get(
                 f"{self.base_url}/api2/json{path}",
                 timeout=self.settings.pve_timeout_seconds,
-                verify=self.settings.pve_verify_ssl,
+                verify=self.settings.pve_tls_verify(),
+                allow_redirects=False,
             )
             response.raise_for_status()
-            payload = response.json()
+            return response.json()
+        except requests.exceptions.SSLError:
+            raise ProxmoxApiError(
+                "PVE TLS verification failed; check CA trust and URL certificate identity."
+            ) from None
         except (requests.RequestException, ValueError) as exc:
             raise ProxmoxApiError(str(exc)) from exc
+
+    def _get(self, path: str) -> dict[str, Any]:
+        payload = self._request(path)
         data = payload.get("data")
         if not isinstance(data, dict):
             raise ProxmoxApiError("PVE API returned an invalid object.")
         return data
 
     def _get_list(self, path: str) -> list[dict[str, Any]]:
-        if not self.configured:
-            raise ProxmoxApiError("PVE monitoring is not configured.")
-        try:
-            response = self.session.get(
-                f"{self.base_url}/api2/json{path}",
-                timeout=self.settings.pve_timeout_seconds,
-                verify=self.settings.pve_verify_ssl,
-            )
-            response.raise_for_status()
-            payload = response.json()
-        except (requests.RequestException, ValueError) as exc:
-            raise ProxmoxApiError(str(exc)) from exc
+        payload = self._request(path)
         data = payload.get("data")
         if not isinstance(data, list) or not all(isinstance(item, dict) for item in data):
             raise ProxmoxApiError("PVE API returned an invalid list.")
