@@ -19,7 +19,7 @@
       </div>
     </section>
 
-    <el-alert v-if="infraAlerts.length" type="warning" :closable="false" show-icon :title="infraAlerts.join('；')" />
+    <el-alert v-if="infraAlerts.length" type="warning" :closable="false" show-icon title="Infrastructure monitor" :description="infraAlertDescription" />
 
     <div class="home-section-heading">
       <h2>At a glance</h2>
@@ -37,9 +37,9 @@
         <span>Latest lottery update</span>
       </article>
       <article class="home-metric">
-        <span class="home-metric-label">Docker</span>
+        <span class="home-metric-label">Docker host</span>
         <strong>{{ dockerSummary }}</strong>
-        <span>Configured infrastructure</span>
+        <span>All host containers, including stopped</span>
       </article>
       <article class="home-metric">
         <span class="home-metric-label">PVE</span>
@@ -106,9 +106,10 @@ const dockerSummary = computed(() => {
   if (infrastructureError.value || !infrastructureHealth.value) return 'Unavailable';
   if (!dockerStatus.value?.configured) return 'Not configured';
   if (!dockerStatus.value.reachable) return 'Unavailable';
-  return dockerStatus.value.problematic
-    ? `${dockerStatus.value.problematic} need attention`
-    : `${dockerStatus.value.running}/${dockerStatus.value.containers} running`;
+  if (dockerStatus.value.problematic) return `${dockerStatus.value.problematic} to review`;
+  return dockerStatus.value.running < dockerStatus.value.containers
+    ? 'Check host states'
+    : 'No host issues flagged';
 });
 const pveSummary = computed(() => {
   if (infrastructureLoading.value) return 'Loading';
@@ -117,6 +118,9 @@ const pveSummary = computed(() => {
   return pveStatus.value.reachable ? 'Connected' : 'Unavailable';
 });
 const infraAlerts = computed(() => infrastructureHealth.value?.alerts ?? []);
+const infraAlertDescription = computed(() =>
+  `${dockerStatus.value?.problematic ? 'Docker covers every host container, including stopped. ' : ''}${infraAlerts.value.join('；')}`,
+);
 
 onMounted(() => {
   void system.fetchHealth();
