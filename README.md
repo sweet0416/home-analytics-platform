@@ -118,6 +118,38 @@ curl http://127.0.0.1:8088/api/v1/system/health
 
 The health endpoint is public; protected API calls should return 401 until login.
 
+### Health database probe (candidate, not deployed)
+
+The candidate keeps `GET /api/v1/system/health` unauthenticated and HTTP 200 for backend
+liveness, while reporting database readiness in the existing response envelope:
+
+| Condition | `data.status` | `data.database` | HTTP |
+| --- | --- | --- | --- |
+| Application engine executes `SELECT 1` | `ok` | `ok` | 200 |
+| Database connection/query or file availability fails | `degraded` | `error` | 200 |
+| Restore maintenance or fail-closed recovery gate is active | `degraded` | `maintenance` | 200 |
+
+Build/source fields are unchanged. The probe closes its connection after success or failure,
+does not issue SQL writes, migrations, table creation, `quick_check` or `integrity_check`, and
+checks that a configured SQLite file exists before connecting so it does not recreate a missing
+file under the existing coordinated single-worker restore boundary (not arbitrary external file
+replacement). `SELECT 1` is **not** a schema, stored-data integrity or write-readiness check; an existing
+empty database can pass. It inherits application pool/driver timeouts, not a separate deadline.
+
+The database access holds the existing maintenance activity lease: restore drains in-flight
+probes before disposal/replacement, and health requests admitted during maintenance do not open
+the database. Successful restore/rollback allows the next request to reconnect; unusable rollback
+keeps `maintenance`. After a process crash, the existing restore marker still prevents startup.
+The existing container command runs migrations before HTTP serving (`&&`); migration failure
+does not start the server. Neither startup order nor recovery protocol changes in this candidate.
+
+The repository Docker probes use HTTP success only. Keeping 200 avoids introducing a new
+database-failure HTTP 503/container-unhealthy policy; an actual HTTP timeout can still fail the
+probe. No restart policy or Compose change is included, and external production automation was
+not inspected. Local tests verify the HTTP-only contract, not a running container deployment.
+The existing dashboard accepts these string values and shows non-`ok` health as unavailable.
+Docker/PVE notification state does not consume this endpoint and remains unchanged.
+
 ## Docker Host Monitoring Scope
 
 The Docker Monitor reports host-wide container status, including stopped containers.
