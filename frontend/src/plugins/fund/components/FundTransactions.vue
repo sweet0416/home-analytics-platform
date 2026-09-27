@@ -534,6 +534,11 @@ onMounted(() => {
 .transaction-form label {
   display: grid;
   gap: 7px;
+  min-width: 0;
+}
+
+.transaction-form .el-date-editor {
+  width: 100%;
 }
 
 .transaction-form label > span {
@@ -697,7 +702,10 @@ onMounted(() => {
     max-width: none;
   }
 
-  .transaction-form,
+  .transaction-form {
+    grid-template-columns: 1fr;
+  }
+
   .transaction-summary {
     grid-template-columns: 1fr 1fr;
   }

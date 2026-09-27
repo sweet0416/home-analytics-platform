@@ -37,8 +37,8 @@
             </div>
           </div>
 
-          <div class="explain-box">
-            <div class="explain-title">这是什么意思？</div>
+          <details class="explain-box">
+            <summary class="explain-title">关于数据库备份</summary>
             <p>
               备份会把当前 SQLite 数据库复制一份到 Docker 的备份卷里，路径是
               <code>{{ backupDirectory }}</code>。如果 GitHub 远程备份已配置，会同时上传一份加密副本。
@@ -51,11 +51,13 @@
             <p>
               当前建议最多保留 {{ retentionCount }} 份备份；后续会增加自动清理和恢复审计。
             </p>
-          </div>
+          </details>
 
+          <div class="settings-status-list" aria-label="备份运行状态">
           <div class="scheduler-box">
             <div class="scheduler-status">
-              <span class="status-dot" :class="{ online: autoBackupRunning }" />
+              <span class="status-dot" :class="{ online: autoBackupRunning }" aria-hidden="true" />
+              <span class="settings-status-label">自动备份</span>
               <strong>{{ autoBackupStatusText }}</strong>
             </div>
             <div class="scheduler-meta">
@@ -67,7 +69,8 @@
 
           <div class="remote-box">
             <div class="scheduler-status">
-              <span class="status-dot" :class="{ online: githubBackupReady }" />
+              <span class="status-dot" :class="{ online: githubBackupReady }" aria-hidden="true" />
+              <span class="settings-status-label">GitHub 备份</span>
               <strong>{{ githubBackupStatusText }}</strong>
             </div>
             <div class="scheduler-meta">
@@ -75,21 +78,18 @@
               <span>Release：{{ githubBackupReleaseTag }}</span>
               <span>最近：{{ lastGithubBackupText }}</span>
             </div>
-            <p>
-              远程备份会先压缩并加密数据库，再上传到 GitHub Release；Token 和加密密码只通过后端环境变量配置，不会在页面显示。
-            </p>
-            <p>
-              推荐使用单独的私有备份仓库，Token 只授予该仓库 Contents 读写权限。
-            </p>
+            <details class="settings-row-help">
+              <summary>远程备份说明</summary>
+              <p>远程备份会先压缩并加密数据库，再上传到 GitHub Release；Token 和加密密码只通过后端环境变量配置，不会在页面显示。</p>
+              <p>推荐使用单独的私有备份仓库，Token 只授予该仓库 Contents 读写权限。</p>
+            </details>
           </div>
 
           <div class="restore-box">
             <div class="scheduler-status">
-              <span class="status-dot" :class="{ online: latestRestoreSuccess }" />
+              <span class="status-dot" :class="{ online: latestRestoreSuccess }" aria-hidden="true" />
+              <span class="settings-status-label">恢复安全</span>
               <strong>{{ latestRestoreStatusText }}</strong>
-              <el-tag v-if="latestRestore" size="small" :type="latestRestoreTagType">
-                {{ latestRestore.status }}
-              </el-tag>
             </div>
             <div class="scheduler-meta">
               <span>最近恢复：{{ latestRestoreTime }}</span>
@@ -124,12 +124,18 @@
               </el-table-column>
             </el-table>
           </div>
+          </div>
 
           <div class="backup-actions">
             <el-button type="primary" :icon="FolderChecked" :loading="system.backupLoading" @click="createBackup">
               创建当前数据库备份
             </el-button>
             <span v-if="system.backupError" class="error-text">{{ system.backupError }}</span>
+          </div>
+
+          <div class="settings-backup-heading">
+            <h3>可用备份</h3>
+            <p>恢复会覆盖当前数据库；请先下载备份核对。执行前仍需输入确认短语。</p>
           </div>
 
           <el-table
@@ -182,7 +188,8 @@
         <div class="panel-body">
           <div class="notification-summary">
             <div class="scheduler-status">
-              <span class="status-dot" :class="{ online: notificationReadyCount > 0 }" />
+              <span class="status-dot" :class="{ online: notificationReadyCount > 0 }" aria-hidden="true" />
+              <span class="settings-status-label">系统状态</span>
               <strong>{{ notificationStatusText }}</strong>
             </div>
             <p>{{ system.notifications?.note ?? '推送配置只从后端环境变量读取，页面不会显示密钥。' }}</p>
@@ -204,6 +211,7 @@
             <p>{{ healthSchedulerHint }}</p>
           </div>
 
+          <h3 class="settings-subsection-title">推送通道</h3>
           <div class="notification-grid">
             <div
               v-for="channel in notificationChannels"
@@ -212,21 +220,17 @@
             >
               <div class="notification-card-header">
                 <strong>{{ channel.label }}</strong>
-                <div class="notification-tags">
-                  <el-tag size="small" :type="channel.enabled ? 'success' : 'info'">
-                    {{ channel.enabled ? '已启用' : '未启用' }}
-                  </el-tag>
-                  <el-tag size="small" :type="channel.configured ? 'success' : 'warning'">
-                    {{ channel.configured ? '已配置' : '未配置' }}
-                  </el-tag>
-                </div>
+                <el-tag size="small" :type="channelStatusType(channel)">
+                  {{ channelStatusText(channel) }}
+                </el-tag>
               </div>
               <p>{{ channel.description }}</p>
-              <div class="notification-target">{{ channel.target }}</div>
+              <div v-if="channel.configured" class="notification-target">{{ channel.target }}</div>
             </div>
           </div>
 
           <div class="notification-test-form">
+            <h3 class="settings-subsection-title">发送测试通知</h3>
             <el-form label-position="top">
               <el-form-item label="推送通道">
                 <el-select v-model="notificationForm.channel" class="notification-select">
@@ -337,17 +341,6 @@
         </div>
       </div>
 
-      <div class="panel">
-        <div class="panel-header">
-          <div>
-            <h2 class="panel-title">后续配置中心</h2>
-            <div class="panel-hint">插件配置、数据源、同步策略会逐步放到这里</div>
-          </div>
-        </div>
-        <div class="panel-body">
-          <EmptyState title="设置项待接入" description="后续会由 Core 和各插件共同提供配置 schema。" />
-        </div>
-      </div>
     </section>
   </div>
 </template>
@@ -361,6 +354,7 @@ import { downloadApiFile } from '@/api/client';
 import EmptyState from '@/components/common/EmptyState.vue';
 import {
   type NotificationChannel,
+  type NotificationChannelStatus,
   type NotificationDeliveryRun,
   type NotificationSendResult,
   useSystemStore,
@@ -382,10 +376,11 @@ const retentionCount = computed(() => system.backups?.retention_count ?? 30);
 const totalBackupSize = computed(() => formatBytes(system.backups?.total_size_bytes ?? 0));
 const autoBackupRunning = computed(() => Boolean(system.backups?.scheduler.running));
 const autoBackupStatusText = computed(() => {
+  if (!system.backups) return system.backupError ? '不可用' : '待读取';
   if (!system.backups?.scheduler.enabled) {
-    return '自动备份已关闭';
+    return '已关闭';
   }
-  return autoBackupRunning.value ? '自动备份运行中' : '自动备份未运行';
+  return autoBackupRunning.value ? '运行中' : '未运行';
 });
 const autoBackupCron = computed(() => system.backups?.scheduler.cron ?? '10 3 * * *');
 const nextAutoBackupTime = computed(() => {
@@ -405,13 +400,14 @@ const githubBackupReady = computed(() => {
   return Boolean(githubBackup.value.enabled && githubBackup.value.configured);
 });
 const githubBackupStatusText = computed(() => {
+  if (!system.backups) return system.backupError ? '不可用' : '待读取';
   if (!githubBackup.value.enabled) {
-    return 'GitHub 远程备份已关闭';
+    return '已关闭';
   }
   if (!githubBackup.value.configured) {
-    return 'GitHub 远程备份未配置完整';
+    return '未配置';
   }
-  return 'GitHub 加密远程备份已就绪';
+  return '已配置';
 });
 const githubBackupRepo = computed(() => githubBackup.value.repo || '未配置');
 const githubBackupReleaseTag = computed(() => githubBackup.value.release_tag || 'hap-backups');
@@ -425,13 +421,11 @@ const lastGithubBackupText = computed(() => {
 const latestRestore = computed(() => system.backups?.latest_restore ?? null);
 const latestRestoreSuccess = computed(() => latestRestore.value?.status === 'success');
 const latestRestoreStatusText = computed(() => {
+  if (!system.backups) return system.backupError ? '不可用' : '待读取';
   if (!latestRestore.value) {
-    return '暂无数据库恢复记录';
+    return '无记录';
   }
-  return latestRestoreSuccess.value ? '最近恢复成功' : '最近恢复异常';
-});
-const latestRestoreTagType = computed(() => {
-  return latestRestoreSuccess.value ? 'success' : 'danger';
+  return latestRestoreSuccess.value ? '最近成功' : '最近异常';
 });
 const latestRestoreTime = computed(() => {
   return latestRestore.value ? formatDateTime(latestRestore.value.created_at) : '暂无';
@@ -449,13 +443,22 @@ const notificationReadyCount = computed(() => {
 });
 const notificationStatusText = computed(() => {
   if (!system.notifications) {
-    return '推送状态待读取';
+    return '待读取';
   }
   if (notificationReadyCount.value === 0) {
-    return '暂无可用推送通道';
+    return '无可用通道';
   }
-  return `${notificationReadyCount.value} 个推送通道已就绪`;
+  return `${notificationReadyCount.value} 个通道就绪`;
 });
+function channelStatusText(channel: NotificationChannelStatus): string {
+  if (channel.enabled && channel.configured) return '已启用';
+  if (channel.enabled) return '需配置';
+  return channel.configured ? '已关闭' : '未配置';
+}
+function channelStatusType(channel: NotificationChannelStatus): 'success' | 'warning' | 'info' {
+  if (channel.enabled && channel.configured) return 'success';
+  return channel.enabled ? 'warning' : 'info';
+}
 const healthScheduler = computed(() => system.infrastructureHealthScheduler);
 const healthSchedulerStatusText = computed(() => {
   if (!healthScheduler.value) return '状态待读取';
@@ -811,13 +814,6 @@ onMounted(() => {
 
 .notification-card-header strong {
   color: var(--color-text);
-}
-
-.notification-tags {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 6px;
 }
 
 .notification-card p {

@@ -8,6 +8,7 @@ import { router } from '@/router';
 import '@/styles/variables.css';
 import '@/styles/global.css';
 import '@/styles/theme-dark.css';
+import '@/styles/product.css';
 
 const app = createApp(App);
 

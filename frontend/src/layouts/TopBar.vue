@@ -1,33 +1,42 @@
 <template>
   <header class="topbar">
-    <div>
-      <div class="topbar-title shiny-text">Home Analytics Platform</div>
-      <div class="topbar-subtitle">
-        PVE Docker target: 192.168.100.249
-        <span v-if="frontendBuild"> · {{ frontendBuild.git_commit }}</span>
-      </div>
+    <div class="topbar-context">
+      <span class="topbar-title">{{ pageTitle }}</span>
+      <span class="topbar-subtitle">Private home intelligence</span>
     </div>
-    <div class="topbar-status" role="status" aria-live="polite">
-      <span class="status-dot" :class="{ online: system.health?.status === 'ok' }" />
-      <span>{{ statusText }}</span>
-      <span class="topbar-version">v{{ system.health?.version ?? '1.0.0' }}</span>
-      <el-button text size="small" @click="logout">退出</el-button>
+    <div class="topbar-actions">
+      <span class="topbar-status" role="status" aria-live="polite">
+        <span class="status-dot" :class="{ online: system.health?.status === 'ok' }" aria-hidden="true" />
+        <span>{{ statusText }}</span>
+      </span>
+      <span class="topbar-divider" aria-hidden="true" />
+      <el-button text size="small" class="topbar-logout" @click="logout">退出</el-button>
     </div>
   </header>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted } from 'vue';
 import { ElMessage } from 'element-plus';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 
 import { postApiData, setCsrfToken } from '@/api/client';
 import { useSystemStore } from '@/stores/system';
 
 const system = useSystemStore();
+const route = useRoute();
 const router = useRouter();
-const frontendBuild = ref<{ git_commit: string; build_time: string } | null>(null);
-const statusText = computed(() => system.health?.status ?? (system.error ? 'offline' : 'checking'));
+const statusText = computed(() => system.health?.status === 'ok' ? 'System online' : system.health?.status || system.error ? 'System unavailable' : 'Checking system');
+const pageTitle = computed(() => {
+  if (route.path === '/') return 'Overview';
+  if (route.path.startsWith('/fund')) return 'Fund';
+  if (route.path.startsWith('/lottery')) return 'Lottery';
+  const titles: Record<string, string> = {
+    '/reports': 'Reports', '/settings': 'Settings', '/docker': 'Docker',
+    '/pve': 'PVE', '/pve-legacy': 'PVE', '/stocks': 'Stocks', '/ai-lab': 'AI Lab', '/automation': 'Automation',
+  };
+  return titles[route.path] ?? 'HAP';
+});
 
 async function logout(): Promise<void> {
   try {
@@ -39,13 +48,7 @@ async function logout(): Promise<void> {
   }
 }
 
-onMounted(async () => {
+onMounted(() => {
   void system.fetchHealth();
-  try {
-    const response = await fetch('/build-info.json', { cache: 'no-store' });
-    if (response.ok) frontendBuild.value = await response.json();
-  } catch {
-    frontendBuild.value = null;
-  }
 });
 </script>
