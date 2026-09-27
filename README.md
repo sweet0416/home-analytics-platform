@@ -198,6 +198,9 @@ failure. WAL/SHM or journal sidecars are rejected and preserved. An interrupted 
 rollback requires operator recovery; it must not be retried blindly. See the
 [restore safety runbook](docs/restore-safety.md) for the precise boundary and local test command.
 This does not change the production image pins or claim that a production restore was tested.
+For an isolated, read-only backup recovery exercise, see the
+[backup recovery verification guide](docs/backup-recovery-verification.md). Passing a synthetic
+test does not verify a production backup.
 
 ### SQLite concurrency candidate (not deployed)
 
