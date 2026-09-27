@@ -22,6 +22,7 @@ class NotificationDeliveryRunModel(Base):
     title: Mapped[str] = mapped_column(String(160))
     message_preview: Mapped[str] = mapped_column(Text, default="")
     result_message: Mapped[str] = mapped_column(Text, default="")
+    health_state: Mapped[str | None] = mapped_column(Text, nullable=True)
     provider_message_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     sent_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)

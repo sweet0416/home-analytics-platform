@@ -193,4 +193,8 @@ LOTTERY_DLT_500_HISTORY_URL="https://datachart.500.com/dlt/history/newinc/histor
 
 - Changelog: [CHANGELOG.md](CHANGELOG.md)
 - Notifications: [docs/notifications.md](docs/notifications.md)
+- Candidate infrastructure-alert deduplication uses structured, per-channel delivery state with
+  one nullable history column; upgrade/legacy behavior and limits are documented in the
+  [notification guide](docs/notifications.md#infrastructure-health-deduplication-candidate-behavior).
+  This does not indicate a production deployment.
 - v1.0.0 checklist: [docs/release-v1.0.0.md](docs/release-v1.0.0.md)

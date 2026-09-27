@@ -3,10 +3,12 @@ from typing import Any, Literal
 
 import requests
 from loguru import logger
+from pydantic import ValidationError
 from sqlalchemy import desc, func, select
 
 from app.core.config.settings import Settings
 from app.core.database.session import SessionLocal
+from app.core.infrastructure_health.schemas import InfrastructureNotificationState
 from app.core.notification.models import NotificationDeliveryRunModel
 from app.core.notification.schemas import (
     NotificationChannel,
@@ -59,22 +61,49 @@ class NotificationService:
         channel: NotificationChannel,
         title: str,
         message: str,
-        healthy: bool,
+        state: InfrastructureNotificationState,
         source: str = "infrastructure_health",
     ) -> NotificationTestResult:
-        """Send only when the persisted health state changes."""
+        """Compare canonical state against the latest successful delivery per channel."""
         results: list[NotificationSendResult] = []
+        channels = {item.channel: item for item in self.get_status().channels}
         for item in self._expand_channels(channel):
-            latest = self._latest_sent_message(source=source, channel=item)
-            if healthy:
-                if latest is None or "状态：异常" not in latest:
-                    results.append(self._skipped(item, "Health is already normal; recovery notification skipped."))
-                    continue
-            elif latest == message:
-                results.append(self._skipped(item, "The same health alert was already sent."))
-                continue
-            results.append(self._send_to_channel(item, title=title, message=message))
-        self._record_results(source=source, title=title, message=message, results=results)
+            status = channels[item]
+            if not status.enabled:
+                reason = "CHANNEL_DISABLED"
+            elif not status.configured:
+                reason = "CHANNEL_UNAVAILABLE"
+            else:
+                latest = self._latest_sent_health_state(source=source, channel=item)
+                if state.healthy:
+                    reason = "RECOVERY" if latest is not None and not latest.healthy else "ALREADY_NORMAL"
+                elif latest == state:
+                    reason = "DUPLICATE"
+                else:
+                    reason = "FIRST_ALERT" if latest is None or latest.healthy else "STATE_CHANGED"
+            if reason in {"FIRST_ALERT", "STATE_CHANGED", "RECOVERY"}:
+                result = self._send_to_channel(item, title=title, message=message)
+            else:
+                result = self._skipped(item, reason)
+            results.append(result)
+            event = logger.bind(
+                event="infrastructure_notification", channel=item.value, decision=reason,
+                outcome="DELIVERY_FAILED" if result.status == "failed" else result.status,
+            )
+            if result.status == "failed":
+                event.warning("Infrastructure notification: decision={} outcome=DELIVERY_FAILED", reason)
+            elif result.status == "sent":
+                event.info("Infrastructure notification: decision={} outcome=sent history=pending", reason)
+            else:
+                event.debug("Infrastructure notification: decision={} outcome=skipped", reason)
+        persisted = self._record_results(
+            source=source, title=title, message=message, results=results,
+            health_state=state.model_dump_json(),
+        )
+        if not persisted:
+            logger.bind(event="infrastructure_notification", reason="HISTORY_PERSIST_FAILED").error(
+                "Notification history not committed; a later check may repeat a delivery"
+            )
         return NotificationTestResult(requested_channel=channel, results=results)
 
     def list_delivery_runs(self, *, limit: int = 20) -> NotificationDeliveryRunPageRead:
@@ -99,7 +128,9 @@ class NotificationService:
             db.close()
 
     @staticmethod
-    def _latest_sent_message(*, source: str, channel: NotificationChannel) -> str | None:
+    def _latest_sent_health_state(
+        *, source: str, channel: NotificationChannel,
+    ) -> InfrastructureNotificationState | None:
         db = SessionLocal()
         try:
             row = db.scalar(
@@ -109,10 +140,18 @@ class NotificationService:
                     NotificationDeliveryRunModel.channel == channel.value,
                     NotificationDeliveryRunModel.status == "sent",
                 )
-                .order_by(desc(NotificationDeliveryRunModel.created_at))
+                .order_by(desc(NotificationDeliveryRunModel.created_at), desc(NotificationDeliveryRunModel.id))
                 .limit(1)
             )
-            return row.message_preview if row is not None else None
+            if row is None or row.health_state is None:
+                return None
+            try:
+                return InfrastructureNotificationState.model_validate_json(row.health_state)
+            except ValidationError:
+                logger.bind(event="infrastructure_notification", reason="UNKNOWN_HISTORY_STATE").warning(
+                    "Unknown health-state history; using legacy baseline policy"
+                )
+                return None
         finally:
             db.close()
 
@@ -142,12 +181,15 @@ class NotificationService:
             if channel == NotificationChannel.custom_webhook:
                 return self._send_custom_webhook(title=title, message=message)
             return self._skipped(channel, "Unsupported notification channel.")
-        except requests.RequestException as exc:
-            logger.exception("Notification send failed for {}: {}", channel, exc)
-            return NotificationSendResult(channel=channel, status="failed", message=str(exc))
+        except requests.RequestException:
+            # Provider exceptions may contain credential-bearing URLs. Never persist or log them.
+            logger.bind(channel=channel.value, reason="TRANSPORT_ERROR").warning("Notification transport failed")
+            return NotificationSendResult(channel=channel, status="failed", message="TRANSPORT_ERROR")
         except Exception as exc:  # noqa: BLE001
-            logger.exception("Unexpected notification failure for {}: {}", channel, exc)
-            return NotificationSendResult(channel=channel, status="failed", message=str(exc))
+            logger.bind(channel=channel.value, reason="PROVIDER_ERROR", error_type=type(exc).__name__).warning(
+                "Unexpected notification failure"
+            )
+            return NotificationSendResult(channel=channel, status="failed", message="PROVIDER_ERROR")
 
     def _send_bark(self, title: str, message: str) -> NotificationSendResult:
         if not self._settings.notification_bark_enabled:
@@ -292,7 +334,8 @@ class NotificationService:
         title: str,
         message: str,
         results: list[NotificationSendResult],
-    ) -> None:
+        health_state: str | None = None,
+    ) -> bool:
         db = SessionLocal()
         try:
             for result in results:
@@ -304,14 +347,17 @@ class NotificationService:
                         title=self._truncate(title, 160),
                         message_preview=self._truncate(message, 500),
                         result_message=self._truncate(result.message, 1000),
+                        health_state=health_state,
                         provider_message_id=result.provider_message_id,
                         sent_at=result.sent_at.replace(tzinfo=None) if result.sent_at else None,
                     )
                 )
             db.commit()
-        except Exception as exc:  # noqa: BLE001
+            return True
+        except Exception:  # noqa: BLE001
             db.rollback()
-            logger.exception("Failed to record notification delivery runs: {}", exc)
+            logger.bind(reason="HISTORY_PERSIST_FAILED").error("Failed to record notification delivery runs")
+            return False
         finally:
             db.close()
 
