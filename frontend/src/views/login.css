@@ -99,9 +99,12 @@
 .login-input-wrap { display: flex; align-items: center; width: 100%; height: 59px; border: 1px solid rgba(100, 140, 192, .48); border-radius: 10px; background: rgba(18, 35, 59, .58); box-shadow: inset 0 1px 5px rgba(0, 0, 0, .12); transition: border-color 180ms ease, box-shadow 180ms ease, background 180ms ease; }
 .login-input-wrap:focus-within { border-color: #52d8f1; background: rgba(20, 43, 68, .76); box-shadow: 0 0 0 3px rgba(53, 229, 240, .13), inset 0 1px 12px rgba(53, 229, 240, .08); }
 .login-input-wrap > svg { flex: 0 0 23px; width: 23px; height: 23px; margin-left: 17px; color: #90aed4; }
-.login-input-wrap input { min-width: 0; width: 100%; height: 100%; border: 0; outline: 0; background: transparent; padding: 0 13px 0 17px; color: #f6faff; font: inherit; font-size: 15px; caret-color: #5ee6f3; }
+.login-input-wrap:focus-within > svg { color: var(--login-cyan); }
+.login-input-wrap input { min-width: 0; width: 100%; height: 100%; border: 0; outline: 0; box-shadow: none; appearance: none; background: transparent; padding: 0 13px 0 17px; color: #f6faff; font: inherit; font-size: 15px; caret-color: var(--login-cyan); }
+/* The wrapper owns text-input focus; outrank the shared input:focus-visible rule. */
+.login-input-wrap input:focus, .login-input-wrap input:focus-visible { outline: none; box-shadow: none; }
 .login-input-wrap input::placeholder { color: #8fa6c7; opacity: 1; }
-.login-input-wrap input:-webkit-autofill, .login-input-wrap input:-webkit-autofill:hover, .login-input-wrap input:-webkit-autofill:focus { -webkit-text-fill-color: #f6faff; box-shadow: 0 0 0 1000px #14243b inset; transition: background-color 9999s ease-out; caret-color: #5ee6f3; }
+.login-input-wrap input:is(:autofill, :-webkit-autofill) { -webkit-text-fill-color: #f6faff; -webkit-background-clip: text; background-clip: text; box-shadow: none; caret-color: var(--login-cyan); }
 .login-visibility { flex: 0 0 44px; display: grid; place-items: center; height: 44px; margin-right: 4px; border: 0; border-radius: 8px; background: transparent; color: #a6b9d6; cursor: pointer; }
 .login-visibility:hover { color: #e3faff; }
 .login-visibility svg { width: 21px; height: 21px; }
@@ -145,6 +148,7 @@
   .login-capability { flex-basis: 50%; }
   .login-capability:nth-child(3) { border-left: 0; padding-left: 0; }
   .login-card { min-height: 625px; padding-inline: 30px; }
+  .login-input-wrap input { font-size: 16px; }
   .login-telemetry { left: -8%; right: 0; }
 }
 @media (max-width: 1000px) and (min-width: 768px) {
