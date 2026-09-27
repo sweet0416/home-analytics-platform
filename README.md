@@ -158,6 +158,15 @@ They must survive image updates and rollbacks. The optional `ttskill-agent` prof
 uses a separate `ttskill_data` volume when enabled; the profile is not enabled in the
 current production stack.
 
+### Restore safety candidate (not deployed)
+
+The restore candidate adds single-worker maintenance isolation, a mandatory verified safety backup,
+Alembic upgrade and database validation before resuming access, and rollback on post-replacement
+failure. WAL/SHM or journal sidecars are rejected and preserved. An interrupted restore or failed
+rollback requires operator recovery; it must not be retried blindly. See the
+[restore safety runbook](docs/restore-safety.md) for the precise boundary and local test command.
+This does not change the production image pins or claim that a production restore was tested.
+
 ## DLT Data Sync
 
 DLT synchronization always tries the China Sports Lottery source first. When that source is

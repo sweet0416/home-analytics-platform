@@ -3,6 +3,7 @@ from apscheduler.triggers.cron import CronTrigger
 from loguru import logger
 
 from app.core.config.settings import get_settings
+from app.core.database.maintenance import guarded_job
 from app.core.database.session import SessionLocal
 from app.plugins.lottery.application.notification import SCHEDULED_TRIGGER, DltNotificationService
 from app.plugins.lottery.application.services import LotteryService
@@ -61,6 +62,7 @@ def get_lottery_scheduler_status() -> dict[str, object]:
     }
 
 
+@guarded_job
 def _run_scheduled_dlt_sync() -> None:
     settings = get_settings()
     db = SessionLocal()

@@ -10,6 +10,7 @@ from app.core.backup.repository import DatabaseBackupRunRepository
 from app.core.backup.schemas import DatabaseBackupRead
 from app.core.backup.service import DatabaseBackupService
 from app.core.config.settings import Settings, get_settings
+from app.core.database.maintenance import guarded_job
 from app.core.database.session import SessionLocal
 
 _scheduler: BackgroundScheduler | None = None
@@ -88,6 +89,7 @@ def get_backup_scheduler_status() -> dict[str, object]:
     }
 
 
+@guarded_job
 def _run_scheduled_backup() -> None:
     global _last_backup_file_name, _last_message, _last_run_at, _last_status
     _last_run_at = datetime.now()

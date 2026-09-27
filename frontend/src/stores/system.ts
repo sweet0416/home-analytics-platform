@@ -243,6 +243,7 @@ export const useSystemStore = defineStore('system', {
         const result = await postApiData<DatabaseRestoreResult, DatabaseRestorePayload>(
           `/system/backups/${encodeURIComponent(fileName)}/restore`,
           { file_name: fileName, confirmation },
+          { timeout: 120000 },
         );
         await this.fetchBackups();
         return result;

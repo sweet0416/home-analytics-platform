@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -54,6 +56,8 @@ class DatabaseRestoreRunRepository:
         confirmation: str,
         status: str,
         message: str,
+        started_at: datetime | None = None,
+        finished_at: datetime | None = None,
     ) -> DatabaseRestoreRunModel:
         model = DatabaseRestoreRunModel(
             source_file_name=source_file_name,
@@ -61,6 +65,8 @@ class DatabaseRestoreRunRepository:
             confirmation=confirmation,
             status=status,
             message=message,
+            **({"started_at": started_at} if started_at is not None else {}),
+            finished_at=finished_at,
         )
         self._db.add(model)
         self._db.commit()
