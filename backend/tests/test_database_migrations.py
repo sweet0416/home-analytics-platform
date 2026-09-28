@@ -110,3 +110,59 @@ def test_fund_target_weight_migration_adds_missing_column(
     add_column.assert_called_once()
     assert add_column.call_args.args[0] == "fund_positions"
     assert add_column.call_args.args[1].name == "target_weight"
+
+
+def test_rollback_compatibility_revision_accepts_existing_health_state(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    revision_path = (
+        Path(__file__).parents[1]
+        / "alembic"
+        / "versions"
+        / "20260927_1200_add_notification_health_state.py"
+    )
+    spec = spec_from_file_location("notification_health_state_revision", revision_path)
+    assert spec is not None and spec.loader is not None
+    revision = module_from_spec(spec)
+    spec.loader.exec_module(revision)
+    assert revision.down_revision == "20260808_0022"
+
+    database_engine = create_engine("sqlite://")
+    with database_engine.begin() as connection:
+        connection.execute(text("CREATE TABLE notification_delivery_runs (id INTEGER PRIMARY KEY, health_state TEXT)"))
+        add_column = Mock()
+        monkeypatch.setattr(revision.op, "get_bind", lambda: connection)
+        monkeypatch.setattr(revision.op, "add_column", add_column)
+        revision.upgrade()
+
+    add_column.assert_not_called()
+    with pytest.raises(RuntimeError, match="does not support destructive database downgrade"):
+        revision.downgrade()
+
+
+def test_rollback_compatibility_revision_adds_missing_health_state(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    revision_path = (
+        Path(__file__).parents[1]
+        / "alembic"
+        / "versions"
+        / "20260927_1200_add_notification_health_state.py"
+    )
+    spec = spec_from_file_location("notification_health_state_revision_missing", revision_path)
+    assert spec is not None and spec.loader is not None
+    revision = module_from_spec(spec)
+    spec.loader.exec_module(revision)
+
+    database_engine = create_engine("sqlite://")
+    with database_engine.begin() as connection:
+        connection.execute(text("CREATE TABLE notification_delivery_runs (id INTEGER PRIMARY KEY)"))
+        add_column = Mock()
+        monkeypatch.setattr(revision.op, "get_bind", lambda: connection)
+        monkeypatch.setattr(revision.op, "add_column", add_column)
+        revision.upgrade()
+
+    add_column.assert_called_once()
+    assert add_column.call_args.args[0] == "notification_delivery_runs"
+    assert add_column.call_args.args[1].name == "health_state"
+    assert add_column.call_args.args[1].nullable is True

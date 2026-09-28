@@ -1,0 +1,31 @@
+name: Rollback backend gate
+
+on:
+  pull_request:
+    branches:
+      - codex/hap-rollback-base-283bd97
+    paths:
+      - "backend/**"
+      - ".github/workflows/rollback-backend-ci.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-24.04
+    env:
+      PYTHONPATH: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install backend test dependencies
+        run: python -m pip install -r backend/requirements-dev.txt
+      - name: Compile backend Python
+        run: python -m compileall -q backend/app backend/alembic backend/tests
+      - name: Check maintained backend paths
+        run: python -m ruff check backend/app backend/tests backend/alembic/versions/20260927_1200_add_notification_health_state.py
+      - name: Run backend tests
+        run: python -m pytest backend/tests
