@@ -40,10 +40,12 @@ GitHub Commit
 The production file is standalone and does not use Compose overlay merge behavior or `!reset`. Phase 1
 authentication was accepted in production on 2026-09-25 with historical deployment-configuration commit
 `ef800d5f4a7a0656112923ec63d6153a9c6c4e21` (not an image source revision). The current production Compose
-pins the backend at source `283bd97c84aee1a0f1cc9e5671ec4d351e3f2e37` and digest
-`sha256:5fe9a557e8c967877a859c1f84352514fd6143036a3df6b6e5b514081cf7cf5b`, and the frontend at source
+pins the backend at source `7ee613bb62666f1c310f9806dd3bcd3a62efbb10` and digest
+`sha256:94feb58cbda49360035cb985899408f8c1593752443c43d597faa24d1d551e3a`, and the frontend at source
 `ad4397d56ae580d579c311254a6c821228be3079` and digest
 `sha256:2bc71e461135d37167f9561b448dc19e80d110b0233c5a2c843a1ba396bc2559`.
+The backend reliability batch was released on 2026-09-28 with deployment-configuration commit
+`09d2020b39b15a5b6772a141d8f1ca35677c4ea4`; the production Alembic revision is `20260927_1200`.
 Backend and frontend are pinned independently; different source SHAs are valid. The current frontend includes
 Product UI System V1.2, login focus polish, and host-wide Docker health scope clarification.
 For a frontend-only rollback, retain the backend and restore the previous verified frontend Compose pin
@@ -85,9 +87,9 @@ The current production backend uses a private `HAP_ADMIN_PASSWORD_HASH`.
 Do not rotate or alter it for a documentation update.
 For a future approved release, generate a hash locally with
 `python scripts/hash_admin_password.py`; keep the plaintext password and hash
-out of Git. Current main supports `HAP_ADMIN_PASSWORD_HASH_B64`, but the deployed
-backend source does not; production still uses raw `HAP_ADMIN_PASSWORD_HASH`.
-Switching transport requires a verified backend image and a controlled release.
+out of Git. The deployed backend supports `HAP_ADMIN_PASSWORD_HASH_B64`, but
+production still uses raw `HAP_ADMIN_PASSWORD_HASH`. Switching transport requires
+a separate controlled configuration release.
 Base64 is not encryption and its value is equally sensitive. Never set both hash inputs.
 Set `HAP_COOKIE_SECURE=true` for HTTPS access.
 

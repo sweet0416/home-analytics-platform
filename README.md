@@ -27,9 +27,9 @@ Reserved routes (placeholders only):
 HAP requires one administrator password. Generate its PBKDF2 hash locally with
 `python scripts/hash_admin_password.py`, then put the printed hash in
 `HAP_ADMIN_PASSWORD_HASH` in private configuration. The current production backend
-uses this raw hash variable. Current main also supports
-`HAP_ADMIN_PASSWORD_HASH_B64` (Base64 of the complete UTF-8 hash), but the deployed
-backend source does not include that support; production has not switched to it.
+uses this raw hash variable. The deployed backend also supports
+`HAP_ADMIN_PASSWORD_HASH_B64` (Base64 of the complete UTF-8 hash), but production
+has not switched to it.
 Base64 is transport encoding, not encryption, and must be protected like the
 original hash. Do not set both inputs. The Base64 option avoids Compose interpreting
 `$` within the hash. Do not assume local `.env` quoting behavior applies to Portainer
@@ -72,8 +72,12 @@ The running backend and frontend have independent source revisions and immutable
 
 | Service | Source SHA | Image digest |
 | --- | --- | --- |
-| Backend | `283bd97c84aee1a0f1cc9e5671ec4d351e3f2e37` | `sha256:5fe9a557e8c967877a859c1f84352514fd6143036a3df6b6e5b514081cf7cf5b` |
+| Backend | `7ee613bb62666f1c310f9806dd3bcd3a62efbb10` | `sha256:94feb58cbda49360035cb985899408f8c1593752443c43d597faa24d1d551e3a` |
 | Frontend | `ad4397d56ae580d579c311254a6c821228be3079` | `sha256:2bc71e461135d37167f9561b448dc19e80d110b0233c5a2c843a1ba396bc2559` |
+
+The backend reliability batch was released on 2026-09-28 using deployment-configuration
+commit `09d2020b39b15a5b6772a141d8f1ca35677c4ea4`. The production database
+Alembic revision is `20260927_1200`.
 
 The production frontend includes the Product UI System V1.2, login focus-state polish,
 and host-wide Docker health scope clarification. These are product milestones, not
