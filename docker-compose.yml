@@ -1,11 +1,11 @@
 # HAP production Compose for the existing Portainer stack named hap.
-# Backend source revision: 283bd97c84aee1a0f1cc9e5671ec4d351e3f2e37.
+# Backend source revision: 7ee613bb62666f1c310f9806dd3bcd3a62efbb10.
 # Frontend source revision: ad4397d56ae580d579c311254a6c821228be3079.
 # This file pins verified GHCR digests; do not use it for local builds.
 
 services:
   hap-backend:
-    image: ghcr.io/sweet0416/home-analytics-platform-backend@sha256:5fe9a557e8c967877a859c1f84352514fd6143036a3df6b6e5b514081cf7cf5b
+    image: ghcr.io/sweet0416/home-analytics-platform-backend@sha256:94feb58cbda49360035cb985899408f8c1593752443c43d597faa24d1d551e3a
     container_name: hap-backend
     restart: unless-stopped
     environment:
